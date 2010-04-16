@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+#
+# Previews a markdown file in the browser.
+#
+# Usage: markdown <filename>
+#
+# Requires: gem install maruku
+#
+
+infile = ARGV[0]
+outfile = ARGV[0].split('.').first + '.html'
+system "maruku #{infile}"
+system "open #{outfile}"
+sleep 2
+system "rm -f #{outfile}"
+

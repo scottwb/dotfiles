@@ -1,0 +1,14 @@
+[user]
+	name = Scott W. Bradley
+	email = scottwb@example.com
+[color]
+	ui = auto
+[core]
+	autocrlf = input
+[github]
+	user = scottwb
+	token = 0123456789abcdef0123456789abcdef
+[alias]
+	ci = commit -a
+	stat = status
+	co = checkout
