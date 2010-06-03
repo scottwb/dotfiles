@@ -25,3 +25,5 @@ alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
 
 export SVN_EDITOR=vi
 export RANGER_DEV_MODE=1
+
+alias ls=ls
