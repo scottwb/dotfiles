@@ -4,10 +4,10 @@
 ## functions, options, key bindings, etc.
 ##
 
-#autoload -U compinit
+autoload -U compinit
 compinit
 
-##allow tab completion in the middle of a word
+#allow tab completion in the middle of a word
 setopt COMPLETE_IN_WORD
 
 
