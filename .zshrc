@@ -1,3 +1,16 @@
+#
+## .zshrc is sourced in interactive shells.
+## It should contain commands to set up aliases,
+## functions, options, key bindings, etc.
+##
+
+#autoload -U compinit
+compinit
+
+##allow tab completion in the middle of a word
+setopt COMPLETE_IN_WORD
+
+
 export PATH=$PATH:~/bin
 
 export PATH=/opt/local/bin:/opt/local/sbin:$PATH
