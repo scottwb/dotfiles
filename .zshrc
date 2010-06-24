@@ -4,10 +4,10 @@
 ## functions, options, key bindings, etc.
 ##
 
-#autoload -U compinit
+autoload -U compinit
 compinit
 
-##allow tab completion in the middle of a word
+#allow tab completion in the middle of a word
 setopt COMPLETE_IN_WORD
 
 
@@ -25,3 +25,5 @@ alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
 
 export SVN_EDITOR=vi
 export RANGER_DEV_MODE=1
+
+alias ls=ls
