@@ -1,0 +1,11 @@
+autoload -U compinit
+compinit
+
+# Case-insensitive matching for lowercase.
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+
+# Pasting with tabs doesn't perform completion.
+zstyle ':completion:*' insert-tab pending
+
+# Allow completion in the middle of a word.
+setopt COMPLETE_IN_WORD
