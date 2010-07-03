@@ -1,0 +1,3 @@
+# Remap the normal C-a screen escape key to be C-p instead, so that the
+# C-a we all know in love in bash, emacs, etc. can continue to be useful.
+escape ^pp
