@@ -3,6 +3,9 @@ alias ls=ls
 # Rails
 alias sc="script/console"
 alias ss="script/server"
+alias sg="script/generate"
 alias mrp="mysql -u root ranger_production"
 alias log="tail -f log/*.log"
+alias spec="spec -f n -c"
+alias migrate="rake db:migrate db:test:clone"
 
