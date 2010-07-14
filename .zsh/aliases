@@ -9,3 +9,7 @@ alias log="tail -f log/*.log"
 alias spec="spec -f n -c"
 alias migrate="rake db:migrate db:test:clone"
 
+# Git
+alias gm="git merge --no-ff"
+alias gmnc="git merge --no-ff --no-commit"
+
