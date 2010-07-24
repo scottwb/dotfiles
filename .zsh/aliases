@@ -10,6 +10,11 @@ alias spec="spec -f n -c"
 alias migrate="rake db:migrate db:test:clone"
 
 # Git
+alias gb="git branch"
+alias gs="git status -s"
+alias gd="git diff"
+alias gco="git checkout"
+alias gci="git commit -a"
 alias gm="git merge --no-ff"
 alias gmnc="git merge --no-ff --no-commit"
 
