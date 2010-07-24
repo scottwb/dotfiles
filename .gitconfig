@@ -3,12 +3,22 @@
 	email = scottwb@example.com
 [color]
 	ui = auto
-[core]
-	autocrlf = input
+#[core]
+#	autocrlf = input
 [github]
 	user = scottwb
 	token = 0123456789abcdef0123456789abcdef
 [alias]
 	ci = commit -a
-	stat = status
+	stat = status -s
 	co = checkout
+#[diff]
+#	tool = smartsync
+#[difftool "smartsync"]
+#	cmd = git-smart-synchronize-diff.sh "$LOCAL" "$REMOTE"
+#[difftool]
+#	prompt = false
+[branchdiff]
+	cmd = /Applications/SmartSynchronize3.app/smartsynchronize.sh
+[push]
+	default = tracking
