@@ -33,10 +33,12 @@
 ;;;
 ;;;   * Must fix M-g goto-line!
 ;;;   * Why doesn't C-b toggle back to previously-used buffer?
-;;;   * Middle button (or close) to paste current selection.
 ;;;   * Make status bar show parent dir name.
 ;;;   * See if I can get the tabbar back
 ;;;   * Figure out a good grep mode
+;;;   * Figure out how to make it so that when I turn off viper-mode
+;;;     it doesn't turn itself back on automatically with the next new
+;;;     buffer.
 ;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,8 +57,7 @@
 (global-set-key [delete] 'delete-char)
 (global-set-key [kp-delete] 'delete-char)
 
-(global-set-key [f4] 'viper-mode)
-(global-set-key [(shift f4)] 'viper-go-away)
+(global-set-key [f4] 'toggle-viper-mode)
 
 (global-set-key [f5] 'new-frame)
 (global-set-key [(shift f5)] 'delete-frame)
