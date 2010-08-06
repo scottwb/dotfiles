@@ -55,6 +55,9 @@
 (global-set-key [delete] 'delete-char)
 (global-set-key [kp-delete] 'delete-char)
 
+(global-set-key [f4] 'viper-mode)
+(global-set-key [(shift f4)] 'viper-go-away)
+
 (global-set-key [f5] 'new-frame)
 (global-set-key [(shift f5)] 'delete-frame)
 
