@@ -50,6 +50,7 @@
 
 ;;; Add ~/.emacs.d to the load path for custom libraries.
 (add-to-list 'load-path "~/.emacs.d")
+(add-to-list 'load-path "~/.emacs.d/vendor")
 
 ;;; Setup the keyboard so the delete key on both the regular keyboard
 ;;; and the keypad delete the character under the cursor and to the
@@ -122,7 +123,7 @@
   (scroll-up 1))
 
 (defun my-scroll-down ()
-  "Scrolled selected buffer one line down without movint point"
+  "Scrolled selected buffer one line down without moving point"
   (interactive)
   (scroll-down 1))
 
