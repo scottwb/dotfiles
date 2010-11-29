@@ -351,6 +351,11 @@
 ;; Create, browse, view gists on gist.github.com.
 (require 'gist)
 
+;;; Enable dabbrev: dynamic C-<tab> auto completion of commonly
+;;; used words found in the open buffers.
+(global-set-key (kbd "C-<tab>") 'dabbrev-expand)
+(define-key minibuffer-local-map (kbd "C-<tab>") 'dabbrev-expand)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Personal Preferences
