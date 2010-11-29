@@ -356,6 +356,10 @@
 (global-set-key (kbd "C-<tab>") 'dabbrev-expand)
 (define-key minibuffer-local-map (kbd "C-<tab>") 'dabbrev-expand)
 
+;;; Enable pop-up tooltips for dabbrev on the M-/ key.
+(require 'dabbrev-expand-multiple)
+(global-set-key "\M-/" 'dabbrev-expand-multiple)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Personal Preferences
