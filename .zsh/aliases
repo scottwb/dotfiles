@@ -14,6 +14,8 @@ alias migrate="rake db:migrate db:test:clone"
 
 # Git
 alias gb="git branch"
+alias gbc="git branch-create"
+alias gbd="git branch-delete"
 alias gs="git status -s"
 alias gss="git stash save"
 alias gsl="git stash list"

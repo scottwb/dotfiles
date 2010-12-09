@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+#
+# git-branch-delete
+#
+#   Deletes a branch both locally and remotely in the origin.
+#
+
+###############################################################################
+# Usage
+###############################################################################
+usage=<<EOT
+
+Usage:
+
+  git branch-delete <branch-name>
+
+  Deletes the specified branch both locally and remotely in the origin.
+
+  PARAMETERS:
+
+    branch-name:
+      The name of the branch to delete.
+
+EOT
+
+
+###############################################################################
+# Setup
+###############################################################################
+require 'getoptlong'
+GetoptLong.new(
+  ['--help', '-h', GetoptLong::NO_ARGUMENT]
+).each do |opt, arg|
+  if opt == '--help'
+    puts usage
+    exit
+  end
+end
+
+
+###############################################################################
+# Main Program
+###############################################################################
+if ARGV.size < 1
+  puts usage
+  exit
+end
+
+if ARGV[0] == 'master'
+  puts "\n\nSorry, I can't let you delete 'master'."
+  exit
+end
+
+branch_name    = ARGV[0].strip
+current_branch = `git branch | grep "^\*"`[/^\*\s+(.+)$/,1].strip
+
+if branch_name == current_branch
+  puts "\n\nSorry, you can't delete the current working branch."
+  puts "Switch to another branch first."
+  exit
+end
+
+
+`git branch -d #{branch_name}`
+`git push origin :#{branch_name}`
