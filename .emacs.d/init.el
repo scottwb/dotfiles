@@ -360,6 +360,24 @@
 (require 'dabbrev-expand-multiple)
 (global-set-key "\M-/" 'dabbrev-expand-multiple)
 
+;;; Move the backup *~ files into a single backups directory instead of
+;;; littering the filesystem with them. Also version the backups and onlyu
+;;; keep a finite number of backup versions.
+(require 'backup-dir)
+(make-variable-buffer-local 'backup-inhibited)
+(setq bkup-backup-directory-info
+      '((t "~/.emacs.d/backups" ok-create full-path prepend-name)))
+(setq delete-old-versions t
+      kept-old-versions 1
+      kept-new-versions 3
+      version-control t)
+(defun make-backup-file-name (FILE)
+  (let ((dirname (concat "~/.emacs.d/backups"
+                         (format-time-string "%y/%m/%d/"))))
+    (if (not (file-exists-p dirname))
+        (make-directory dirname t))
+    (concat dirname (file-name-nondirectory FILE))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Personal Preferences
