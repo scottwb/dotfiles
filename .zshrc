@@ -1,7 +1,6 @@
 . ~/.zsh/environment
 . ~/.zsh/aliases
 . ~/.zsh/completion
-. ~/.zsh/ranger
 
 # Load whichever OS-specific settings exist.
 [[ -f ~/.zsh/osx ]] && . ~/.zsh/osx
