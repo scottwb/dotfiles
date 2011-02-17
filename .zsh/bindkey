@@ -1,0 +1,12 @@
+# Read this would make HOME and END work in the cmd line. It does not,
+# at least on my Mac. Maybe this works with a PC keyboard or on linux.
+# Leave it for now just in case. Doesn't seem to do any harm.
+bindkey '^[[7~' beginning-of-line
+bindkey '^[[8~' end-of-line
+
+# Makes the HOME and END keys work on the Mac.
+bindkey '^[[H' beginning-of-line
+bindkey '^[[F' end-of-line
+
+# Makes the DELETE key work on the Mac.
+bindkey '^[[3~' delete-char
