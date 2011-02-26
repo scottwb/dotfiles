@@ -12,6 +12,7 @@
 	ci = commit -a
 	stat = status -s
 	co = checkout
+	unadd = reset HEAD
 #[diff]
 #	tool = smartsync
 #[difftool "smartsync"]
