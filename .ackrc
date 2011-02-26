@@ -1,6 +1,9 @@
 --type-add=ruby=.haml,.sass,.rake,.rsel
+--type-add=sql=.sql
+--type=nosql
 --ignore-dir=images
 --ignore-dir=doc
 --ignore-dir=yuicompressor-2.3.5
 --ignore-dir=assets
+--ignore-dir=jquery.ui
 --sort-files
