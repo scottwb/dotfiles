@@ -1,0 +1,2 @@
+# NOTE: I really only want this on OS X.
+rvm_archflags="-arch x86_64"
