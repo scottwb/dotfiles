@@ -1,2 +1,11 @@
----
-gem: --user-install --no-ri --no-rdoc
+--- 
+:update_sources: true
+install: --no-ri --no-rdoc
+update: --no-ri --no-rdoc
+:backtrace: false
+:verbose: true
+:bulk_threshold: 1000
+:benchmark: false
+:sources: 
+- http://rubygems.org/
+- https://strings:XXXXXXXXX@gems.strings.com/
