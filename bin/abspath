@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+STDIN.readlines.each do |f|
+  puts File.expand_path(f)
+end
