@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+num = ARGV[0].to_i || 5
+STDIN.readlines.sort_by{rand}[0,num].each do |line|
+  puts line.strip
+end
