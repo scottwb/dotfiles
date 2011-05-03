@@ -2,6 +2,7 @@ alias ls=ls
 
 # Directory Shortcuts
 alias ranger="cd ~/src/ranger_site && pwd"
+alias potw="cd ~/src/potw-site && pwd"
 
 # Rails
 alias sc="script/console"
@@ -10,7 +11,6 @@ alias sg="script/generate"
 alias sr="script/runner"
 alias mrp="mysql -u root ranger_production"
 alias log="tail -f log/*.log"
-alias spec="spec -f n -c"
 alias migrate="rake db:migrate db:test:clone"
 
 # Git
