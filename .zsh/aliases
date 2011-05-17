@@ -4,13 +4,22 @@ alias ls=ls
 alias ranger="cd ~/src/ranger_site && pwd"
 alias potw="cd ~/src/potw-site && pwd"
 
-# Rails
+# Rails 3
+alias rc="rails console"
+alias rs="rails server"
+alias rg="rails generate"
+alias uni="RAILS_ENV=development unicorn -c config/unicorn.rb"
+alias uniprod="RAILS_ENV=production unicorn -c config/unicorn.rb"
+alias mpd="mysql -u root potw_dev"
+alias log="tail -f log/*.log"
+
+# Rails 2
 alias sc="script/console"
 alias ss="script/server"
 alias sg="script/generate"
 alias sr="script/runner"
+alias ur="unicorn_rails -p 3000"
 alias mrp="mysql -u root ranger_production"
-alias log="tail -f log/*.log"
 alias migrate="rake db:migrate db:test:clone"
 
 # Git
