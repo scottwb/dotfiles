@@ -38,3 +38,6 @@ alias gm="git merge --no-ff"
 alias gmnc="git merge --no-ff --no-commit"
 alias gpl="git pull --log"
 
+# Misc Utilities
+alias potwget="wget --load-cookies cookies.txt --save-cookies cookies.txt --keep-session-cookies --header 'User-Agent: POTW 1.0' --server-response -O -"
+alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
