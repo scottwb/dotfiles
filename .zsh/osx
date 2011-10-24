@@ -17,3 +17,4 @@ alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
 
 # OS X
 alias sethostname="sudo scutil --set HostName"
+alias dnsflush="dscacheutil -flushcache"
