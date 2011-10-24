@@ -1,6 +1,9 @@
 # Prompt (on OS X, I assume it's always me, so no need for username)
 export PROMPT='%m%# '
 
+# Build flags for gems and such
+export ARCHFLAGS="-arch x86_64"
+
 # Macports
 export PATH=/opt/local/bin:/opt/local/sbin:$PATH
 export MANPATH=/opt/local/share/man:$MANPATH
@@ -11,3 +14,6 @@ export PATH=/usr/local/mysql/bin:$PATH
 # Emacs
 alias emacs=/Applications/Emacs.app/Contents/MacOS/Emacs
 alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
+
+# OS X
+alias sethostname="sudo scutil --set HostName"
