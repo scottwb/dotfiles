@@ -8,19 +8,12 @@ alias potw="cd ~/src/potw-site && pwd"
 alias rc="rails console"
 alias rs="rails server"
 alias rg="rails generate"
+alias migrate="rake db:migrate db:test:clone"
 alias uni="RAILS_ENV=development unicorn -c config/unicorn.rb"
 alias uniprod="RAILS_ENV=production unicorn -c config/unicorn.rb"
+alias mrp="mysql -u root ranger_production"
 alias mpd="mysql -u root potw_dev"
 alias log="tail -f log/*.log"
-
-# Rails 2
-alias sc="script/console"
-alias ss="script/server"
-alias sg="script/generate"
-alias sr="script/runner"
-alias ur="unicorn_rails -p 3000"
-alias mrp="mysql -u root ranger_production"
-alias migrate="rake db:migrate db:test:clone"
 
 # Git
 alias gb="git branch"
