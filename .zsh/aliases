@@ -30,7 +30,7 @@ alias gci="git commit -a"
 alias gm="git merge --no-ff"
 alias gmnc="git merge --no-ff --no-commit"
 alias gpl="git pull --log"
-alias cdr="cd ./$(git rev-parse --show-cdup)"
+alias cdr="cd ./\$(git rev-parse --show-cdup)"
 
 # Misc Utilities
 alias potwget="wget --load-cookies cookies.txt --save-cookies cookies.txt --keep-session-cookies --header 'User-Agent: POTW 1.0' --server-response -O -"
