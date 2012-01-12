@@ -11,12 +11,12 @@ Installation:
   them and installing them on your github account.
 * Install the dotfiles and friends:
 
-    cd ~
-    mkdir src
-    cd src
-    git clone git@github.com:scottwb/dotfiles.git
-    cp -r ~/src/dotfiles/.* ~/.
-    ln -s ~/src/dotfiles/bin bin
+        cd ~
+        mkdir src
+        cd src
+        git clone git@github.com:scottwb/dotfiles.git
+        cp -r ~/src/dotfiles/.* ~/.
+        ln -s ~/src/dotfiles/bin bin
 
 * Edit `~/.zshrc` and remove the osx or linux line, keeping whichever one you're on.
 * Log out and back in.
