@@ -230,7 +230,7 @@
 
 ;;; Make Javascript mode automatically reindent the current line, and then
 ;;; automatically indent the new line to the correct position
-(add-hook 'javascript-mode-hook
+(add-hook 'js-mode-hook
           '(lambda ()
              (local-set-key "\C-m"
                             'reindent-then-newline-and-indent)))
