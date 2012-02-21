@@ -234,7 +234,7 @@
           '(lambda ()
              (local-set-key "\C-m"
                             'reindent-then-newline-and-indent)))
-
+(setq js-indent-level 2)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; SGML Editing Mode Configuration (HTML/XML)
