@@ -87,6 +87,12 @@
 (setq default-tab-width 2)
 (setq tab-offset 2)
 
+;;; Always clean up bad whitespace (like trailing whitespace)
+(require 'whitespace)
+(setq whitespace-action '(auto-cleanup))
+(setq whitespace-style '(trailing space-before-tab indentation empty space-after-tab))
+(global-whitespace-mode)
+
 ;;; Replace all tabs with spaces when saving.
 ;;; REVISIT: this is not tested yet
 ;(defun my-untabify ()
