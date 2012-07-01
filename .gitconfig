@@ -7,7 +7,7 @@
 #	autocrlf = input
 [github]
 	user = scottwb
-	token = 0123456789abcdef0123456789abcdef
+	password = !security 2>&1 >/dev/null find-generic-password -gs github.password | ruby -e 'print $1 if STDIN.gets =~ /^password: \\\"(.*)\\\"$/'
 [alias]
 	ci = commit -a
 	stat = status -s
