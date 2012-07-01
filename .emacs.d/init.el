@@ -304,6 +304,9 @@
 (require 'sass-mode nil 't)
 (add-to-list 'auto-mode-alist '("\\.sass$" . sass-mode))
 
+;;; Also, make SCSS files use CSS mode
+(add-to-list 'auto-mode-alist '("\\.scss$" . css-mode))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Jade Template Editing Mode Configuration
