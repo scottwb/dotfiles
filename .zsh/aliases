@@ -34,5 +34,6 @@ alias gpl="git pull --log"
 alias cdr="cd ./\$(git rev-parse --show-cdup)"
 
 # Misc Utilities
+alias killguard='killall -9 guard'
 alias potwget="wget --load-cookies cookies.txt --save-cookies cookies.txt --keep-session-cookies --header 'User-Agent: POTW 1.0' --server-response -O -"
 alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
