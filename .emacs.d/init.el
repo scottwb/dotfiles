@@ -10,9 +10,13 @@
 ;#
 ;##############################################################################
 
-;;; Make ALT be the meta key on a Mac (Command key will still also be
-;; be a meta key).
+;;; Make both OPTION and COMMAND keys on Mac work as a Meta key
 (setq mac-option-modifier 'meta)
+(setq mac-command-modifier 'meta)
+
+;;; Make HOME and END keys work like they should on a Mac.
+(define-key global-map [home] 'beginning-of-line)
+(define-key global-map [end] 'end-of-line)
 
 ;;; Ask me before quitting.
 (setq confirm-kill-emacs 'y-or-n-p)
@@ -57,6 +61,10 @@
 ;;; right under X-Windows, instead of the default backspace behavoir.
 (global-set-key [delete] 'delete-char)
 (global-set-key [kp-delete] 'delete-char)
+
+;;; Make it so that CTRL-DEL deletes the whole forward word.
+(global-set-key '[(control delete)] 'kill-word)
+(global-set-key '[(control kp-delete)] 'kill-word)
 
 (global-set-key [f4] 'toggle-viper-mode)
 
@@ -255,8 +263,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; SGML Editing Mode Configuration (HTML/XML)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(require 'psgml)
-
 (add-to-list 'auto-mode-alist '("\\.html" . sgml-mode))
 (add-to-list 'auto-mode-alist '("\\.xml" . xml-mode))
 
@@ -272,11 +278,6 @@
         (shortref . font-lock-function-name-face)))
 (setq sgml-set-face t)
 (setq-default sgml-indent-data t)
-
-;; Some convenient key definitions
-(define-key sgml-mode-map "\C-c\C-x\C-e" 'sgml-describe-element-type)
-(define-key sgml-mode-map "\C-c\C-x\C-i" 'sgml-general-dtd-info)
-(define-key sgml-mode-map "\C-c\C-x\C-t" 'sgml-describe-entity)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
