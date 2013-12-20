@@ -4,16 +4,15 @@ export PROMPT='%m%# '
 # Build flags for gems and such
 export ARCHFLAGS="-arch x86_64"
 
-# Macports
-export PATH=/opt/local/bin:/opt/local/sbin:$PATH
-export MANPATH=/opt/local/share/man:$MANPATH
+# Homebrew
+export PATH=/usr/local/bin:$PATH
 
 # MySQL
-export PATH=/usr/local/mysql/bin:$PATH
+#export PATH=/usr/local/mysql/bin:$PATH
 
 # Emacs
 alias emacs=/Applications/Emacs.app/Contents/MacOS/Emacs
-alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
+#alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
 
 # OS X
 alias sethostname="sudo scutil --set HostName"
