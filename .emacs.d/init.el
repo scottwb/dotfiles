@@ -284,6 +284,12 @@
 ;; PHP Editing Mode Configuration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (require 'php-mode)
+(setq php-mode-force-pear t)
+(add-hook 'php-mode-hook
+          '(lambda ()
+             (setq indent-tabs-mode t)
+             (setq tab-width 4)
+             (setq c-basic-offset 4)))
 (add-to-list 'auto-mode-alist '("\\.php$" . php-mode))
 (add-to-list 'auto-mode-alist '("\\.inc" . php-mode))
 
