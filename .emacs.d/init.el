@@ -287,6 +287,7 @@
 (setq php-mode-force-pear t)
 (add-hook 'php-mode-hook
           '(lambda ()
+             (local-set-key (kbd "RET") 'newline-and-indent)
              (setq indent-tabs-mode t)
              (setq tab-width 4)
              (setq c-basic-offset 4)))
