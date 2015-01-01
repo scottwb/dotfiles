@@ -1,1 +1,1 @@
-:syntax off
+:syntax on
