@@ -186,7 +186,7 @@
 ;;; Turn on function menus
 (add-hook 'c-mode-common-hook 'my-c-mode-common-hook)
 (defun my-c-mode-common-hook ()
-  (fume-mode t)
+  ;(fume-mode t)
   (setq indent-tabs-mode nil))
 
 ;;; Helper function for computing the relative indent offset of C++ labels,
