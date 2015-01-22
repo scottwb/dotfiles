@@ -67,7 +67,7 @@
 
 (global-set-key [f4] 'toggle-viper-mode)
 
-(global-set-key [f5] 'new-frame)
+(global-set-key [f5] 'make-frame)
 (global-set-key [(shift f5)] 'delete-frame)
 
 ;;; Turn on font-lock mode (syntax highlighting).
