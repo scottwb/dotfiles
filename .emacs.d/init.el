@@ -53,7 +53,6 @@
 (setq package-get-require-signed-base-updates nil)
 
 ;;; Add ~/.emacs.d to the load path for custom libraries.
-(add-to-list 'load-path "~/.emacs.d")
 (add-to-list 'load-path "~/.emacs.d/vendor")
 
 ;;; Setup the keyboard so the delete key on both the regular keyboard
