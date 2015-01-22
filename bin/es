@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+/usr/local/bin/elasticsearch --config=/usr/local/opt/elasticsearch/config/elasticsearch.yml
