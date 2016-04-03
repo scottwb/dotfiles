@@ -1,8 +1,7 @@
 alias ls=ls
 
 # Directory Shortcuts
-alias ranger="cd ~/src/ranger_site && pwd"
-alias potw="cd ~/src/potw-site && pwd"
+alias src="cd /Volumes/Kharon/src && pwd"
 
 # Rails 3
 alias rc="rails console"
