@@ -307,7 +307,7 @@
 (add-hook 'php-mode-hook
           '(lambda ()
              (local-set-key (kbd "RET") 'newline-and-indent)
-             (setq indent-tabs-mode t)
+             (setq indent-tabs-mode nil)
              (setq tab-width 4)
              (setq c-basic-offset 4)))
 (add-to-list 'auto-mode-alist '("\\.php$" . php-mode))
