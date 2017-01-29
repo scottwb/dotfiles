@@ -2,6 +2,8 @@
 --type-add=ruby=.haml,.sass,.scss,.rake,.rsel
 --type-add=sql=.sql
 --type=nosql
+--type-add=map=.map
+--type=nomap
 --ignore-dir=images
 --ignore-dir=doc
 --ignore-dir=yuicompressor-2.3.5
