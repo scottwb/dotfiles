@@ -20,3 +20,4 @@ alias emacs=/Applications/Emacs.app/Contents/MacOS/Emacs
 # OS X
 alias sethostname="sudo scutil --set HostName"
 alias dnsflush="dscacheutil -flushcache"
+alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
