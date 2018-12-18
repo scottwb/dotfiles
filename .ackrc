@@ -9,4 +9,7 @@
 --ignore-dir=yuicompressor-2.3.5
 --ignore-dir=jquery.ui
 --ignore-dir=solr
+--ignore-dir=node_modules
+--ignore-dir=coverage
+--ignore-dir=dist
 --sort-files
