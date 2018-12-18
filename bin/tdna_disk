@@ -1,0 +1,77 @@
+# script to create, mount and unmount local encrypted storage files for
+# Tech DNA projects
+#
+#   version 1: macOS support using hdiutil and sparsebundles
+#
+# Usage:
+#     tdna_disk create PROJECT [SIZE]
+#     tdna_disk mount PROJECT
+#     tdna_disk unmount PROJECT
+#
+
+#!/bin/bash
+
+COMMAND="$1"
+PROJECT="$2"
+SIZE="$3"
+SHOW_USAGE=0
+
+case $COMMAND in
+  create)
+    ;;
+  mount)
+    ;;
+  unmount)
+    ;;
+  *)
+    SHOW_USAGE=1
+    ;;
+esac
+
+if [ -z $PROJECT ]
+then
+  SHOW_USAGE=1
+fi
+
+# a required param is missing, so show usage
+if [ $SHOW_USAGE -eq 1 ]
+then
+  echo
+  echo "Usage:"
+  echo "    tdna_disk create PROJECT [SIZE]"
+  echo "    tdna_disk mount PROJECT"
+  echo "    tdna_disk unmount PROJECT"
+  echo
+  echo "    - Creates, mounts or unmounts an encrypted disk image used as local"
+  echo "      storage for a Tech DNA project"
+  echo
+  echo "    - When mounting, the disk image file must be in the current"
+  echo "      directory"
+  echo
+  echo "    - You will be prompted for the local disk password contained in the"
+  echo "      project 1Password vault when needed"
+  echo
+  echo "Arguments:"
+  echo
+  echo "    PROJECT    project name, used as the disk image filename"
+  echo "    SIZE       when creating an image, max size of the expandable"
+  echo "               storage (default = 100g)"
+  echo
+  exit
+fi
+
+case $COMMAND in
+  create)
+    if [ -z $SIZE ]
+    then
+      SIZE=100g
+    fi
+    hdiutil create -encryption AES-256 -agentpass -type SPARSEBUNDLE -size $SIZE -fs 'Journaled HFS+' -volname $PROJECT $PROJECT
+    ;;
+  mount)
+    hdiutil attach -stdinpass $PROJECT
+    ;;
+  unmount)
+    hdiutil detach /Volumes/$PROJECT
+    ;;
+esac
