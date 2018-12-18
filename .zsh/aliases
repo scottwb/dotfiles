@@ -36,6 +36,7 @@ alias cdr="cd ./\$(git rev-parse --show-cdup)"
 alias deploy="git push heroku master"
 
 # Misc Utilities
+alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartSynchronize"
 alias zipp='zip -er'
 alias killguard='killall -9 guard'
 alias potwget="wget --load-cookies cookies.txt --save-cookies cookies.txt --keep-session-cookies --header 'User-Agent: POTW 1.0' --server-response -O -"
