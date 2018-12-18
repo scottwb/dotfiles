@@ -21,3 +21,6 @@ alias emacs=/Applications/Emacs.app/Contents/MacOS/Emacs
 alias sethostname="sudo scutil --set HostName"
 alias dnsflush="dscacheutil -flushcache"
 alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
+
+# Because why would I want a project of any significant size to build?
+ulimit -n 65536 65536
