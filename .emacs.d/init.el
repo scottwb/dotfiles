@@ -477,8 +477,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Change default colors
-(set-face-background 'default "white")
-(set-face-foreground 'default "black")
+;(set-face-background 'default "white")
+;(set-face-foreground 'default "black")
 
 ;;; REVISIT: custom-set-variables and custom-set faces are usually set
 ;;;          in custom.el. May need to find a better way to do this
@@ -528,3 +528,7 @@
 
  '(semantic-dirty-token-face ((((class color) (background light)) nil)))
  '(cvs-handled-face ((((class color) (background light)) (:foreground "blue")))))
+
+;;; Themes
+(add-to-list 'custom-theme-load-path "~/.emacs.d/themes")
+(load-theme 'dracula t)
