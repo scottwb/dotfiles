@@ -23,4 +23,13 @@ alias dnsflush="dscacheutil -flushcache"
 alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
 
 # Because why would I want a project of any significant size to build?
+#
+# NOTE: If this ulimnit gives errors on newer versions of macOS, do this first,
+#       as a one-time step on your macOS install:
+#
+#         echo kern.maxfiles=65536 | sudo tee -a /etc/sysctl.conf
+#         echo kern.maxfilesperproc=65536 | sudo tee -a /etc/sysctl.conf
+#         sudo sysctl -w kern.maxfiles=65536
+#         sudo sysctl -w kern.maxfilesperproc=65536
+#
 ulimit -n 65536 65536
