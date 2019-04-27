@@ -1,3 +1,35 @@
 #!/usr/bin/env ruby
 require 'securerandom'
-puts "#{SecureRandom.hex(3)}-#{SecureRandom.hex(3)}-#{SecureRandom.hex(3)}-#{SecureRandom.hex(3)}"
+
+#
+# Usage:
+#   guid <size1> <size2> ... <sizeN>
+#
+# Makes a guid of parts separated by dashes. Each part is
+# a random hex of the specified length in bytes.
+#
+# Params:
+#   If no params are specified, you'll get a guid made of 4 parts
+#   each of which are a 6-byte random string. If you specify params
+#   you will get a guid with a section per param, sized in the number
+#   of bytes provided by that param.
+#
+# Examples:
+#
+#   % guid
+#   bd9f0d-e35275-8305c1-df8296
+#
+#   % guid 6 6 6 6
+#   0ffdc4-26a178-097842-2bdc43
+#
+#   % guid 6 4 4 10
+#   0946cd-ae7f-ab1f-e9abc87fcf
+#
+
+if ARGV.length > 0
+  parts = ARGV
+else
+  parts = %w(6 6 6 6)
+end
+
+puts parts.map{|p| SecureRandom.hex(p.to_i/2)}.join('-')
