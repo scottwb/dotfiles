@@ -1,0 +1,83 @@
+#!/usr/bin/env osascript
+
+# Configure the list of repos to open tabs for.
+#
+# TODO: Change these to real repo names.
+#
+set repos to {¬
+	"cue-repo1", ¬
+	"cue-repo2", ¬
+	"fabric-repo3", ¬
+	"fabric-repo4"}
+
+on splitString(repoName, delim)
+	# Save delimiters to resport old settings
+	set oldDelimiters to AppleScript's text item delimiters
+	
+	# Set delimiters to the one we want
+	set AppleScript's text item delimiters to delim
+	
+	# Create an array from the string, split by our delim
+	set parts to every text item of repoName
+	
+	# Restore old delimiters settings
+	set AppleScript's text item delimiters to oldDelimiters
+	
+	return parts
+end splitString
+
+on joinArray(theArray, delim)
+	# Save delimiters to resport old settings
+	set oldDelimiters to AppleScript's text item delimiters
+	
+	# Set delimiters to the one we want
+	set AppleScript's text item delimiters to delim
+	
+	# Create a string from the array, joined by our delim
+	set resultString to theArray as string
+	
+	# Restore old delimiters settings
+	set AppleScript's text item delimiters to oldDelimiters
+	
+	return resultString
+end joinArray
+
+on repoTitle(repoName)
+	# Split by the "-"
+	set parts to my splitString(repoName, "-")
+	
+	# Drop the first part of repo name (eg cue or fabric)
+	set parts to parts's (items 2 thru -1)
+	
+	# Re-join them by "-"
+	set result to my joinArray(parts, "-")
+	
+	return result
+end repoTitle
+
+tell application "iTerm"
+	set myWindow to (create window with default profile)
+	repeat with repo in repos
+		tell myWindow
+			tell (create tab with default profile)
+				tell current session
+					set name to my repoTitle(repo)
+					write text ("cd /Volumes/Kharon/src/rmarkbio/" & repo)
+					write text "git status -s"
+					write text "git branch"
+					write text "pwd"
+				end tell
+			end tell
+		end tell
+	end repeat
+	
+	# We created a new tab for each repo. Close the first one, which is unused.
+	tell myWindow
+		tell the first tab to close
+		tell the first session of the first tab
+			set columns to 140
+			set rows to 70
+		end tell
+	end tell
+end tell
+
