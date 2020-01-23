@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+#
+# Usage:
+#
+#   FROM FILE:
+#
+#     cat filename | json-string-array-to-csv
+#
+#   FROM CLIPBOARD (macOS):
+#
+#     pbpaste | json-string-array-to-csv
+#
+#   FROM CLIPBOARD TO CLIPBOARD:
+#
+#     pbpaste | json-string-array-to-csv | pbcopy
+#
+# Common use case:
+# ----------------
+#
+#   CosmosDB UI to Excel/CSV:
+#
+#     * Query for something in Cosmos DB via Storage Explorer and get
+#       an array of strings you want. For example, I have a list of IDs
+#       and want to get names, so I query like:
+#
+#         SELECT VALUES(c.name) FROM c WHERE c.id IN ('id1', 'id2', 'id3')
+#
+#     * That returns an array like:
+#
+#         [
+#           "Jason",
+#            "Brian",
+#            "Joe"
+#         ]
+#
+#     * Copy that whole result. Then run:
+#
+#         pbpaste | ./json-string-array-to-csv | pbcopy
+#
+#     * Then click a column/cell in Excel and paste.
+#
+#     * Now all your query result names are in the Excel file in a column.
+#
+grep -v "\[" | grep -v "\]" | sed "s/^[[:space:]]*\"//" | sed "s/,$//" | sed 's/"//'
