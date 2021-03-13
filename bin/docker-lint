@@ -1,0 +1,54 @@
+#!/usr/bin/env bash -eo pipefail
+
+function usage() {
+    echo
+    echo "Usage: docker-lint <path-to-dockerfile>"
+    echo
+    echo "    NOTE: path-to-dockerfile must be relative to CWD"
+    echo
+}
+
+if [ "$1" == "" ]; then
+    usage
+    exit -1
+fi
+
+DOCKERFILE=$1
+
+#
+# Run hadolint
+#
+echo
+echo "############################################################"
+echo "# Running hadolint on $DOCKERFILE"
+echo "############################################################"
+echo
+if docker run --rm -i hadolint/hadolint < "$DOCKERFILE" | sed 's/^\/dev\/stdin:/Dockerfile:/'; then
+    echo "Hadolint passed."
+else
+    echo "Hadolint failed."
+    exit -1
+fi
+
+
+#
+# Run Atomic dockerfile_lint
+#
+#
+echo
+echo "############################################################"
+echo "# Running Atomic dockerfile_lint on $DOCKERFILE"
+echo "############################################################"
+echo
+docker run -it --rm -v "$PWD":/root projectatomic/dockerfile-lint dockerfile_lint -f $DOCKERFILE
+
+
+#
+# Run RedCoolBeans dockerlint
+#
+echo
+echo "############################################################"
+echo "# Running RedCoolBeans dockerlint on $DOCKERFILE"
+echo "############################################################"
+echo
+docker run -it --rm -v "$PWD/$DOCKERFILE":/Dockerfile:ro redcoolbeans/dockerlint

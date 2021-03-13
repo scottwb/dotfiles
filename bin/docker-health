@@ -1,0 +1,14 @@
+#!/usr/bin/env bash -eo pipefail
+
+function usage() {
+    echo
+    echo "Usage: docker-health: <container-id-or-name>"
+    echo
+}
+
+if [ "$1" == "" ]; then
+    usage
+    exit -1
+fi
+
+docker inspect $1 --format '{{json .State.Health }}' | jq

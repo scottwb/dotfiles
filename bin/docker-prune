@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+echo
+echo "============================================================"
+echo "Pruning Containers..."
+echo "============================================================"
+echo
+docker container prune -f
+
+
+echo
+echo "============================================================"
+echo "Pruning Images..."
+echo "============================================================"
+echo
+docker image prune -f
+
+if [ "$1" == "-v" ]; then
+    echo
+    echo "============================================================"
+    echo "Pruning Volumes..."
+    echo "============================================================"
+    echo
+    docker volume prune -f
+fi
+
+echo
+echo "----- Done -----"
+
+echo
+echo "Remaining Containers:"
+docker container ls
+
+echo
+echo "Remaining Volumes:"
+docker volume ls

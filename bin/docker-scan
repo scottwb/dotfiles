@@ -1,0 +1,50 @@
+#!/usr/bin/env bash -eo pipefail
+
+function usage() {
+    echo
+    echo "Usage: docker-scan <image-name>[:<image-tag]"
+    echo
+}
+
+if [ "$1" == "" ]; then
+    usage
+    exit -1
+fi
+
+IMAGE=$1
+
+# Run a container using the specified image
+echo "Running container from image: $IMAGE..."
+CONTAINER_ID=`docker run -d --rm $IMAGE`
+echo "Sleeping 10 seconds..."
+sleep 10
+
+SCAN_STATUS=-1
+
+if uname -a | grep -qi darwin; then
+    if docker run -it --net host --pid host --userns host --cap-add audit_control \
+           -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
+           -v /etc:/etc \
+           -v /var/lib:/var/lib:ro \
+           -v /var/run/docker.sock:/var/run/docker.sock:ro \
+           --label docker_bench_security \
+           docker/docker-bench-security \
+           -e check_4_5 -c container_images \
+           -t $IMAGE
+    then
+        echo "Docker Bench scanning passed."
+        SCAN_STATUS=0
+    else
+        echo "ERROR: Docker Bench scanning failed."
+        SCAN_STATUS=-1
+    fi
+else
+    echo
+    echo "ERROR: Sorry, this script only supports macOS for now."
+    echo
+fi
+
+echo "Killing container: $CONTAINER_ID"
+docker kill $CONTAINER_ID
+
+exit $SCAN_STATUS
