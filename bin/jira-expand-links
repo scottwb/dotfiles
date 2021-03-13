@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+function usage() {
+    cat <<-EOF
+
+Usage: jira-expand-links -o <org> -p <prefix>
+
+Description:
+
+  Replaces all occurances of Jira ticket IDs that match the ABC-123 format
+  using the ticket prefix provided, with a markdown hyperlink to the Jira
+  ticket. Takes in put via stdin and prints results to stdout.
+
+Arguments:
+
+  -o <org>:
+    The Jira organization name as it appears in the Jira host domain name.
+    E.g., "facetdigital"
+
+  -p <prefix>:
+    The Jira project ticket prefix. I.e., the "ABC" in "ABC-123" ticket IDs.
+
+Example:
+
+  % cat my-notes.md | jira-expand-links -o facetdigital -p FD
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    usage
+}
+
+
+#------------------------------------------------------------
+# Main Program
+#------------------------------------------------------------
+org=""
+prefix=""
+while getopts ":o:p:" opt; do
+      case ${opt} in
+          o)
+              org=$OPTARG
+              ;;
+
+          p)
+              prefix=$OPTARG
+              ;;
+
+          \? )
+              echo
+              echo "Invalid option: -$OPTARG" 1>&2
+              echo
+              usage
+              ;;
+
+          :)
+              echo
+              echo "Invalid option: -$OPTARG requires an arugment" 1>&2
+              echo
+              usage
+              ;;
+      esac
+done
+shift $((OPTIND -1))
+
+if [ "$org" == "" ]; then
+    error "No org specified"
+fi
+
+if [ "$prefix" == "" ]; then
+    error "No prefix specified"
+fi
+
+sed -E "s/(${prefix}-[[:digit:]]+)/[\1](https:\/\/${org}.atlassian.net\/browse\/\1)/g"
