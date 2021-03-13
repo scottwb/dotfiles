@@ -23,3 +23,5 @@
 	cmd = /Applications/SmartSynchronize3.app/smartsynchronize.sh
 [push]
 	default = tracking
+[credential]
+    helper = osxkeychain
