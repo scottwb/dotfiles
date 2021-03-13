@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+if [ "$1" == "" ]; then
+  echo "Usage: swagger-view <swagger-json-file-relative-path>"
+  exit -1
+fi
+
+PORT=3333
+
+echo
+echo "############################################################"
+echo "# Running Swagger UI server"
+echo "############################################################"
+echo
+echo "  * Go to http://localhost:$PORT to view Swagger docs"
+echo "  * Hit CTRL-C to exit."
+echo
+
+docker run \
+       -it --rm \
+       -p $PORT:8080 \
+       -e SWAGGER_JSON=/swagger/swagger.json \
+       -v $PWD/$1:/swagger/swagger.json \
+       swaggerapi/swagger-ui
