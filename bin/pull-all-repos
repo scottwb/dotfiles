@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+function usage() {
+    cat <<-EOF
+
+Usage: pull-all-repos [-c <github-org>]
+
+Description:
+
+  Pulls every remote branch of every git repo in the
+  current working directory. Can optionally clone
+  all the repos of a given GitHub organization first.
+
+Options:
+
+  -c <github-org> :
+    If -c is specified, the provided GitHub organization
+    name is used to list all of the availble repos
+    and clone them all into the current working
+    directory first.
+
+Prerequisites:
+
+  * Must have 'curl' installed
+  * Must have 'jq' installed
+  * Must have GITHUB_USERNAME env var set to your GitHub username
+  * Must have GITHUB_TOKEN set to a Personal Access Token with full
+    private repo control. See GitHub Docs at:
+
+      https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token#creating-a-token
+
+Examples:
+
+  Pull all remote branches from all repos in current dir:
+
+    % pull-all-repos
+
+  Clone all org's repos and pull all their remote branches:
+
+    % pull-all-repos -c facetdigital
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    exit -1
+}
+
+#
+# Usage: pull-all-branches
+#
+# Assumes CWD is a git clone and pulls all of
+# its remote branches.
+#
+function pull-all-branches() {
+    # Use merge in case we have any local changes
+    git config pull.rebase false
+
+    # make sure we know of all branches
+    git pull
+
+    # remember what branch we were on originally
+    orig_branch=$(git branch | grep "*" | cut -d' ' -f 2)
+
+    # Checkout and pull each remote branch
+    branches=$(git branch -a | grep -e remotes/origin | grep -v HEAD | sed -e 's/.*remotes\/origin\///')
+    for branch in ${branches[@]}; do
+        git checkout $branch
+        git pull
+    done
+
+    # Back from whence we came
+    git checkout $orig_branch
+}
+
+#
+# Usage: pull-all-repos-all-branches
+#
+# Assumes every directory in CWD is a repo, and
+# pulls all remote branches in each of them.
+#
+function pull-all-repos-all-branches() {
+    # List of repos is list of directories
+    repos=$(ls -1F | grep "/$" | cut -d/ -f1)
+
+    # Pull all remotes in each repo
+    for repo in ${repos[@]}; do
+        pushd $repo
+          pull-all-branches
+        popd
+    done
+}
+
+#
+# Usage: clone-all-repos <github-org>
+#
+# Clones all repos in the specified GitHub org
+# into the CWD.
+#
+function clone-all-repos() {
+    github_org="$1"
+
+    if [ "$github_org" == "" ]; then
+        error "clone-all-repos: no GitHub Org specified"
+    fi
+
+    if [ "$GITHUB_USERNAME" == "" ]; then
+        error "clone-all-repos: GITHUB_USERNAME env var not set"
+    fi
+
+    if [ "$GITHUB_TOKEN" == "" ]; then
+        error "clone-all-repos: GITHUB_TOKEN env var not set"
+    fi
+
+    page=1
+    while true; do
+        repo_list=$(curl -s \
+                         -u "${GITHUB_USERNAME}:${GITHUB_TOKEN}" \
+                         -H "Accept: application/vnd.github.v3+json" \
+                         "https://api.github.com/orgs/${github_org}/repos?per_page=100&page=${page}" \
+                        | jq -r '.[].full_name')
+
+        if [ "${#repo_list}" == "0" ]; then
+            break
+        fi
+
+        for repo in ${repo_list[@]}; do
+            git clone git@github.com:${repo}.git
+        done
+        ((page++))
+    done
+}
+
+#------------------------------------------------------------
+# Main Program
+#------------------------------------------------------------
+org=""
+while getopts ":c:" opt; do
+      case ${opt} in
+          c)
+              org=$OPTARG
+              ;;
+
+          \? )
+              echo
+              echo "Invalid option: -$OPTARG" 1>&2
+              echo
+              usage
+              ;;
+
+          :)
+              echo
+              echo "Invalid option: -$OPTARG requires an arugment" 1>&2
+              echo
+              usage
+              ;;
+      esac
+done
+shift $((OPTIND -1))
+
+if [ "$org" != "" ]; then
+    clone-all-repos $org
+fi
+pull-all-repos-all-branches
