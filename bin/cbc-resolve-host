@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+function usage() {
+    cat <<-EOF
+
+Usage: cbc-resolve-host <cbc-hostname>
+
+Description:
+
+  Resolves a Couchbase Cloud (CBC) cluster domain name into the
+  actual node domains to connect to. Useful if you need to make
+  direct REST API calls to a node in the cluster.
+
+Arguments:
+
+  <cbc-hostname>:
+    The hostname gleaned from the CBC cluster's "Connect" tab.
+
+Example:
+
+  % cbc-resolve-host 7d6ee886-8129-475f-80be-1e7bbdf9d4e0.dp.cloud.couchbase.com
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    usage
+}
+
+HOSTNAME="$1"
+
+if [ "$HOSTNAME" == "" ]; then
+    error "No cbc-hostname provided"
+fi
+
+nslookup -type=SRV _couchbases._tcp.$HOSTNAME | grep "$HOSTNAME" | cut -d' ' -f6 | rev | cut -c 2- | rev
