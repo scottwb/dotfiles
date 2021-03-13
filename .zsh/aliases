@@ -32,6 +32,11 @@ alias gmnc="git merge --no-ff --no-commit"
 alias gpl="git pull --log"
 alias cdr="cd ./\$(git rev-parse --show-cdup)"
 
+# tmux
+alias tmn="tmux new -s "
+alias tma="tmux attach -t "
+alias tmls="tmux ls"
+
 # Heroku
 alias deploy="git push heroku master"
 
