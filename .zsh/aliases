@@ -1,7 +1,7 @@
 alias ls=ls
 
 # Directory Shortcuts
-alias src="cd /Volumes/Kharon/src && pwd"
+alias src="cd ~/src && pwd"
 
 # Rails 3
 alias rc="rails console"
