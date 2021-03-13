@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+aws ec2 describe-instance-status --instance-id i-803da35b --profile minecraft \
+  | jq -r ".InstanceStatuses[0].InstanceState.Name"

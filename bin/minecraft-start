@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+aws ec2 start-instances --instance-ids i-803da35b --profile minecraft
