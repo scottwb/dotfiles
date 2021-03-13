@@ -5,10 +5,12 @@
 # TODO: Change these to real repo names.
 #
 set repos to {¬
-	"cue-repo1", ¬
-	"cue-repo2", ¬
-	"fabric-repo3", ¬
-	"fabric-repo4"}
+	"cue-frontend", ¬
+	"cue-backend", ¬
+	"fabric-core", ¬
+	"fabric-keyword", ¬
+	"fabric-category", ¬
+	"fabric-data-pipeline"}
 
 on splitString(repoName, delim)
 	# Save delimiters to resport old settings
@@ -62,7 +64,7 @@ tell application "iTerm"
 			tell (create tab with default profile)
 				tell current session
 					set name to my repoTitle(repo)
-					write text ("cd /Volumes/Kharon/src/rmarkbio/" & repo)
+					write text ("cd /Users/scottwb/src/rmarkbio/" & repo)
 					write text "git status -s"
 					write text "git branch"
 					write text "pwd"
