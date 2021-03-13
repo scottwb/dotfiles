@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+function usage() {
+  echo
+  echo "Usage: make-jwt <issuer> <audience> <subscriber> <secret>"
+  echo
+  echo "  Token will expire in 1 year."
+  echo
+  exit -1
+}
+
+iss=$"$1"
+aud=$"$2"
+sub=$"$3"
+secret=$"$4"
+iat=$(date -u +%s)
+exp=$((iat + 60 * 60 * 24 * 365))
+
+if [ "$iss" == "" ] || [ "$aud" == "" ] || [ "$sub" == "" ] || [ "$secret" == "" ]; then
+  usage
+fi
+
+function base64Url() {
+  base64 | sed s/\+/-/g | sed 's/\//_/g' | sed -E 's/=+$//'
+}
+
+header=$(cat <<- EOT
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+EOT
+)
+header=$(echo -n $header | base64Url)
+
+payload=$(cat <<- EOT
+{
+  "iss": "$1",
+  "aud": ["$2"],
+  "sub": "$3",
+  "iat": $iat,
+  "exp": $exp
+}
+EOT
+)
+payload=$(echo -n $payload | base64Url)
+
+signature=$(echo -n "$header.$payload" | openssl dgst -sha256 -hmac $secret -binary | base64Url)
+
+echo "$header.$payload.$signature"
