@@ -1,12 +1,21 @@
-# script to create, mount and unmount local encrypted storage files for
-# Tech DNA projects
+# Bash script to list, create, mount and unmount local encrypted storage files for
+# Tech DNA projects on macOS
 #
-#   version 1: macOS support using hdiutil and sparsebundles
+#   v1: macOS support using hdiutil and sparsebundles
+#   v2: updated to support image path environment variable
 #
 # Usage:
+#     tdna_disk list
 #     tdna_disk create PROJECT [SIZE]
 #     tdna_disk mount PROJECT
 #     tdna_disk unmount PROJECT
+#
+#
+# Environment Variables:
+#     TDNA_DISK_IMAGE_PATH
+#       If you keep disk image files in a consistant path, set this variable
+#       and you don't need to be in the directory you want the image in
+#       when using "create" or "mount".
 #
 
 #!/bin/bash
@@ -17,18 +26,22 @@ SIZE="$3"
 SHOW_USAGE=0
 
 case $COMMAND in
+  list)
+    ;;
   create)
     ;;
   mount)
     ;;
   unmount)
     ;;
+  delete)
+    ;;
   *)
     SHOW_USAGE=1
     ;;
 esac
 
-if [ -z $PROJECT ]
+if [ -z $PROJECT ] && [ "$COMMAND" != "list" ]
 then
   SHOW_USAGE=1
 fi
@@ -38,40 +51,74 @@ if [ $SHOW_USAGE -eq 1 ]
 then
   echo
   echo "Usage:"
+  echo
+  echo "    tdna_disk list"
+  echo "        Lists disk image files in TDNA_DISK_IMAGE_PATH or the current"
+  echo "        directory"
+  echo
   echo "    tdna_disk create PROJECT [SIZE]"
   echo "    tdna_disk mount PROJECT"
   echo "    tdna_disk unmount PROJECT"
+  echo "    tdna_disk delete PROJECT"
+  echo "        Manage an encrypted disk image used as local storage for a "
+  echo "        Tech DNA project"
   echo
-  echo "    - Creates, mounts or unmounts an encrypted disk image used as local"
-  echo "      storage for a Tech DNA project"
+  echo "        When mounting, the disk image file must be in"
+  echo "        TDNA_DISK_IMAGE_PATH or the current directory"
   echo
-  echo "    - When mounting, the disk image file must be in the current"
-  echo "      directory"
-  echo
-  echo "    - You will be prompted for the local disk password contained in the"
-  echo "      project 1Password vault when needed"
+  echo "        You will be prompted for the local disk password contained in"
+  echo "        the project 1Password vault"
   echo
   echo "Arguments:"
   echo
-  echo "    PROJECT    project name, used as the disk image filename"
-  echo "    SIZE       when creating an image, max size of the expandable"
-  echo "               storage (default = 100g)"
+  echo "    PROJECT"
+  echo "        project name, used as the disk image filename"
+  echo
+  echo "    SIZE"
+  echo "        when creating an image, max size of the expandable storage"
+  echo "        (default = 100g)"
+  echo
+  echo "Environment:"
+  echo
+  echo "    TDNA_DISK_IMAGE_PATH"
+  echo "        If set, tdna_disk will create or look for disk image files at"
+  echo "        this path."
   echo
   exit
 fi
 
+IMAGE_PATH="$TDNA_DISK_IMAGE_PATH"
+if [ -z "$IMAGE_PATH" ]
+then
+  IMAGE_PATH=.
+fi
+
 case $COMMAND in
+  list)
+    ls -1dG "$IMAGE_PATH"/*.sparsebundle
+    ;;
   create)
     if [ -z $SIZE ]
     then
       SIZE=100g
     fi
-    hdiutil create -encryption AES-256 -agentpass -type SPARSEBUNDLE -size $SIZE -fs 'Journaled HFS+' -volname $PROJECT $PROJECT
+    hdiutil create -encryption AES-256 -agentpass -type SPARSEBUNDLE -size $SIZE -fs APFS -volname $PROJECT "$IMAGE_PATH/$PROJECT"
     ;;
   mount)
-    hdiutil attach -stdinpass $PROJECT
+    hdiutil attach -stdinpass "$IMAGE_PATH/$PROJECT.sparsebundle"
     ;;
   unmount)
     hdiutil detach /Volumes/$PROJECT
+    ;;
+  delete)
+    read -p "Are you sure? " -n 1 -r
+    echo    # (optional) move to a new line
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+      # delete sparsebundle
+      rm -rf "$IMAGE_PATH/$PROJECT.sparsebundle"
+    else
+      echo "* No action taken *"
+    fi
     ;;
 esac
