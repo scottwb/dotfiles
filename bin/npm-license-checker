@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+#
+# Prerequisites:
+#   * bash
+#   * docker
+#   * ruby
+#
+# Installation:
+#   * Make sure all three files that go with this project are in the same
+#     directory, are in your PATH, and are executable:
+#
+#       npm-license-checker
+#       npm-license-checker-entrypoint.sh
+#       npm-license-checker-post-process.rb
+#
+# Usage:
+#  * First, cd into your project directory where package.json and node_modules live
+#  * Make sure you have installed all dependencies (e.g., npm install)
+#  * Then run: npm-license-checker
+#  * Now open oss.csv file that it outputs
+#
+
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+docker run -it --rm \
+       -v $(pwd):/app \
+       -v $ROOT_DIR/npm-license-checker-entrypoint.sh:/app/npm-license-checker-entrypoint.sh \
+       -w /app \
+       node:10.19.0 \
+       bash npm-license-checker-entrypoint.sh
+
+npm-license-checker-post-process.rb > oss.csv
+rm npm-license-checker-entrypoint.sh
+rm third-party-license-info.csv
+echo "Done. See oss.csv"
