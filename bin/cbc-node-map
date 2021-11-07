@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+
+require 'json'
+
+############################################################
+# Usage
+############################################################
+def usage
+  puts <<-EOF
+
+Usage:
+  cbc-node-map <domain> <username> <password>
+
+Description:
+  Prints out the services on each node in the CBC cluster.
+
+Parameters:
+  <domain> - The domain copied from the "Connect" tab for the cluster.
+
+  <username> - Username of a DB user that has permission to the cluster.
+
+  <password> - Password of a DB user that has permission to the cluster.
+
+EOF
+
+  exit -1
+end
+
+
+############################################################
+# Main Program
+############################################################
+domain, username, password = ARGV
+usage unless domain && username && password
+
+hostname = `nslookup -type=SRV _couchbases._tcp.#{domain} | grep "#{domain}" | cut -d' ' -f6 | rev | cut -c 2- | rev`.lines.first.strip
+node_map = JSON.parse(`curl -s --insecure -u '#{username}:#{password}' 'https://#{hostname}:18091/pools/default/nodeServices'`)
+
+node_map['nodesExt'].map do |node|
+  node['alternateAddresses']['external']
+end.sort_by {|x| x['hostname'] }.each do |node|
+  services = node['ports'].keys.map do |service|
+    {
+      'kvSSL'      => 'Data',
+      'indexHttps' => 'Index',
+      'ftsSSL'     => 'Search',
+      'n1qlSSL'    => 'Query'
+    }[service]
+  end.compact
+  puts "#{node['hostname'].split('.').first}: #{services.join(', ')}"
+end
