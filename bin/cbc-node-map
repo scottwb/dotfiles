@@ -34,11 +34,15 @@ domain, username, password = ARGV
 usage unless domain && username && password
 
 hostname = `nslookup -type=SRV _couchbases._tcp.#{domain} | grep "#{domain}" | cut -d' ' -f6 | rev | cut -c 2- | rev`.lines.first.strip
-node_map = JSON.parse(`curl -s --insecure -u '#{username}:#{password}' 'https://#{hostname}:18091/pools/default/nodeServices'`)
+nodes = JSON.parse(`curl -s --insecure -u '#{username}:#{password}' 'https://#{hostname}:18091/pools/default'`)['nodes'].inject({}) do |memo, node|
+  memo[node['hostname'].split('.').first] = { 'version' => node['version'] }
+  memo
+end
 
-node_map['nodesExt'].map do |node|
-  node['alternateAddresses']['external']
-end.sort_by {|x| x['hostname'] }.each do |node|
+node_map = JSON.parse(`curl -s --insecure -u '#{username}:#{password}' 'https://#{hostname}:18091/pools/default/nodeServices'`)
+node_map['nodesExt'].each do |node_info|
+  node = node_info['alternateAddresses']['external']
+  name = node['hostname'].split('.').first
   services = node['ports'].keys.map do |service|
     {
       'kvSSL'      => 'Data',
@@ -46,6 +50,16 @@ end.sort_by {|x| x['hostname'] }.each do |node|
       'ftsSSL'     => 'Search',
       'n1qlSSL'    => 'Query'
     }[service]
-  end.compact
-  puts "#{node['hostname'].split('.').first}: #{services.join(', ')}"
+  end.compact.sort.join(', ')
+
+  nodes[name]['name'] = name
+  nodes[name]['services'] = services
+end
+
+node_name_width = nodes.values.map{|n| n['name'].length}.max
+node_services_width = nodes.values.map{|n| n['services'].length}.max
+node_version_width = nodes.values.map{|n| n['version'].length}.max
+
+nodes.values.each do |n|
+  puts "#{n['name'].ljust(node_name_width)} : #{n['services'].ljust(node_services_width)} ( #{n['version'].ljust(node_version_width)} )"
 end
