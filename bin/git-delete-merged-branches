@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+git branch --merged | grep -v '^\*' | awk '{$1=$1};1' | egrep -v "^(master|main|dev|qa|prod)$" | xargs git branch -d
