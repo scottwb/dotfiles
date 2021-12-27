@@ -1,4 +1,5 @@
 --type-set=coffeescript=.coffee
+--type-set=typescript=.ts
 --type-add=ruby=.haml,.sass,.scss,.rake,.rsel
 --type-add=sql=.sql
 --type=nosql
