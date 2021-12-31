@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+#
+# Usage:
+#
+#   ./git-repo-ages
+#
+# Description:
+#
+#   Gets the oldest and youngest commits from each repository directory
+#   in the current working directory and prints sorted lists of repos
+#   and those commit dates. The two lists will have the same list of repos.
+#   The first list shows the earliest commit date and is sorted by
+#   which repo has the oldest commit. The second list shows the most recent
+#   commit date and is sorted by which repo was most recently committed to.
+#
+# Pre-requisites:
+#
+#   * bash
+#   * git
+#   * linux (the 'date' command relies on linux interface and differs on macOS)
+#
+
+REPOS=( $(ls -d */.git | cut -d/ -f1) )
+
+oldest=$(mktemp)
+youngest=$(mktemp)
+touch "${oldest}"
+touch "${youngest}"
+
+for repo in "${REPOS[@]}"; do
+    echo "Processing Repo: ${repo}"
+    pushd $repo > /dev/null
+        echo "    --> Finding oldest commit..."
+        oldestCommitDate=$(git log --reverse --format="%at" | xargs -I{} date -u -d @{} "+%Y-%m-%d" | sort | head -1)
+        echo "    --> Finding youngest commit..."
+        youngestCommitDate=$(git log --format="%at" | xargs -I{} date -u -d @{} "+%Y-%m-%d" | sort --reverse | head -1)
+
+        echo "${oldestCommitDate} | ${repo}" >> "${oldest}"
+        echo "${youngestCommitDate} | ${repo}" >> "${youngest}"
+    popd > /dev/null
+done
+
+echo
+echo "##############################################################################"
+echo "# Results"
+echo "##############################################################################"
+echo
+echo "Oldest Repos By Earliest Commit"
+echo "-------------------------------"
+sort "${oldest}"
+echo
+
+echo
+echo "Youngest Repos By Most Recent Commit"
+echo "------------------------------------"
+sort --reverse "${youngest}"
+echo
+
+rm -f "${oldest}" "${youngest}"
