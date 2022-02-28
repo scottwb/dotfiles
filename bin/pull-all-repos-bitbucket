@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+function usage() {
+    cat <<-EOF
+
+Usage: pull-all-repos-bitbucket [-c <bitbucket-org>]
+
+Description:
+
+  Pulls every remote branch of every git repo in the
+  current working directory. Can optionally clone
+  all the repos of a given BitBucket organization first.
+
+Options:
+
+  -c <bitbucket-org> :
+    If -c is specified, the provided BitBucket organization
+    name is used to list all of the availble repos
+    and clone them all into the current working
+    directory first.
+
+Prerequisites:
+
+  * Must have 'curl' installed
+  * Must have 'jq' installed
+  * Must have BITBUCKET_USERNAME env var set to your BitBucket username
+  * Must have BITBUCKET_APP_PASSWORD set to an App Password with read privs
+    See BitBucket Docs at:
+      https://developer.atlassian.com/cloud/bitbucket/rest/intro/#app-passwords
+
+Examples:
+
+  Pull all remote branches from all repos in current dir:
+
+    % pull-all-repos-bitbucket
+
+  Clone all org's repos and pull all their remote branches:
+
+    % pull-all-repos-bitbucket -c facetdigital
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    exit -1
+}
+
+#
+# Usage: pull-all-branches
+#
+# Assumes CWD is a git clone and pulls all of
+# its remote branches.
+#
+function pull-all-branches() {
+    # Use merge in case we have any local changes
+    git config pull.rebase false
+
+    # make sure we know of all branches
+    git pull
+
+    # remember what branch we were on originally
+    orig_branch=$(git branch | grep "*" | cut -d' ' -f 2)
+
+    # Checkout and pull each remote branch
+    branches=$(git branch -a | grep -e remotes/origin | grep -v HEAD | sed -e 's/.*remotes\/origin\///')
+    for branch in ${branches[@]}; do
+        git checkout $branch
+        git pull
+    done
+
+    # Back from whence we came
+    git checkout $orig_branch
+}
+
+#
+# Usage: pull-all-repos-all-branches
+#
+# Assumes every directory in CWD is a repo, and
+# pulls all remote branches in each of them.
+#
+function pull-all-repos-all-branches() {
+    # List of repos is list of directories
+    repos=$(ls -1F | grep "/$" | cut -d/ -f1)
+
+    # Pull all remotes in each repo
+    for repo in ${repos[@]}; do
+        pushd $repo
+          pull-all-branches
+        popd
+    done
+}
+
+#
+# Usage: clone-all-repos <bitbucket-org>
+#
+# Clones all repos in the specified BitBucket org
+# into the CWD.
+#
+function clone-all-repos() {
+    bitbucket_org="$1"
+
+    if [ "$bitbucket_org" == "" ]; then
+        error "clone-all-repos: no BitBucket Org specified"
+    fi
+
+    if [ "$BITBUCKET_USERNAME" == "" ]; then
+        error "clone-all-repos: BITBUCKET_USERNAME env var not set"
+    fi
+
+    if [ "$BITBUCKET_APP_PASSWORD" == "" ]; then
+        error "clone-all-repos: BITBUCKET_APP_PASSWORD env var not set"
+    fi
+
+    page=1
+    while true; do
+        repo_list=$(curl -s \
+                         -u "${BITBUCKET_USERNAME}:${BITBUCKET_APP_PASSWORD}" \
+                         "https://api.bitbucket.org/2.0/repositories/${bitbucket_org}/?pagelen=100&page=${page}" \
+                        | jq -r '.values[].links.clone[] | select(.name == "ssh") | .href')
+
+        if [ "${#repo_list}" == "0" ]; then
+            break
+        fi
+
+        for repo in ${repo_list[@]}; do
+            git clone "${repo}"
+        done
+
+        ((page++))
+    done
+}
+
+#------------------------------------------------------------
+# Main Program
+#------------------------------------------------------------
+org=""
+while getopts ":c:" opt; do
+      case ${opt} in
+          c)
+              org=$OPTARG
+              ;;
+
+          \? )
+              echo
+              echo "Invalid option: -$OPTARG" 1>&2
+              echo
+              usage
+              ;;
+
+          :)
+              echo
+              echo "Invalid option: -$OPTARG requires an arugment" 1>&2
+              echo
+              usage
+              ;;
+      esac
+done
+shift $((OPTIND -1))
+
+if [ "$org" != "" ]; then
+    clone-all-repos $org
+fi
+pull-all-repos-all-branches

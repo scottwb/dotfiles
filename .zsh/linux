@@ -1,3 +1,6 @@
-#export PROMPT='[%n@%m]%% '
 export PROMPT='%m%# '
 export EDITOR=vi
+
+# Aliases
+alias pbcopy='xclip -selection clipboard'
+alias pbpaste='xclip -selection clipboard -o'

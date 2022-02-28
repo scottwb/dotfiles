@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+function usage() {
+    echo "Usage: $0 <match-string> [since-time]"
+    echo
+    echo "  match-string: only revert commits whose comments match this string"
+    echo "  since-time: a time string to cap how far back"
+    echo
+    echo "Examples:"
+    echo "  $0 HACK"
+    echo "  $0 TEMP '2 days ago'"
+    echo
+}
+
+MATCH="$1"
+RANGE="$2"
+if [ "$RANGE" != "" ]; then
+    rangeParam="--since=\'$2\'"
+else
+    rangeParam=""
+fi
+
+if [ "$MATCH" == "" ]; then
+    usage
+    exit -1
+fi
+
+echo
+echo "###############################################################################"
+echo "# Dry Run: This will git-revert the following commits."
+echo "###############################################################################"
+echo
+
+if [ "$RANGE" = "" ]; then
+    git --no-pager log --grep "${MATCH}"
+else
+    git --no-pager log --grep "${MATCH}" --since="${RANGE}"
+fi
+
+echo
+echo "###############################################################################"
+read -n1 -p "Do you wish to proceed reverting the commits above? [y/N] " proceed
+case "$proceed" in
+    y|Y)
+        proceed=true
+        ;;
+    *)
+        proceed=false
+        ;;
+esac
+
+if [ "$proceed" == "false" ]; then
+    echo
+    echo "Aborted."
+    echo
+    exit -1
+fi
+
+echo
+echo "###############################################################################"
+echo "# Reverting For Real Now..."
+echo "###############################################################################"
+echo
+
+if [ "$RANGE" = "" ]; then
+    git --no-pager log --pretty=format:"%h" --grep "${MATCH}" | xargs git revert
+else
+    git --no-pager log --pretty=format:"%h" --grep "${MATCH}" --since="${RANGE}" | xargs git revert
+fi
+
+echo
+echo "Done."
+echo
