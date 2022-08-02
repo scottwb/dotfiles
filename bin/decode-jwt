@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'base64'
+
+def usage
+  puts
+  puts "Usage: decode-jwt <jwt-filename>"
+  puts
+  exit -1
+end
+
+filename = ARGV[0]
+
+if filename.nil?
+  usage
+end
+
+jwt = File.read(filename)
+header, payload, signature = jwt.split('.')
+[header, payload].each do |part|
+  puts JSON.pretty_generate(JSON.parse(Base64.decode64(part)))
+end
