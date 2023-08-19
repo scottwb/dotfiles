@@ -13,3 +13,5 @@ uname | grep Linux > /dev/null && [[ -f ~/.zsh/linux ]] && . ~/.zsh/linux
 PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
 
 export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting
+
+export TERM=xterm
