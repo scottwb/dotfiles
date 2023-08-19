@@ -1,6 +1,10 @@
 [user]
 	name = Scott W. Bradley
 	email = scottwb@example.com
+[gpg]
+    format = ssh
+[gpg "ssh"]
+	allowedSignersFile = /Users/scottwb/.ssh/allowed_signers
 [color]
 	ui = auto
 #[core]
@@ -25,3 +29,5 @@
 	default = tracking
 [credential]
     helper = osxkeychain
+[init]
+	defaultBranch = main
