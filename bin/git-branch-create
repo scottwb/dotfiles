@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env bash
 #
 # git-branch-create
 #
@@ -9,7 +9,7 @@
 ###############################################################################
 # Usage
 ###############################################################################
-usage=<<EOT
+USAGE=$(cat <<'EOT'
 
 Usage:
 
@@ -25,32 +25,19 @@ Usage:
       The name to give the new branch.
 
 EOT
-
-
-###############################################################################
-# Setup
-###############################################################################
-require 'getoptlong'
-GetoptLong.new(
-  ['--help', '-h', GetoptLong::NO_ARGUMENT]
-).each do |opt, arg|
-  if opt == '--help'
-    puts usage
-    exit
-  end
-end
+)
 
 
 ###############################################################################
 # Main Program
 ###############################################################################
-if ARGV.size < 1
-  puts usage
-  exit
-end
+branch_name="${1}"
+if [ "${branch_name}" == "" ]; then
+  echo "${USAGE}"
+  exit -1
+fi
 
-branch_name = ARGV[0]
-`git checkout -b #{branch_name}`
-`git push origin #{branch_name}`
-`git config branch.#{branch_name}.remote origin`
-`git config branch.#{branch_name}.merge refs/heads/#{branch_name}`
+git checkout -b ${branch_name}
+git push origin ${branch_name}
+git config branch.${branch_name}.remote origin
+git config branch.${branch_name}.merge refs/heads/${branch_name}
