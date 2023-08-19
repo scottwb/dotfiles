@@ -10,3 +10,6 @@ bindkey '^[[F' end-of-line
 
 # Makes the DELETE key work on the Mac.
 bindkey '^[[3~' delete-char
+
+# For emacs control chars that seem to work w/o this in zsh...but not when under tmux
+bindkey -e
