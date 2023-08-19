@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+
+#
+# Usage:
+#   rmbguid <count>
+#
+# Prints <count> unique "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" rMark-managed
+# "System ID" UUID/GUIDs that can be used in various settings spreadsheets,
+# one per line.
+#
+
+require 'securerandom'
+
+count = (ARGV[0] || 1).to_i
+count.times do
+  puts [
+    SecureRandom.hex(4),
+    SecureRandom.hex(2),
+    SecureRandom.hex(2),
+    SecureRandom.hex(2),
+    SecureRandom.hex(6),
+  ].join('-')
+end

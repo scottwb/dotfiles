@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+
+#
+# Usage:
+#   rmbaid2 <count>
+#
+# Prints <count> unique "RMBAID-XXXXXXXXXX" rMark-managed "external" User IDs,
+# one per line.
+#
+
+require 'securerandom'
+
+count = (ARGV[0] || 1).to_i
+
+count.times do
+  puts "RMBAID-#{SecureRandom.hex(5)}"
+end

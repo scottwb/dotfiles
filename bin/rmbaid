@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+#
+# Simple tool for making AccountIDs for the RMB project
+# Requires my `guid` tool as well
+#
+
+COUNT=$1
+if [ "$COUNT" == "" ]; then
+  COUNT=1
+fi
+
+for (( i=0; i<$COUNT; i++ )); do
+  echo "RMBAID-$(guid 10)"
+done

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+app="$1"
+shift
+heroku config:unset -a $app $@

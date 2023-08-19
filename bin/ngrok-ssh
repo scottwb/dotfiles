@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+# Usage: ngrok-ssh [kill]
+#
+# Description:
+#   Runs ngrok on TCP port 22 (ssh) in the background,
+#   if it isnot already running. Prints out the public
+#   tunnel URL, Host, and Port.
+#
+# Parameters:
+#
+#   kill - Optional. If provided, kills any background ngrok
+#          running on TCP port 22
+#
+OPTS="${1}"
+
+#
+# Get the PID of any already-running ngrok
+#
+NGROK_PID=$(ps aux | grep "ngrok tcp 22" | grep -v grep | awk '{print $2}')
+
+#
+# If "kill" arg given, kill ngrok on TCP 22 if it is running, and exit.
+#
+if [ "${OPTS}" == "kill" ]; then
+    if [ "${NGROK_PID}" == "" ]; then
+        echo "Ngrok is not running on TCP port 22. Nothing to kill."
+    else
+        echo "Killing ngrok on TCP port 22."
+        kill ${NGROK_PID}
+    fi
+    exit
+fi
+
+#
+# Start ngrok if it's not already running on TCP port 22
+#
+if [ "${NGROK_PID}" == "" ]; then
+    echo "Staring ngrok on TCP port 22."
+    ngrok tcp 22 > /dev/null &
+else
+    echo "Ngrok already running on TCP port 22."
+fi
+
+#
+# Get the ngrok URL - wait for it to come up if necessary
+#
+while [ "${NGROK_URL}" == "" ]; do
+    NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r ".tunnels[0].public_url")
+    sleep 1
+done
+echo "URL:  ${NGROK_URL}"
+
+#
+# Parse out the host and port from the URL
+#
+NGROK_HOST=$(echo "${NGROK_URL}" | sed -e 's|tcp://||' | cut -d: -f1)
+echo "Host: ${NGROK_HOST}"
+NGROK_PORT=$(echo "${NGROK_URL}" | sed -e 's|tcp://||' | cut -d: -f2)
+echo "Port: ${NGROK_PORT}"

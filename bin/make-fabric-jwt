@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+############################################################
+# Usage
+############################################################
+function usage() {
+    echo
+    echo "Usage: make-fabric-jwt <customer> <env>"
+    echo
+    echo "  Token will expire in 1 year."
+    echo
+    exit -1
+}
+
+
+############################################################
+# Helpers
+############################################################
+
+function getEnvValueFromKeyValue() {
+    kv="${1}"
+
+    echo "${kv}" | cut -d= -f2
+}
+
+appVars=""
+function getEnv() {
+    key="${1}"
+
+    if [ "${appVars}" == "" ]; then
+        appVars=( $(heroku config -s -a fabric-core-${cust}-${env} | grep AUTH_) )
+    fi
+
+    for kv in "${appVars[@]}"; do
+        case "${kv}" in
+            ${key}*)
+                getEnvValueFromKeyValue "${kv}"
+                ;;
+
+            *)
+                # Skip
+                ;;
+        esac
+    done
+}
+
+function base64Url() {
+    base64 | sed s/\+/-/g | sed 's/\//_/g' | sed -E 's/=+$//'
+}
+
+
+############################################################
+# Main Program
+############################################################
+cust="${1}"
+env="${2}"
+if [ "${cust}" == "" ] || [ "$env" == "" ]; then
+    usage
+fi
+
+iss=$(getEnv AUTH_ISSUER)
+aud=$(getEnv AUTH_AUDIENCE)
+secret=$(getEnv AUTH_SECRET)
+sub="etl@fabric"
+iat=$(date -u +%s)
+exp=$((iat + 60 * 60 * 24 * 365))
+
+header=$(cat <<- EOT
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+EOT
+)
+header=$(echo -n $header | base64Url)
+
+payload=$(cat <<- EOT
+{
+  "iss": "${iss}",
+  "aud": ["${aud}"],
+  "sub": "${sub}",
+  "iat": ${iat},
+  "exp": ${exp}
+}
+EOT
+)
+payload=$(echo -n $payload | base64Url)
+
+signature=$(echo -n "${header}.${payload}" | openssl dgst -sha256 -hmac ${secret} -binary | base64Url)
+
+echo "${header}.${payload}.${signature}"

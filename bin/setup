@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+tb $1
+tmux new -s $1

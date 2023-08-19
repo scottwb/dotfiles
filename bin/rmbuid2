@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+#
+# Usage:
+#   rmbuid2 <count> [rmark]
+#
+# Prints <count> unique "RMBUID-XXXXXXXXXX" rMark-managed "external" User IDs,
+# one per line. Uses "RMB-XXXXXXXXXX" format for rMark users if the second
+# param is provided as "rmark".
+#
+
+require 'securerandom'
+
+count    = (ARGV[0] || 1).to_i
+prefix   = (ARGV[1] == 'rmark') ? 'RMB' : 'RMBUID'
+
+count.times do
+  puts "#{prefix}-#{SecureRandom.hex(5)}"
+end

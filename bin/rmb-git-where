@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+git branch --contains $1 | egrep "(qa$|prod$)"
+

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+TOKEN="E56t3qTJS0ih0MPDa5Y3AB86"
+DOMAIN="within3-discover.atlassian.net"
+
+function printTicketSummary() {
+  ticketInfo=$(curl \
+    -s \
+    -u sbradley@within3.com:${TOKEN} \
+    -H "Content-Type: application/json" \
+    https:/${DOMAIN}/rest/agile/1.0/issue/${ticketKey})
+
+  ticketType=$(echo "$ticketInfo" | jq -r '.fields.issuetype.name')
+  ticketSummary=$(echo "$ticketInfo" | jq -r '.fields.summary')
+
+  if [ "$ticketSummary" != "null" ]; then
+    echo "${ticketType}: ${ticketKey}: ${ticketSummary}"
+  fi
+}
+
+ticketKey="$1"
+if [ "$ticketKey" == "" ]; then
+  # Use stdin
+  while IFS='$\n' read -r ticketKey; do
+    printTicketSummary ${ticketKey}
+  done
+else
+  # Use CLI arg
+  printTicketSummary ${ticketKey}
+fi

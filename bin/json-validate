@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+docker run -it --rm \
+           -v $(pwd)/$1:/scripts/data.json texthtml/json-validator  \
+           validate-json \
+           /scripts/data.json /scripts/data.json

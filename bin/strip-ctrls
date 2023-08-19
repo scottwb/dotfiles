@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# Strip control characters between 0x00 and 0x1F
+# That means CRs, LFs, TABs too...
+tr -d '\000-\037'

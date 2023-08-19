@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+count=$1
+if [ "$count" == "" ]; then
+  count=1
+fi
+
+for i in $(seq $count); do
+  guid 8 4 4 4 12
+done

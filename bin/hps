@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Intended to be like:
+#
+#   watch -n 10 heroku ps -a $1
+#
+# but with colors.
+
+while true; do
+  clear
+  date
+  echo
+  heroku ps -a $1
+  sleep 10
+done

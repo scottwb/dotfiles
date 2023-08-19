@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if keybase update check 2>&1 | grep "Received update response" | grep -qo "NeedUpdate:true"; then
+    echo "Keybase needs an update"
+else
+    echo "Keybase is up to date"
+fi

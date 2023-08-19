@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# Change these values to match your CSV file
+CSV_FILE="$1"
+OLD_COLUMN=1
+NEW_COLUMN=2
+
+# Find all files in the directory tree and loop through them
+#ack -g . | while read FILENAME; do
+#  # Only process files that are not the CSV file itself
+#  if [ "$FILENAME" != "$CSV_FILE" ]; then
+#    echo "File: $FILENAME"
+#    # Replace each old value with the corresponding new value in the current file
+#    while read LINE; do
+#      OLD_VALUE=$(echo "$LINE" | cut -d ',' -f $OLD_COLUMN)
+#      NEW_VALUE=$(echo "$LINE" | cut -d ',' -f $NEW_COLUMN)
+#      echo "    '$OLD_VALUE' => '$NEW_VALUE'"
+#      sed -i '' "s/$OLD_VALUE/$NEW_VALUE/g" "$FILENAME"
+#    done < "$CSV_FILE"
+#  fi
+#done
+
+while read LINE; do
+  OLD_VALUE=$(echo "$LINE" | cut -d ',' -f $OLD_COLUMN)
+  NEW_VALUE=$(echo "$LINE" | cut -d ',' -f $NEW_COLUMN)
+
+  echo "'$OLD_VALUE' => '$NEW_VALUE'"
+  ack -l "$OLD_VALUE" | while read FILENAME; do
+    # Only process files that are not the CSV file itself
+    if [ "$FILENAME" != "$CSV_FILE" ]; then
+      echo "File: $FILENAME"
+      sed -i '' "s/$OLD_VALUE/$NEW_VALUE/g" "$FILENAME"
+    fi
+  done
+done < "$CSV_FILE"

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+docker run -d \
+  -p 8001:8001 \
+  -v $(pwd)/${1}:/workspace \
+  codechecker/codechecker-web:latest

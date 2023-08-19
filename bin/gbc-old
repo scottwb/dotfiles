@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+#
+# git-branch-create
+#
+#   Creates a new branch both locally and remotely, from the HEAD of
+#   the current working branch, and checks out the new branch locally
+#
+
+###############################################################################
+# Usage
+###############################################################################
+usage=<<EOT
+
+Usage:
+
+  git branch-create <new-branch-name>
+
+  Creates a new branch both locally and remotely (in the origin), using
+  the HEAD of the current working branch as the starting point, and locally
+  checks out the the new branch.
+
+  PARAMETERS:
+
+    new-branch-name:
+      The name to give the new branch.
+
+EOT
+
+
+###############################################################################
+# Setup
+###############################################################################
+require 'getoptlong'
+GetoptLong.new(
+  ['--help', '-h', GetoptLong::NO_ARGUMENT]
+).each do |opt, arg|
+  if opt == '--help'
+    puts usage
+    exit
+  end
+end
+
+
+###############################################################################
+# Main Program
+###############################################################################
+if ARGV.size < 1
+  puts usage
+  exit
+end
+
+branch_name = ARGV[0]
+`git checkout -b #{branch_name}`
+`git push origin #{branch_name}`
+`git config branch.#{branch_name}.remote origin`
+`git config branch.#{branch_name}.merge refs/heads/#{branch_name}`
