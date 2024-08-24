@@ -1,18 +1,5 @@
-# Prompt (on OS X, I assume it's always me, so no need for username)
-export PROMPT='%m%# '
-
-# Homebrew
-export PATH=/usr/local/bin:$PATH
-
-# Emacs
-alias emacs=/Applications/Emacs.app/Contents/MacOS/Emacs
-
-# OS X
-alias sethostname="sudo scutil --set HostName"
-alias dnsflush="dscacheutil -flushcache"
-alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
-
-# Because why would I want a project of any significant size to build?
+# Increase file handle limit to a reasonable
+# number that works with dev projects. Unlimited!
 #
 # NOTE: If this ulimit gives errors on newer versions of macOS, do this first,
 #       as a one-time step on your macOS install:
@@ -23,3 +10,38 @@ alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
 #         sudo sysctl -w kern.maxfilesperproc=65536
 #
 ulimit -n unlimited unlimited
+
+# Prompt (on OS X, I assume it's always me, so no need for username)
+export PROMPT='%m%# '
+
+# System Tools
+alias sethostname="sudo scutil --set HostName"
+alias dnsflush="dscacheutil -flushcache"
+
+# Application Shortcuts
+alias emacs="/Applications/Emacs.app/Contents/MacOS/Emacs"
+alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
+
+# Homebrew
+export PATH="/usr/local/bin:$PATH"
+export PATH="/usr/local/sbin:$PATH"
+if [ -d "/opt/homebrew/opt/ruby/bin" ]; then
+  export PATH=/opt/homebrew/opt/ruby/bin:$PATH
+  export PATH=`gem environment gemdir`/bin:$PATH
+fi
+
+
+############################################################
+# Autocomplete Extensions
+############################################################
+
+# Heroku
+HEROKU_AC_ZSH_SETUP_PATH=$HOME/Library/Caches/heroku/autocomplete/zsh_setup && test -f $HEROKU_AC_ZSH_SETUP_PATH && source $HEROKU_AC_ZSH_SETUP_PATH;
+
+# Homebrew
+if type brew &>/dev/null; then
+  FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
+fi
+
+# Zsh
+fpath=(/usr/local/share/zsh-completions $fpath)
