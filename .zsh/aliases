@@ -3,18 +3,6 @@ alias ls=ls
 # Directory Shortcuts
 alias src="cd ~/src && pwd"
 
-# Rails 3
-alias rc="rails console"
-alias rs="rails server"
-alias rg="rails generate"
-alias rr="rails runner"
-alias migrate="rake db:migrate db:test:clone"
-alias uni="RAILS_ENV=development unicorn -c config/unicorn.rb"
-alias uniprod="RAILS_ENV=production unicorn -c config/unicorn.rb"
-alias mrp="mysql -u root ranger_production"
-alias mpd="mysql -u root potw_dev"
-alias log="tail -f log/*.log"
-
 # Git
 alias gb="git branch"
 alias gbc="git branch-create"
@@ -44,6 +32,4 @@ alias deploy="git push heroku master"
 # Misc Utilities
 alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartSynchronize"
 alias zipp='zip -er'
-alias killguard='killall -9 guard'
-alias potwget="wget --load-cookies cookies.txt --save-cookies cookies.txt --keep-session-cookies --header 'User-Agent: POTW 1.0' --server-response -O -"
 alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
