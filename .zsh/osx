@@ -1,21 +1,11 @@
 # Prompt (on OS X, I assume it's always me, so no need for username)
 export PROMPT='%m%# '
 
-# Build flags for gems and such
-export ARCHFLAGS="-arch x86_64"
-
 # Homebrew
 export PATH=/usr/local/bin:$PATH
 
-# MySQL
-#export PATH=/usr/local/mysql/bin:$PATH
-
-# Go AppEngine
-export PATH=~/go_appengine:$PATH
-
 # Emacs
 alias emacs=/Applications/Emacs.app/Contents/MacOS/Emacs
-#alias fsharp="mono /usr/local/fsharp/bin/fsi.exe"
 
 # OS X
 alias sethostname="sudo scutil --set HostName"
@@ -24,7 +14,7 @@ alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
 
 # Because why would I want a project of any significant size to build?
 #
-# NOTE: If this ulimnit gives errors on newer versions of macOS, do this first,
+# NOTE: If this ulimit gives errors on newer versions of macOS, do this first,
 #       as a one-time step on your macOS install:
 #
 #         echo kern.maxfiles=65536 | sudo tee -a /etc/sysctl.conf
@@ -32,4 +22,4 @@ alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
 #         sudo sysctl -w kern.maxfiles=65536
 #         sudo sysctl -w kern.maxfilesperproc=65536
 #
-ulimit -n 65536 65536
+ulimit -n unlimited unlimited
