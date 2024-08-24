@@ -7,8 +7,6 @@
 	allowedSignersFile = /Users/scottwb/.ssh/allowed_signers
 [color]
 	ui = auto
-#[core]
-#	autocrlf = input
 [github]
 	user = scottwb
 	password = !security 2>&1 >/dev/null find-generic-password -gs github.password | ruby -e 'print $1 if STDIN.gets =~ /^password: \\\"(.*)\\\"$/'
@@ -17,14 +15,6 @@
 	stat = status -s
 	co = checkout
 	unadd = reset HEAD
-#[diff]
-#	tool = smartsync
-#[difftool "smartsync"]
-#	cmd = git-smart-synchronize-diff.sh "$LOCAL" "$REMOTE"
-#[difftool]
-#	prompt = false
-[branchdiff]
-	cmd = /Applications/SmartSynchronize3.app/smartsynchronize.sh
 [push]
 	default = tracking
 [credential]
