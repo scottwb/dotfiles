@@ -496,7 +496,7 @@
  '(tab-width 8)
  '(ps-print-color-p nil)
  '(lisp-tag-indentation 4)
- '(user-mail-address "scottwb@strings.com" t)
+ '(user-mail-address "scottwb@scottwb.net" t)
  '(query-user-mail-address nil)
 )
 
@@ -532,3 +532,6 @@
 ;;; Themes
 (add-to-list 'custom-theme-load-path "~/.emacs.d/themes")
 (load-theme 'dracula t)
+
+;;; Default Font Size
+(set-face-attribute 'default nil :height 160)
