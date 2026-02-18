@@ -1,0 +1,37 @@
+
+         TMUX CHEATSHEET (C-x prefix)
+         ============================
+
+  EMACS-STYLE (custom)        DEFAULT (kept)
+  ------------------          --------------
+  0   kill pane               o   other pane
+  1   kill other panes        n   next window
+  2   split vertical          p   prev window
+  3   split horizontal        w   list windows
+  b   choose window/session   c   create window
+  k   kill window             d   detach
+  h   this help               z   zoom pane
+  r   reload config           [   copy mode
+
+  SESSION PERSISTENCE (plugins)
+  -----------------------------
+  C-s  save sessions      (also auto every 15 min)
+  C-r  restore sessions   (also auto on tmux start)
+  I    install plugins     (after adding to .tmux.conf)
+  U    update plugins
+
+  WINDOWS (tabs)              COPY MODE
+  ------------                ---------
+  ,   rename window           [     enter
+  &   kill (confirm)          q     exit
+  l   last window             Space start select
+  '   prompt for #            Enter copy
+
+  SHELL ALIASES
+  -------------
+  tmls   list sessions
+  tmn    new session (tmn <name>)
+  tma    attach (tma <name>)
+  tmh    show this help (outside tmux)
+
+  Press q or Esc to close

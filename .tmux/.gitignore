@@ -1,0 +1,5 @@
+# Plugins installed by TPM at runtime
+plugins/
+
+# Machine-specific saved session state
+resurrect/
