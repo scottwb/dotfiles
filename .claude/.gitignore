@@ -1,0 +1,35 @@
+# Conversation history and session data
+history.jsonl
+projects/
+debug/
+file-history/
+plans/
+session-env/
+shell-snapshots/
+todos/
+
+# Caches and transient state
+cache/
+paste-cache/
+stats-cache.json
+tasks/
+telemetry/
+
+# Analytics and feature flags
+statsig/
+
+# IDE integration state
+ide/
+
+# Plugin runtime state (can be re-fetched)
+plugins/cache/
+plugins/repos/
+plugins/installed_plugins.json
+plugins/known_marketplaces.json
+plugins/marketplaces/
+
+# Backup files
+*.bak
+
+# Symlink artifact
+.claude
