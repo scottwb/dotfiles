@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# what-claude.sh — Show all running Claude Code processes, their install type,
+#                  and working directory.
+#
+set -euo pipefail
+
+# Gather claude processes, excluding Claude Desktop (Electron app)
+pids=()
+while IFS= read -r line; do
+  pid=$(echo "$line" | awk '{print $2}')
+  pids+=("$pid")
+done < <(ps aux | grep -E '[c]laude' \
+  | grep -v 'Claude\.app' \
+  | grep -v 'Claude Helper' \
+  | grep -v 'Claude Renderer' \
+  | grep -v 'what-claude')
+
+if [ ${#pids[@]} -eq 0 ]; then
+  echo "No running Claude Code processes found."
+  exit 0
+fi
+
+# Collect info for each process
+declare -a rows=()
+for pid in "${pids[@]}"; do
+  # Working directory
+  cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | grep '^n' | sed 's/^n//' || echo "unknown")
+
+  # Determine install type from the executable/libraries
+  txt=$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | grep -E '(claude|node)' | head -1 | sed 's/^n//')
+  cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "unknown")
+
+  if echo "$txt" | grep -q '\.local/share/claude'; then
+    install="native"
+  elif echo "$txt" | grep -q 'homebrew.*node'; then
+    # Figure out which npm package
+    if echo "$cmd" | grep -q 'claude-code-router'; then
+      install="npm (claude-code-router)"
+    else
+      install="npm (homebrew node)"
+    fi
+  elif echo "$cmd" | grep -q '\.local/share/claude'; then
+    install="native"
+  else
+    install="unknown"
+  fi
+
+  # Shorten cwd for display: replace $HOME with ~
+  display_cwd=$(echo "$cwd" | sed "s|^$HOME|~|")
+
+  rows+=("${pid}|${install}|${display_cwd}")
+done
+
+# Print table
+printf "\n"
+printf "  %-8s  %-24s  %s\n" "PID" "INSTALL" "WORKING DIRECTORY"
+printf "  %-8s  %-24s  %s\n" "--------" "------------------------" "----------------------------------------"
+for row in "${rows[@]}"; do
+  IFS='|' read -r pid install dir <<< "$row"
+  printf "  %-8s  %-24s  %s\n" "$pid" "$install" "$dir"
+done
+printf "\n"
