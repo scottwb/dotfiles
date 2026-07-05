@@ -5,7 +5,7 @@ set -eo pipefail
 function usage() {
     cat <<-EOF
 
-Usage: pull-all-repos-gitlab [-c <gitlab-group>] [-u <gitlab-url>] [-d <ssh-domain>]
+Usage: gitlab-pull-all-repos [-c <gitlab-group>] [-u <gitlab-url>] [-d <ssh-domain>]
 
 Description:
 
@@ -55,22 +55,22 @@ Examples:
 
   Pull all remote branches from all repos in current dir:
 
-    % pull-all-repos-gitlab
+    % gitlab-pull-all-repos
 
   Clone all group's repos from gitlab.com and pull all their remote branches:
 
     % export GITLAB_TOKEN="your-token-here"
-    % pull-all-repos-gitlab -c mygroup/subgroup
+    % gitlab-pull-all-repos -c mygroup/subgroup
 
   Clone all repos from a self-hosted GitLab instance:
 
     % export GITLAB_TOKEN="your-token-here"
-    % pull-all-repos-gitlab -c mycompany/engineering -u https://gitlab.mycompany.com
+    % gitlab-pull-all-repos -c mycompany/engineering -u https://gitlab.mycompany.com
 
   Clone repos using a specific SSH config entry:
 
     % export GITLAB_TOKEN="your-token-here"
-    % pull-all-repos-gitlab -c mygroup -d gitlab-personal
+    % gitlab-pull-all-repos -c mygroup -d gitlab-personal
 
 EOF
 

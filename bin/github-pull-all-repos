@@ -5,7 +5,7 @@ set -eo pipefail
 function usage() {
     cat <<-EOF
 
-Usage: pull-all-repos [-c <github-org>] [-d <ssh-domain>]
+Usage: github-pull-all-repos [-c <github-org>] [-d <ssh-domain>]
 
 Description:
 
@@ -43,15 +43,15 @@ Examples:
 
   Pull all remote branches from all repos in current dir:
 
-    % pull-all-repos
+    % github-pull-all-repos
 
   Clone all org's repos and pull all their remote branches:
 
-    % pull-all-repos -c facetdigital
+    % github-pull-all-repos -c facetdigital
 
   Same, but clone via the techdna.github.com SSH host alias:
 
-    % pull-all-repos -c SecretTargetOrg -d techdna.github.com
+    % github-pull-all-repos -c SecretTargetOrg -d techdna.github.com
 
 EOF
 
@@ -93,12 +93,12 @@ function pull-all-branches() {
 }
 
 #
-# Usage: pull-all-repos-all-branches
+# Usage: github-pull-all-repos-all-branches
 #
 # Assumes every directory in CWD is a repo, and
 # pulls all remote branches in each of them.
 #
-function pull-all-repos-all-branches() {
+function github-pull-all-repos-all-branches() {
     # List of repos is list of directories ('|| true' so an empty
     # dir doesn't kill the script via pipefail on grep's no-match)
     repos=$(ls -1F | grep "/$" | cut -d/ -f1 || true)
@@ -312,4 +312,4 @@ shift $((OPTIND -1))
 if [ "$org" != "" ]; then
     clone-all-repos "$org" "$ssh_domain"
 fi
-pull-all-repos-all-branches
+github-pull-all-repos-all-branches
