@@ -30,7 +30,7 @@
   "model": "claude-fable-5[1m]",
   "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true,
-  "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. TO SWITCH TO LOCAL OLLAMA: rename x-env to env, swap the values of model and x-model, then restart Claude Code. TO SWITCH BACK: reverse both renames. x-systemPrompt is the terse-output prompt for small local models; it is not a real settings key, pass it via 'claude --append-system-prompt' when running local. Keep this file secret-free; it lives in the PUBLIC dotfiles repo.",
+  "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. TO SWITCH TO LOCAL OLLAMA: rename x-env to env, swap the values of model and x-model, then restart Claude Code. TO SWITCH BACK: reverse both renames. If small local models ramble, add a terse-output prompt via 'claude --append-system-prompt' (no settings.json key exists for that). Keep this file secret-free; it lives in the PUBLIC dotfiles repo.",
   "x-env": {
     "ANTHROPIC_BASE_URL": "http://localhost:11434",
     "ANTHROPIC_AUTH_TOKEN": "ollama",
@@ -51,6 +51,5 @@
     "OTEL_LOGS_EXPORTER": "none"
   },
   "x-model": "qwen3:30b-a3b",
-  "x-systemPrompt": "IMPORTANT: You are an AI coding assistant. When a task requires information you don't have, call the appropriate tool IMMEDIATELY without any preamble. Never generate long explanations before using a tool. After receiving tool results, give a brief 2-3 sentence answer only. Stop generating after answering.",
   "gitAttribution": false
 }
