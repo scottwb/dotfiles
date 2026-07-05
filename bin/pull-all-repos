@@ -5,7 +5,7 @@ set -eo pipefail
 function usage() {
     cat <<-EOF
 
-Usage: pull-all-repos [-c <github-org>]
+Usage: pull-all-repos [-c <github-org>] [-d <domain-prefix>]
 
 Description:
 
@@ -20,6 +20,14 @@ Options:
     name is used to list all of the availble repos
     and clone them all into the current working
     directory first.
+
+  -d <domain-prefix> :
+    If -d is specified, the provided prefix is prepended
+    to the default clone domain (github.com). E.g.,
+    '-d techdna' clones from 'git@techdna.github.com',
+    which is useful for SSH config host aliases that
+    select a different identity. Only affects cloning
+    (-c); pulls always use each repo's existing remote.
 
 Prerequisites:
 
@@ -40,6 +48,10 @@ Examples:
   Clone all org's repos and pull all their remote branches:
 
     % pull-all-repos -c facetdigital
+
+  Same, but clone via the techdna.github.com SSH host alias:
+
+    % pull-all-repos -c SecretTargetOrg -d techdna
 
 EOF
 
@@ -132,7 +144,7 @@ function clone-all-repos() {
         fi
 
         for repo in ${repo_list[@]}; do
-            git clone git@github.com:${repo}.git
+            git clone git@${domain}:${repo}.git
         done
         ((page++))
     done
@@ -142,10 +154,21 @@ function clone-all-repos() {
 # Main Program
 #------------------------------------------------------------
 org=""
-while getopts ":c:" opt; do
+domain="github.com"
+while getopts ":c:d:" opt; do
       case ${opt} in
           c)
               org=$OPTARG
+              ;;
+
+          d)
+              if [ "$OPTARG" == "" ]; then
+                  echo
+                  echo "Invalid option: -d requires a non-empty domain prefix" 1>&2
+                  echo
+                  usage
+              fi
+              domain="${OPTARG}.github.com"
               ;;
 
           \? )
