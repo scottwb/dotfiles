@@ -4,7 +4,7 @@
 [gpg]
     format = ssh
 [gpg "ssh"]
-	allowedSignersFile = /Users/scottwb/.ssh/allowed_signers
+	allowedSignersFile = ~/.ssh/allowed_signers
 [color]
 	ui = auto
 [github]
