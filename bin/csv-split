@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# The Docker Hub jupyter repos are frozen (the project moved to
+# quay.io), so this ':latest' no longer moves and is effectively
+# a pinned tag.
+DOCKER_IMAGE="jupyter/scipy-notebook:latest"
+
+function usage() {
+    cat <<-EOF
+
+Usage: csv-split -n <num_chunks> <file.csv>
+       csv-split -r <max_rows>   <file.csv>
+
+Description:
+
+  Splits a CSV file into multiple chunk files, repeating the
+  header row in each chunk. Chunks are written next to the
+  input file as <name>-chunk-<i>.csv, and any stale chunk
+  files from a previous split of the same input are removed
+  first.
+
+  Parsing is CSV-aware (via pandas in Docker): quoted fields,
+  escaped quotes, embedded commas and newlines, and a missing
+  trailing newline are all handled correctly. Values are
+  passed through as-is (no type coercion); quoting is
+  re-emitted in canonical CSV form.
+
+  Because the current working directory is mounted into the
+  container, the file path must be relative and within the
+  current working directory.
+
+Options:
+
+  -n <num_chunks> :
+    Split into exactly this many chunks of near-equal size
+    (earlier chunks get the remainder rows). Must not exceed
+    the number of data rows.
+
+  -r <max_rows> :
+    Split into as many chunks as needed, each with at most
+    this many data rows.
+
+  Exactly one of -n or -r is required.
+
+Prerequisites:
+
+  * Must have 'docker' installed and running
+
+Examples:
+
+  Split into 4 near-equal chunks:
+
+    % csv-split -n 4 leads.csv
+
+  Split into chunks of at most 500 rows each:
+
+    % csv-split -r 500 leads.csv
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    exit -1
+}
+
+#------------------------------------------------------------
+# Main Program
+#------------------------------------------------------------
+mode=""
+value=""
+while getopts ":n:r:" opt; do
+    case ${opt} in
+        n)
+            [ -n "$mode" ] && error "Only one of -n or -r may be specified"
+            mode="chunks"
+            value=$OPTARG
+            ;;
+
+        r)
+            [ -n "$mode" ] && error "Only one of -n or -r may be specified"
+            mode="rows"
+            value=$OPTARG
+            ;;
+
+        \?)
+            echo
+            echo "Invalid option: -$OPTARG" 1>&2
+            usage
+            ;;
+
+        :)
+            echo
+            echo "Invalid option: -$OPTARG requires an argument" 1>&2
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$mode" ] || [ "$#" -ne 1 ]; then
+    usage
+fi
+
+input_file="$1"
+
+if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -le 0 ]; then
+    error "-n/-r value must be a positive integer (got '$value')"
+fi
+
+if [ ! -f "$input_file" ]; then
+    error "Input file not found: $input_file"
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+    error "'docker' is required but not found in PATH"
+fi
+
+# Pipe the Python over stdin so nothing is written to the host
+# filesystem except the chunk files.
+docker run --rm -i \
+    -v "$(pwd)":/app -w /app \
+    "$DOCKER_IMAGE" \
+    python - "$mode" "$value" "$input_file" <<'EOF'
+import os
+import re
+import sys
+
+import pandas as pd
+
+mode, value, input_file = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+
+# dtype=str + na_filter=False passes every value through verbatim,
+# with no numeric coercion or NaN substitution.
+df = pd.read_csv(input_file, dtype=str, na_filter=False)
+total = len(df)
+
+if total == 0:
+    print("ERROR: no data rows to split (header only)", file=sys.stderr)
+    sys.exit(1)
+
+if mode == "chunks":
+    if value > total:
+        print(f"ERROR: cannot split {total} data rows into {value} chunks",
+              file=sys.stderr)
+        sys.exit(1)
+    base, extra = divmod(total, value)
+    sizes = [base + 1] * extra + [base] * (value - extra)
+else:
+    full, rem = divmod(total, value)
+    sizes = [value] * full + ([rem] if rem else [])
+
+num_files = len(sizes)
+
+# Split the extension off the basename only, so a dotted directory
+# name (e.g. data.old/file) can't hijack it.
+dirname, basename = os.path.split(input_file)
+stem, ext = os.path.splitext(basename)
+ext = ext or ".csv"
+
+# Remove stale chunks from any previous split of this input.
+stale = re.compile(re.escape(stem) + r"-chunk-\d+" + re.escape(ext) + r"$")
+for name in sorted(os.listdir(dirname or ".")):
+    if stale.match(name):
+        path = os.path.join(dirname, name)
+        os.remove(path)
+        print(f"i  removed stale chunk: {path}")
+
+width = len(str(num_files))
+name_len = len(os.path.join(dirname, f"{stem}-chunk-{'9' * width}{ext}"))
+print(f"\n  {'ROWS':>8}  FILE")
+print(f"  {'-' * 8}  {'-' * name_len}")
+
+start = 0
+for i, size in enumerate(sizes, 1):
+    path = os.path.join(dirname, f"{stem}-chunk-{str(i).zfill(width)}{ext}")
+    df.iloc[start:start + size].to_csv(path, index=False)
+    start += size
+    print(f"  {size:>8}  {path}")
+
+print(f"\n  {total} data rows split into {num_files} chunks")
+EOF
+
+echo "✅ Split complete"
