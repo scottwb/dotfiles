@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+# tailscale - Wrapper to expose the Tailscale CLI on PATH.
+#
+# The Tailscale mac app bundles its CLI inside the .app and does
+# not install it on PATH. This shim forwards to it, per Tailscale's
+# own recommendation, so 'tailscale status' etc. work normally.
+# If we ever switch to the Homebrew tailscale package (which does
+# install a real CLI), this wrapper should be deleted.
+
+/Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
