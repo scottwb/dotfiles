@@ -18,6 +18,12 @@ export PROMPT='%m%# '
 alias sethostname="sudo scutil --set HostName"
 alias dnsflush="dscacheutil -flushcache"
 
+# Unlock keychain for SSH sessions (needed for Claude Code auth, etc.)
+if [[ -n "$SSH_CONNECTION" ]]; then
+    security show-keychain-info ~/Library/Keychains/login.keychain-db 2>/dev/null || \
+        security unlock-keychain ~/Library/Keychains/login.keychain-db
+fi
+
 # Application Shortcuts
 alias emacs="/Applications/Emacs.app/Contents/MacOS/Emacs"
 alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
@@ -30,6 +36,12 @@ if [ -d "/opt/homebrew/opt/ruby/bin" ]; then
   export PATH=/opt/homebrew/opt/ruby/bin:$PATH
   export PATH=`gem environment gemdir`/bin:$PATH
 fi
+
+# LM Studio CLI (lms)
+export PATH="$PATH:$HOME/.lmstudio/bin"
+
+# Docker for Mac installed via DMG doesn't add its CLI to PATH
+export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
 
 
 ############################################################
@@ -46,3 +58,6 @@ fi
 
 # Zsh
 fpath=(/usr/local/share/zsh-completions $fpath)
+
+# Docker Desktop CLI completions
+fpath=($HOME/.docker/completions $fpath)

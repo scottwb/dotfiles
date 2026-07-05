@@ -1,6 +1,9 @@
 export PATH=$PATH:~/bin
 export SVN_EDITOR=vi
 export EDITOR=vi
+
+# pipx and friends install here
+export PATH="$PATH:$HOME/.local/bin"
 # Ollama server settings (apply to shell-launched 'ollama serve').
 # 0.0.0.0 binding is intentional: exposes the API to LAN/Tailscale
 # so other machines can use this box for inference.
