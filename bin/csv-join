@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# The Docker Hub jupyter repos are frozen (the project moved to
+# quay.io), so this ':latest' no longer moves and is effectively
+# a pinned tag. The old python-3.9.16 tag is no longer pullable.
+DOCKER_IMAGE="jupyter/scipy-notebook:latest"
+
+function usage() {
+    cat <<-EOF
+
+Usage: csv-join <file1.csv> <file2.csv> <output.csv> <join_column>
+
+Description:
+
+  Joins two CSV files on the specified column (outer join,
+  via pandas) and writes the result to the output file.
+
+  Runs pandas inside a Docker container ($DOCKER_IMAGE),
+  so no local Python/pandas install is required. Because the
+  current working directory is mounted into the container,
+  all file paths must be relative and within the current
+  working directory.
+
+Prerequisites:
+
+  * Must have 'docker' installed and running
+
+Example:
+
+  % csv-join users.csv orders.csv joined.csv user_id
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    exit -1
+}
+
+#------------------------------------------------------------
+# Main Program
+#------------------------------------------------------------
+if [ "$#" -ne 4 ]; then
+    usage
+fi
+
+file1="$1"
+file2="$2"
+output_file="$3"
+join_column="$4"
+
+if [ ! -f "$file1" ]; then
+    error "Input file not found: $file1"
+fi
+
+if [ ! -f "$file2" ]; then
+    error "Input file not found: $file2"
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+    error "'docker' is required but not found in PATH"
+fi
+
+# Pipe the Python over stdin so nothing is written to the host
+# filesystem except the output CSV.
+docker run --rm -i \
+    -v "$(pwd)":/app -w /app \
+    "$DOCKER_IMAGE" \
+    python - "$file1" "$file2" "$output_file" "$join_column" <<'EOF'
+import sys
+
+import pandas as pd
+
+file1, file2, output_file, join_column = sys.argv[1:5]
+
+df1 = pd.read_csv(file1)
+df2 = pd.read_csv(file2)
+
+for name, df in ((file1, df1), (file2, df2)):
+    if join_column not in df.columns:
+        print(f"ERROR: column '{join_column}' not found in {name}", file=sys.stderr)
+        sys.exit(1)
+
+merged_df = pd.merge(df1, df2, on=join_column, how="outer")
+merged_df.to_csv(output_file, index=False)
+
+print(f"{len(df1)} rows + {len(df2)} rows -> {len(merged_df)} rows")
+EOF
+
+echo "✅ Merged CSV created as $output_file"
