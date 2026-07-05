@@ -24,7 +24,8 @@ alias cdr="cd ./\$(git rev-parse --show-cdup)"
 # tmux
 alias tmn="tmux new -s "
 alias tma="tmux attach -t "
-alias tmls="tmux ls"
+alias tmls="tmux ls | sed 's/: \([0-9]*\) windows (created \(.*\))/|\1 windows|\2/' | column -t -s '|'"
+alias tmh="less ~/.tmux.cheatsheet.txt"
 
 # Heroku
 alias deploy="git push heroku master"
@@ -33,3 +34,4 @@ alias deploy="git push heroku master"
 alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartSynchronize"
 alias zipp='zip -er'
 alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
+alias claudedsp="claude --dangerously-skip-permissions"

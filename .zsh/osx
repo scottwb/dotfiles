@@ -21,6 +21,7 @@ alias dnsflush="dscacheutil -flushcache"
 # Application Shortcuts
 alias emacs="/Applications/Emacs.app/Contents/MacOS/Emacs"
 alias macdown="/Applications/MacDown.app/Contents/MacOS/MacDown"
+alias mtx="open -a MarkText"
 
 # Homebrew
 export PATH="/usr/local/bin:$PATH"

@@ -1,3 +1,10 @@
 export PATH=$PATH:~/bin
 export SVN_EDITOR=vi
 export EDITOR=vi
+# Ollama server settings (apply to shell-launched 'ollama serve').
+# 0.0.0.0 binding is intentional: exposes the API to LAN/Tailscale
+# so other machines can use this box for inference.
+export OLLAMA_CONTEXT_LENGTH=262144
+export OLLAMA_HOST=0.0.0.0:11434
+export OLLAMA_KEEP_ALIVE=1h
+
