@@ -118,8 +118,9 @@ function pull-all-branches() {
 # pulls all remote branches in each of them.
 #
 function pull-all-repos-all-branches() {
-    # List of repos is list of directories
-    repos=$(ls -1F | grep "/$" | cut -d/ -f1)
+    # List of repos is list of directories ('|| true' so an empty
+    # dir doesn't kill the script via pipefail on grep's no-match)
+    repos=$(ls -1F | grep "/$" | cut -d/ -f1 || true)
     repo_count=$(echo "$repos" | wc -w | tr -d ' ')
 
     if [ "$repo_count" -eq 0 ]; then

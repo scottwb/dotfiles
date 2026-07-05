@@ -5,7 +5,7 @@ set -eo pipefail
 function usage() {
     cat <<-EOF
 
-Usage: pull-all-repos [-c <github-org>] [-d <domain-prefix>]
+Usage: pull-all-repos [-c <github-org>] [-d <ssh-domain>]
 
 Description:
 
@@ -17,16 +17,16 @@ Options:
 
   -c <github-org> :
     If -c is specified, the provided GitHub organization
-    name is used to list all of the availble repos
+    name is used to list all of the available repos
     and clone them all into the current working
     directory first.
 
-  -d <domain-prefix> :
-    If -d is specified, the provided prefix is prepended
-    to the default clone domain (github.com). E.g.,
-    '-d techdna' clones from 'git@techdna.github.com',
-    which is useful for SSH config host aliases that
-    select a different identity. Only affects cloning
+  -d <ssh-domain> :
+    SSH domain to use for git clone operations. This replaces
+    the domain in the SSH URL to match your ~/.ssh/config.
+    For example, use -d techdna.github.com to clone with
+    git@techdna.github.com:org/repo.git instead of
+    git@github.com:org/repo.git. Only affects cloning
     (-c); pulls always use each repo's existing remote.
 
 Prerequisites:
@@ -51,7 +51,7 @@ Examples:
 
   Same, but clone via the techdna.github.com SSH host alias:
 
-    % pull-all-repos -c SecretTargetOrg -d techdna
+    % pull-all-repos -c SecretTargetOrg -d techdna.github.com
 
 EOF
 
@@ -99,25 +99,66 @@ function pull-all-branches() {
 # pulls all remote branches in each of them.
 #
 function pull-all-repos-all-branches() {
-    # List of repos is list of directories
-    repos=$(ls -1F | grep "/$" | cut -d/ -f1)
+    # List of repos is list of directories ('|| true' so an empty
+    # dir doesn't kill the script via pipefail on grep's no-match)
+    repos=$(ls -1F | grep "/$" | cut -d/ -f1 || true)
+    repo_count=$(echo "$repos" | wc -w | tr -d ' ')
+
+    if [ "$repo_count" -eq 0 ]; then
+        echo "No repositories found in current directory"
+        return
+    fi
+
+    echo "========================================="
+    echo "Pull All Branches Process"
+    echo "========================================="
+    echo "Found $repo_count repositories to update"
+    echo
+
+    # Record start time
+    start_time=$(date +%s)
+    start_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    echo "Start Time: $start_time_display"
+    echo
 
     # Pull all remotes in each repo
+    repo_num=0
     for repo in ${repos[@]}; do
-        pushd $repo
+        repo_num=$((repo_num + 1))
+        echo "-----------------------------------------"
+        echo "[$repo_num/$repo_count] Updating: $repo"
+        echo "-----------------------------------------"
+        pushd $repo > /dev/null
           pull-all-branches
-        popd
+        popd > /dev/null
+        echo
     done
+
+    # Record end time and calculate duration
+    end_time=$(date +%s)
+    end_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    duration=$((end_time - start_time))
+    duration_min=$((duration / 60))
+    duration_sec=$((duration % 60))
+
+    echo "========================================="
+    echo "Pull Process Complete"
+    echo "========================================="
+    echo "End Time: $end_time_display"
+    echo "Duration: ${duration_min}m ${duration_sec}s"
+    echo "Repositories Updated: $repo_count"
+    echo
 }
 
 #
-# Usage: clone-all-repos <github-org>
+# Usage: clone-all-repos <github-org> <ssh-domain>
 #
 # Clones all repos in the specified GitHub org
 # into the CWD.
 #
 function clone-all-repos() {
     github_org="$1"
+    ssh_domain="$2"
 
     if [ "$github_org" == "" ]; then
         error "clone-all-repos: no GitHub Org specified"
@@ -131,30 +172,116 @@ function clone-all-repos() {
         error "clone-all-repos: GITHUB_TOKEN env var not set"
     fi
 
+    echo "========================================="
+    echo "GitHub Repository Discovery"
+    echo "========================================="
+    echo "Organization: $github_org"
+    if [ "$ssh_domain" != "" ]; then
+        echo "SSH Domain Override: $ssh_domain (will replace git@github.com in clone URLs)"
+    fi
+    echo "Discovering repositories..."
+    echo
+
+    # First, collect all repos to show the list and count
+    all_repos=()
     page=1
     while true; do
         repo_list=$(curl -s \
                          -u "${GITHUB_USERNAME}:${GITHUB_TOKEN}" \
                          -H "Accept: application/vnd.github.v3+json" \
                          "https://api.github.com/orgs/${github_org}/repos?per_page=100&page=${page}" \
-                        | jq -r '.[].full_name')
+                        | jq -r '.[].ssh_url')
 
         if [ "${#repo_list}" == "0" ]; then
             break
         fi
 
         for repo in ${repo_list[@]}; do
-            git clone git@${domain}:${repo}.git
+            all_repos+=("$repo")
         done
         ((page++))
     done
+
+    # Display discovered repos
+    echo "Discovered ${#all_repos[@]} repositories:"
+    echo "-----------------------------------------"
+    for repo in ${all_repos[@]}; do
+        repo_name=$(echo "$repo" | sed 's/.*\///' | sed 's/\.git$//')
+        echo "  - $repo_name"
+    done
+    echo
+
+    # Record start time
+    start_time=$(date +%s)
+    start_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+
+    echo "========================================="
+    echo "Starting Clone Process"
+    echo "========================================="
+    echo "Start Time: $start_time_display"
+    echo "Total Repositories: ${#all_repos[@]}"
+    echo
+
+    # Clone each repository
+    cloned_count=0
+    skipped_count=0
+    failed_count=0
+
+    for repo in ${all_repos[@]}; do
+        # If ssh_domain is provided, replace the domain in the SSH URL
+        if [ "$ssh_domain" != "" ]; then
+            # Replace git@github.com: with git@<ssh_domain>:
+            clone_url=$(echo "$repo" | sed "s|git@github\.com:|git@${ssh_domain}:|")
+        else
+            clone_url="$repo"
+        fi
+
+        # Extract repo name from SSH URL for the directory name
+        repo_name=$(echo "$repo" | sed 's/.*\///' | sed 's/\.git$//')
+
+        # Check if repo already exists to avoid errors
+        if [ ! -d "$repo_name" ]; then
+            echo "Cloning: $repo_name"
+            echo "Command: git clone \"$clone_url\""
+            if git clone "$clone_url"; then
+                cloned_count=$((cloned_count + 1))
+                echo "Successfully cloned: $repo_name"
+            else
+                echo "ERROR: Failed to clone $repo_name (continuing with next repo)"
+                failed_count=$((failed_count + 1))
+            fi
+            echo
+        else
+            echo "Skipping: $repo_name (already exists)"
+            skipped_count=$((skipped_count + 1))
+        fi
+    done
+
+    # Record end time and calculate duration
+    end_time=$(date +%s)
+    end_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    duration=$((end_time - start_time))
+    duration_min=$((duration / 60))
+    duration_sec=$((duration % 60))
+
+    echo "========================================="
+    echo "Clone Process Complete"
+    echo "========================================="
+    echo "End Time: $end_time_display"
+    echo "Duration: ${duration_min}m ${duration_sec}s"
+    echo "Repositories Cloned: $cloned_count"
+    echo "Repositories Skipped: $skipped_count"
+    echo "Repositories Failed: $failed_count"
+    echo "Total Repositories: ${#all_repos[@]}"
+    echo
 }
 
 #------------------------------------------------------------
 # Main Program
 #------------------------------------------------------------
 org=""
-domain="github.com"
+ssh_domain=""
+
 while getopts ":c:d:" opt; do
       case ${opt} in
           c)
@@ -162,13 +289,7 @@ while getopts ":c:d:" opt; do
               ;;
 
           d)
-              if [ "$OPTARG" == "" ]; then
-                  echo
-                  echo "Invalid option: -d requires a non-empty domain prefix" 1>&2
-                  echo
-                  usage
-              fi
-              domain="${OPTARG}.github.com"
+              ssh_domain=$OPTARG
               ;;
 
           \? )
@@ -180,7 +301,7 @@ while getopts ":c:d:" opt; do
 
           :)
               echo
-              echo "Invalid option: -$OPTARG requires an arugment" 1>&2
+              echo "Invalid option: -$OPTARG requires an argument" 1>&2
               echo
               usage
               ;;
@@ -189,6 +310,6 @@ done
 shift $((OPTIND -1))
 
 if [ "$org" != "" ]; then
-    clone-all-repos $org
+    clone-all-repos "$org" "$ssh_domain"
 fi
 pull-all-repos-all-branches
