@@ -17,7 +17,24 @@
 	unadd = reset HEAD
 [push]
 	default = tracking
+	autoSetupRemote = true
+	recurseSubmodules = check
 [credential]
     helper = osxkeychain
 [init]
 	defaultBranch = main
+[pull]
+	rebase = false
+[commit]
+	gpgSign = false
+[gui]
+	pruneduringfetch = true
+[smartgit "submodule"]
+	fetchalways = false
+	update = true
+	initializenew = true
+
+# Machine-local overrides (real email, etc). Must stay LAST so its
+# values win. Create on each machine; never committed. See README.
+[include]
+	path = ~/.gitconfig.local

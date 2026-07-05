@@ -5,12 +5,12 @@ You are probably not that interested in this.
 
 Installation:
 
-* Install `~/.gitconfig` by copying it from another machine or downloading it from here
-  and updating the auth key, e.g.:
+* Create `~/.gitconfig.local` with the machine-local git identity
+  (the tracked `.gitconfig` is symlinked in below and includes this
+  file last, so its values win):
 
   ```bash
-  cd ~
-  scp scottwb@swb.local:~/.gitconfig .
+  git config --file ~/.gitconfig.local user.email you@example.com
   ```
 
 * Install `~/.ssh/id_rsa*` by copying them from another machine, or generating
