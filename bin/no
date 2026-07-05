@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#
+# no - Say no like you mean it, without the burden of creativity.
+#
+# Fetches a professionally crafted rejection from No-as-a-Service,
+# because coming up with your own excuses is a lot of work.
+#
+# Example:
+#
+#   % no
+#   I would, but my therapist advised against it.
+
+curl -s https://naas.isalman.dev/no | jq -r .reason

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#
+# cuss - Have your Mac loudly recite every bad word Google ever
+#        blocklisted, in random order, at maximum volume.
+#
+# Yes, it cranks your output volume to 100 first. That is not a
+# bug, that is the entire point. Absolutely do not run this on a
+# work call, in an open office, or near children. Or do.
+#
+# Example:
+#
+#   % cuss
+#   (your Mac becomes a sailor; coworkers become witnesses)
+
+osascript -e 'set volume output volume 100'
+curl -s 'https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/badwordslist/badwords.txt' \
+  | awk 'BEGIN{srand()} {print rand(), $0}' \
+  | sort -n \
+  | cut -d' ' -f2- \
+  | say
