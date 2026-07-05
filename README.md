@@ -47,6 +47,12 @@ Installation:
         rm -rf .git
         ln -s ~/src/scottwb/dotfiles/bin bin
 
-* Log out and back in. (`.zshrc` auto-detects macOS vs Linux and sources
-  `.zsh/osx` or `.zsh/linux` accordingly; no editing needed.)
+* Install the private companion repo,
+  [dotfiles-private](https://github.com/scottwb/dotfiles-private),
+  per the instructions in its README:
+
+        cd ~/src/scottwb
+        git clone git@github.com:scottwb/dotfiles-private.git
+
+* Log out and back in.
 
