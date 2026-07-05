@@ -30,8 +30,8 @@ Installation:
         cd ~
         ln -s ~/src/scottwb/dotfiles/.* .
         rm -rf .git
-        ln -s ~/src/dotfiles/bin bin
+        ln -s ~/src/scottwb/dotfiles/bin bin
 
-* Edit `~/.zshrc` and remove the osx or linux line, keeping whichever one you're on.
-* Log out and back in.
+* Log out and back in. (`.zshrc` auto-detects macOS vs Linux and sources
+  `.zsh/osx` or `.zsh/linux` accordingly; no editing needed.)
 
