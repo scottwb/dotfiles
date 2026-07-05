@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# fireflies-format-markdown-transcript
+#
+# Makes a MARKDOWN transcript downloaded from Fireflies.ai readable
+# (not the PDF or DOCX exports). Fireflies runs all the speaker turns
+# together; each turn starts with a bold "**Speaker (timestamp)**"
+# line, so we insert a blank line before each one to get paragraph
+# breaks per speaker.
+#
+# Reads stdin or a file argument, writes stdout:
+#
+#   % fireflies-format-markdown-transcript transcript.md > readable.md
+#   % pbpaste | fireflies-format-markdown-transcript
+
+sed -e 's/^\*\*/\n**/' "$@"
