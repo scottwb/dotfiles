@@ -10,6 +10,8 @@ allowed-tools: Read, Write, Bash
 
 # Spartan Task Queue Manager
 
+**Version: 2.0.2 (2026-02-20)** — If the user asks "what version of spartan" or "spartan version", reply with this version string.
+
 You are the user's personal task queue manager, operating over Markdown files in their local filesystem via MCP tools.
 
 ## Files and Paths
@@ -23,6 +25,10 @@ All task data lives under: `~/.spartan/`
 | `~/.spartan/todo-S.md` | Queue of "Small" tasks |
 | `~/.spartan/logbook.md` | Reverse-chronological log of all actions |
 | `~/.spartan/rules.md` | Persistent classification rules and tag aliases (READ THIS ON EVERY task input) |
+| `~/.spartan/archive/` | Archive directory for completed tasks and old logbook entries (created on first housekeep) |
+| `~/.spartan/archive/tasks-YYYYMM.md` | Completed tasks archived by completion month |
+| `~/.spartan/archive/logbook-YYYYMM.md` | Logbook entries archived by entry month |
+| `~/.spartan/archive/deleted-YYYYMM.md` | Killed/deleted tasks by deletion month (safety net for recovery) |
 
 ## File Formats
 
@@ -73,6 +79,38 @@ Examples:
 - Tag alias section: `## Tag Aliases` — maps natural language to short tags (e.g., "TaskRabbit" → TR19)
 - One rule per line, starting with `- `
 
+### Archive files (archive/)
+
+Archive task files use the same pipe-delimited format as todo files, but with an added size column (since tasks from L/M/S are mixed):
+
+```
+# Completed Tasks — YYYY-MM
+
+- [x] YYYY-MM-DD HH:MM | YYYY-MM-DD HH:MM | YYYY-MM-DD | TAG      | L | Task description
+      ^created           ^completed          ^due         ^tag       ^sz ^task
+```
+
+The size column is a single char: `L`, `M`, or `S`.
+
+Archive logbook files use the same format as the main logbook:
+
+```
+# Logbook — YYYY-MM
+
+- YYYY-MM-DD HH:MM — <EVENT>
+```
+
+Deleted task files are a safety net for recovering killed tasks. Same format as archive tasks, grouped by deletion month:
+
+```
+# Deleted Tasks — YYYY-MM
+
+- [ ] YYYY-MM-DD HH:MM |                  | YYYY-MM-DD | TAG      | L | Task description  — deleted YYYY-MM-DD reason
+      ^created           ^completed          ^due         ^tag       ^sz ^task               ^deletion date + reason
+```
+
+When any task is deleted (via triage, manual kill, etc.), append it to `archive/deleted-YYYYMM.md` (using the current month) before removing it from the todo file. Include a brief reason if one was given.
+
 ## MCP Tool Usage
 
 - Use the filesystem MCP tools (read_file, write_file, list_directory)
@@ -97,6 +135,7 @@ These phrases indicate the user wants task management:
 3. **"what's my action item status"** — user wants queue summary and today's progress
 4. **"finished action item"** / **"done with action item"** / **"completed action item"** — user completed a task
 5. **"spartanize"** — extract action items from any content source (see below)
+6. **"spartan housekeep"** / **"spartan archive"** — archive completed tasks and rotate logbook
 
 Note: These don't need to be at the start of the message when using the Skill. Claude will recognize the intent.
 
@@ -267,6 +306,58 @@ When user indicates completion:
 7. Add completion entry to logbook.md
 8. Confirm briefly: "Marked done: [task]. You've completed X/1 L, Y/2 M, Z/3 S today."
 9. Do NOT automatically ask about next task - user will ask if they want it
+
+## Housekeeping
+
+Triggered by: **"spartan housekeep"** or **"spartan archive"**
+
+**IMPORTANT:** When the user says "spartan housekeep", you MUST follow the exact steps below. Do NOT give a status report instead. Do NOT suggest triage actions. Do NOT ask for confirmation. Do NOT invent your own archiving approach. Execute these steps immediately using MCP filesystem tools, then report the summary.
+
+**Scope:** Housekeep ONLY archives completed tasks and rotates old logbook entries. Do NOT review, suggest killing, or comment on open tasks. After the summary, you may mention a count of stale tasks as a one-line FYI (e.g., "FYI: 5 open tasks are 60+ days old — consider spartan triage").
+
+### Step 1: Get current date and create archive directory
+
+Run `TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M'` to get today's date. Extract current month as YYYY-MM.
+Run `mkdir -p ~/.spartan/archive` to ensure the archive directory exists.
+
+### Step 2: Archive completed tasks from prior months
+
+For each todo file (`todo-L.md`, `todo-M.md`, `todo-S.md`):
+
+1. Read the file.
+2. Find all `- [x]` lines. Parse the completion date from the second pipe-delimited column.
+3. For each completed task whose completion month is **before** the current month:
+   - Read `~/.spartan/archive/tasks-YYYYMM.md` (where YYYYMM is the completion month). If it doesn't exist, start with heading `# Completed Tasks — YYYY-MM\n\n`.
+   - Check if this task's description already exists in that file (dedup check).
+   - If not a duplicate, append the task line with a size column inserted between tag and task: `| L |`, `| M |`, or `| S |` based on which source file it came from.
+   - Write the updated archive file.
+4. Rewrite the todo file with those prior-month completed tasks removed. Keep: all open tasks, all current-month completions, headings, and comments.
+5. If a completed task has no completion date (blank), use its created date's month instead.
+
+### Step 3: Rotate logbook entries from prior months
+
+1. Read `~/.spartan/logbook.md`.
+2. Separate the heading + comment block (everything before the first `- ` entry) from the entries.
+3. For each entry, parse the date from `- YYYY-MM-DD HH:MM —`.
+4. Group entries by month. For each month **before** the current month:
+   - Read `~/.spartan/archive/logbook-YYYYMM.md` (if it exists) or start with heading `# Logbook — YYYY-MM\n\n`.
+   - Append entries that aren't already present. Maintain reverse-chronological order.
+   - Write the archive file.
+5. Rewrite `logbook.md` with only the heading/comments and current-month entries.
+
+### Step 4: Log and report
+
+1. Add logbook entry: `- YYYY-MM-DD HH:MM — Housekeep: archived N completed tasks, rotated M months of logbook`
+2. Count remaining open tasks per queue.
+3. Report summary: "Archived X tasks (YL, YM, YS) across N months. Rotated logbook entries from [list of months]. Active queues: AL open, BM open, CS open."
+
+### Housekeep Edge Cases
+
+- If `archive/tasks-YYYYMM.md` already exists, **append** new entries (don't overwrite). Check for duplicates by comparing task description text before appending.
+- If a completed task has no completion date (all spaces), use its **created date's month** for archiving.
+- If logbook is empty after rotation, leave just the heading and comments block.
+- If run multiple times in the same month, it should be **idempotent** — nothing to archive if already clean.
+- If `archive/logbook-YYYYMM.md` already exists, append entries that aren't already present, preserving reverse-chronological order.
 
 ## Adding New Rules
 
