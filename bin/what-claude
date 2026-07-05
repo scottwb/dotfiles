@@ -14,7 +14,8 @@ done < <(ps aux | grep -E '[c]laude' \
   | grep -v 'Claude\.app' \
   | grep -v 'Claude Helper' \
   | grep -v 'Claude Renderer' \
-  | grep -v 'what-claude')
+  | grep -v 'what-claude' \
+  | grep -v 'shell-snapshots')
 
 if [ ${#pids[@]} -eq 0 ]; then
   echo "No running Claude Code processes found."
@@ -28,7 +29,7 @@ for pid in "${pids[@]}"; do
   cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | grep '^n' | sed 's/^n//' || echo "unknown")
 
   # Determine install type from the executable/libraries
-  txt=$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | grep -E '(claude|node)' | head -1 | sed 's/^n//')
+  txt=$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | grep -E '(claude|node)' | head -1 | sed 's/^n//' || true)
   cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "unknown")
 
   if echo "$txt" | grep -q '\.local/share/claude'; then
