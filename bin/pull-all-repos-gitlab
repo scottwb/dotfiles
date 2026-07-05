@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+function usage() {
+    cat <<-EOF
+
+Usage: pull-all-repos-gitlab [-c <gitlab-group>] [-u <gitlab-url>] [-d <ssh-domain>]
+
+Description:
+
+  Pulls every remote branch of every git repo in the
+  current working directory. Can optionally clone
+  all the repos of a given GitLab group first.
+
+Options:
+
+  -c <gitlab-group> :
+    If -c is specified, the provided GitLab group
+    name/path is used to list all of the available repos
+    and clone them all into the current working
+    directory first.
+
+  -u <gitlab-url> :
+    GitLab instance URL. Defaults to https://gitlab.com
+    Use this to specify a self-hosted GitLab instance.
+
+  -d <ssh-domain> :
+    SSH domain to use for git clone operations. This replaces
+    the domain in the SSH URL to match your ~/.ssh/config.
+    For example, use -d gitlab-work to clone with
+    git@gitlab-work:group/repo.git instead of
+    git@gitlab.com:group/repo.git
+
+Prerequisites:
+
+  * Must have 'curl' installed
+  * Must have 'jq' installed
+  * Must have GITLAB_TOKEN env var set to a Personal Access Token
+    with at least 'read_api' and 'read_repository' scopes.
+    
+    To create a GitLab Personal Access Token:
+    1. Go to your GitLab profile settings
+    2. Navigate to Access Tokens
+    3. Create a new token with 'read_api' and 'read_repository' scopes
+    4. Export it: export GITLAB_TOKEN="your-token-here"
+    
+    For GitLab.com:
+      https://gitlab.com/-/profile/personal_access_tokens
+    
+    For self-hosted GitLab:
+      https://your-gitlab-instance.com/-/profile/personal_access_tokens
+
+Examples:
+
+  Pull all remote branches from all repos in current dir:
+
+    % pull-all-repos-gitlab
+
+  Clone all group's repos from gitlab.com and pull all their remote branches:
+
+    % export GITLAB_TOKEN="your-token-here"
+    % pull-all-repos-gitlab -c mygroup/subgroup
+
+  Clone all repos from a self-hosted GitLab instance:
+
+    % export GITLAB_TOKEN="your-token-here"
+    % pull-all-repos-gitlab -c mycompany/engineering -u https://gitlab.mycompany.com
+
+  Clone repos using a specific SSH config entry:
+
+    % export GITLAB_TOKEN="your-token-here"
+    % pull-all-repos-gitlab -c mygroup -d gitlab-personal
+
+EOF
+
+    exit -1
+}
+
+function error() {
+    echo
+    echo "ERROR: $1" 1>&2
+    echo
+    exit -1
+}
+
+#
+# Usage: pull-all-branches
+#
+# Assumes CWD is a git clone and pulls all of
+# its remote branches.
+#
+function pull-all-branches() {
+    # Use merge in case we have any local changes
+    git config pull.rebase false
+
+    # make sure we know of all branches
+    git pull
+
+    # remember what branch we were on originally
+    orig_branch=$(git branch | grep "*" | cut -d' ' -f 2)
+
+    # Checkout and pull each remote branch
+    branches=$(git branch -a | grep -e remotes/origin | grep -v HEAD | sed -e 's/.*remotes\/origin\///')
+    for branch in ${branches[@]}; do
+        git checkout $branch
+        git pull
+    done
+
+    # Back from whence we came
+    git checkout $orig_branch
+}
+
+#
+# Usage: pull-all-repos-all-branches
+#
+# Assumes every directory in CWD is a repo, and
+# pulls all remote branches in each of them.
+#
+function pull-all-repos-all-branches() {
+    # List of repos is list of directories
+    repos=$(ls -1F | grep "/$" | cut -d/ -f1)
+    repo_count=$(echo "$repos" | wc -w | tr -d ' ')
+
+    if [ "$repo_count" -eq 0 ]; then
+        echo "No repositories found in current directory"
+        return
+    fi
+
+    echo "========================================="
+    echo "Pull All Branches Process"
+    echo "========================================="
+    echo "Found $repo_count repositories to update"
+    echo
+
+    # Record start time
+    start_time=$(date +%s)
+    start_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    echo "Start Time: $start_time_display"
+    echo
+
+    # Pull all remotes in each repo
+    repo_num=0
+    for repo in ${repos[@]}; do
+        repo_num=$((repo_num + 1))
+        echo "-----------------------------------------"
+        echo "[$repo_num/$repo_count] Updating: $repo"
+        echo "-----------------------------------------"
+        pushd $repo > /dev/null
+          pull-all-branches
+        popd > /dev/null
+        echo
+    done
+
+    # Record end time and calculate duration
+    end_time=$(date +%s)
+    end_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    duration=$((end_time - start_time))
+    duration_min=$((duration / 60))
+    duration_sec=$((duration % 60))
+
+    echo "========================================="
+    echo "Pull Process Complete"
+    echo "========================================="
+    echo "End Time: $end_time_display"
+    echo "Duration: ${duration_min}m ${duration_sec}s"
+    echo "Repositories Updated: $repo_count"
+    echo
+}
+
+#
+# Usage: clone-all-repos <gitlab-group> <gitlab-url> <ssh-domain>
+#
+# Clones all repos in the specified GitLab group
+# into the CWD.
+#
+function clone-all-repos() {
+    gitlab_group="$1"
+    gitlab_url="$2"
+    ssh_domain="$3"
+
+    if [ "$gitlab_group" == "" ]; then
+        error "clone-all-repos: no GitLab Group specified"
+    fi
+
+    if [ "$GITLAB_TOKEN" == "" ]; then
+        error "clone-all-repos: GITLAB_TOKEN env var not set"
+    fi
+
+    echo "========================================="
+    echo "GitLab Repository Discovery"
+    echo "========================================="
+    echo "Group: $gitlab_group"
+    echo "API URL: $gitlab_url"
+    if [ "$ssh_domain" != "" ]; then
+        echo "SSH Domain Override: $ssh_domain (will replace git@<domain> in clone URLs)"
+    fi
+    echo "Discovering repositories..."
+    echo
+
+    # URL encode the group path (replace / with %2F)
+    encoded_group=$(echo "$gitlab_group" | sed 's/\//%2F/g')
+
+    # Extract the domain from the gitlab_url for SSH URL replacement
+    # Remove protocol (http:// or https://) and any trailing path
+    api_domain=$(echo "$gitlab_url" | sed 's|^https://||' | sed 's|^http://||' | sed 's|/.*||')
+
+    # First, collect all repos to show the list and count
+    all_repos=()
+    page=1
+    while true; do
+        # GitLab API v4 endpoint for group projects
+        # include_subgroups=true to get all nested subgroup projects
+        repo_list=$(curl -s \
+                         -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+                         "${gitlab_url}/api/v4/groups/${encoded_group}/projects?per_page=100&page=${page}&include_subgroups=true" \
+                        | jq -r '.[].ssh_url_to_repo')
+
+        if [ "${#repo_list}" == "0" ]; then
+            break
+        fi
+
+        for repo in ${repo_list[@]}; do
+            all_repos+=("$repo")
+        done
+        ((page++))
+    done
+
+    # Display discovered repos
+    echo "Discovered ${#all_repos[@]} repositories:"
+    echo "-----------------------------------------"
+    for repo in ${all_repos[@]}; do
+        repo_name=$(echo "$repo" | sed 's/.*\///' | sed 's/\.git$//')
+        echo "  - $repo_name"
+    done
+    echo
+
+    # Record start time
+    start_time=$(date +%s)
+    start_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    
+    echo "========================================="
+    echo "Starting Clone Process"
+    echo "========================================="
+    echo "Start Time: $start_time_display"
+    echo "Total Repositories: ${#all_repos[@]}"
+    echo
+
+    # Clone each repository
+    cloned_count=0
+    skipped_count=0
+    failed_count=0
+    
+    for repo in ${all_repos[@]}; do
+        # If ssh_domain is provided, replace the domain in the SSH URL
+        if [ "$ssh_domain" != "" ]; then
+            # Replace git@<api_domain>: with git@<ssh_domain>:
+            clone_url=$(echo "$repo" | sed "s|git@${api_domain}:|git@${ssh_domain}:|")
+        else
+            clone_url="$repo"
+        fi
+        
+        # Extract repo name from SSH URL for the directory name
+        repo_name=$(echo "$repo" | sed 's/.*\///' | sed 's/\.git$//')
+        
+        # Check if repo already exists to avoid errors
+        if [ ! -d "$repo_name" ]; then
+            echo "Cloning: $repo_name"
+            echo "Command: git clone \"$clone_url\""
+            if git clone "$clone_url"; then
+                cloned_count=$((cloned_count + 1))
+                echo "Successfully cloned: $repo_name"
+            else
+                echo "ERROR: Failed to clone $repo_name (continuing with next repo)"
+                failed_count=$((failed_count + 1))
+            fi
+            echo
+        else
+            echo "Skipping: $repo_name (already exists)"
+            skipped_count=$((skipped_count + 1))
+        fi
+    done
+
+    # Record end time and calculate duration
+    end_time=$(date +%s)
+    end_time_display=$(date "+%Y-%m-%d %H:%M:%S")
+    duration=$((end_time - start_time))
+    duration_min=$((duration / 60))
+    duration_sec=$((duration % 60))
+
+    echo "========================================="
+    echo "Clone Process Complete"
+    echo "========================================="
+    echo "End Time: $end_time_display"
+    echo "Duration: ${duration_min}m ${duration_sec}s"
+    echo "Repositories Cloned: $cloned_count"
+    echo "Repositories Skipped: $skipped_count"
+    echo "Repositories Failed: $failed_count"
+    echo "Total Repositories: ${#all_repos[@]}"
+    echo
+}
+
+#------------------------------------------------------------
+# Main Program
+#------------------------------------------------------------
+group=""
+gitlab_url="https://gitlab.com"
+ssh_domain=""
+
+while getopts ":c:u:d:" opt; do
+      case ${opt} in
+          c)
+              group=$OPTARG
+              ;;
+          
+          u)
+              gitlab_url=$OPTARG
+              ;;
+          
+          d)
+              ssh_domain=$OPTARG
+              ;;
+
+          \? )
+              echo
+              echo "Invalid option: -$OPTARG" 1>&2
+              echo
+              usage
+              ;;
+
+          :)
+              echo
+              echo "Invalid option: -$OPTARG requires an argument" 1>&2
+              echo
+              usage
+              ;;
+      esac
+done
+shift $((OPTIND -1))
+
+if [ "$group" != "" ]; then
+    clone-all-repos "$group" "$gitlab_url" "$ssh_domain"
+fi
+pull-all-repos-all-branches
