@@ -47,6 +47,12 @@ Installation:
         rm -rf .git
         ln -s ~/src/scottwb/dotfiles/bin bin
 
+  Note that this installs the dot-prefixed entries plus `bin`, and
+  nothing else. Top-level non-dot directories (`docs/`, `linux/`,
+  `themes/`) are repo-only by design and deliberately never linked
+  into `$HOME`: `docs/` in particular holds this repo's own roadmap
+  and development plans, which have no business in a home directory.
+
 * Install the private companion repo,
   [dotfiles-private](https://github.com/scottwb/dotfiles-private),
   per the instructions in its README:
