@@ -56,7 +56,9 @@ new items for them go here with a **Thread:** tag like everything else.
 
 **Plan:** [servanda-suite-baseline.md](servanda-suite-baseline.md)
 
-**Status:** HELD on Scott's review. Do not start committing. The plan's "Review first" section lists the open questions worth settling during that review, including one that could restructure the plan: whether some of this should be folded into the rename rather than committed twice.
+**Status:** HELD on Scott's review. Do not start committing. The plan's "Review first" section lists the open questions worth settling during that review.
+
+**Decision to make DURING the review, not after (it changes what you are reviewing for):** whether some of this suite rework should be folded into the [Command Suite Rename](command-suite-rename.md) instead of committed twice. The rename touches all ten of these files anyway, so any file needing substantive rework may be cheaper to fix once, as part of the rename, than to baseline now and rewrite later. If the answer is "fold it," the suite-baseline plan shrinks considerably and the rename plan grows. Revisit this the moment the review starts.
 
 This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires, and it gates acceptance testing below.
 
@@ -93,6 +95,16 @@ If the answer is "unpin," this can land as one commit (`Settings: unpin the mode
 **Plan:** [command-suite-rename.md](command-suite-rename.md)
 
 **Status:** Ready to implement. AWAITING SCOTT'S EXPLICIT GO. Do not auto-start. Blocked on the batch landing above (the plan header's pre-step); acceptance testing should also come first per the ordering decision above.
+
+### Split the acceptance checklist into record plus regression suite
+
+**Thread:** Servanda
+
+**Goal:** [command-kit-overhaul.md](command-kit-overhaul.md) is doing two jobs in one file: a one-time acceptance record for the 2026-07-05 batch, and what is really a reusable manual regression suite for the kit. Most of its tier items are worth re-running on every future kit change, not just this one. Split it: the batch record stays as history, the reusable items graduate to `docs/testing/servanda-manual-tests.md`.
+
+**Status:** Deliberately deferred until AFTER the rename, and this is the right time to revisit it. The rename renames every command the checklist names, so splitting first would mean sweeping names through two files instead of one. Doing it after means the tier items get renamed once, then reorganized once.
+
+Tradeoff if you want it sooner: split now and the tier items get renamed in place later; split later and the file gets reorganized once. Either is fine, the ordering above is just the cheaper one.
 
 ### Competitive absorption: other governors
 
