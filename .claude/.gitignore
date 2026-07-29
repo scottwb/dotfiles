@@ -3,17 +3,27 @@ history.jsonl
 projects/
 debug/
 file-history/
-plans/
+sessions/
 session-env/
 shell-snapshots/
 todos/
+uploads/
+
+# Claude Code's own runtime plans dir. Anchored: an unanchored `plans/`
+# also matches nested dirs, which is how docs/plans/ used to get swallowed.
+/plans/
 
 # Caches and transient state
+backups/
 cache/
+image-cache/
 paste-cache/
 stats-cache.json
 tasks/
 telemetry/
+.last-cleanup
+.last-update-result.json
+mcp-needs-auth-cache.json
 
 # Analytics and feature flags
 statsig/
@@ -27,6 +37,7 @@ plugins/repos/
 plugins/installed_plugins.json
 plugins/known_marketplaces.json
 plugins/marketplaces/
+plugins/blocklist.json
 
 # Backup files
 *.bak
