@@ -1,4 +1,7 @@
-export PROMPT='%m%# '
+# Minimal prompt for bare Linux boxes only. When a zsh theme is already active
+# (e.g., oh-my-zsh's devcontainers theme in a VS Code devcontainer), leave it
+# alone instead of stomping it with this spartan prompt.
+[ -z "$ZSH_THEME" ] && export PROMPT='%m%# '
 export EDITOR=vi
 
 # Aliases
