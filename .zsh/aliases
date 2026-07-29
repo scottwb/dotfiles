@@ -29,6 +29,10 @@ alias tmh="less ~/.tmux.cheatsheet.txt"
 
 # Heroku
 alias deploy="git push heroku master"
+alias pev2-health-check="heroku run rails runner scripts/daily-health-check.rb -a prepare-enrich"
+
+# DevContainers: shell into the current repo's devcontainer (repo must have .devcontainer/dc)
+alias dcsh='./.devcontainer/dc sh'
 
 # Misc Utilities
 alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartSynchronize"
