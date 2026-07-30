@@ -25,6 +25,27 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
+### Claude Code route launchers (OpenRouter + Ollama)
+
+**Thread:** Shell + Tools
+
+**Goal:** Add a family of `bin/` launchers that run Claude Code against OpenRouter and local Ollama on a per-process basis, leaving plain `claude` and `claudedsp` untouched on the Max subscription. Workhorse plus thin wrappers: `bin/claude-run` owns the model and provider tables, `claude-gpt` / `claude-glm` / `claude-openrouter` / `claude-ollama` are three-line entry points. `bin/what-claude` grows a ROUTE column that reads the backend back out of process ancestry.
+
+**Plan:** [claude-route-launchers.md](claude-route-launchers.md)
+
+**Status:** Ready to implement. Ten steps, the first three of which are gates.
+
+**Run the gates interactively.** Steps 1 through 3 exist to kill or reshape everything after them, and Step 3 spends real money. Do not let an unattended runner blow through a failed gate into the build steps. Steps 1 and 2 are free.
+
+Two things this plan settles that the Servanda thread was carrying: it answers the `x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME` marker planted by [servanda-review-fixes.md](servanda-review-fixes.md) step 2 (decision: routed profiles leave the audit tier deliberately unmapped so gates halt loudly), and its Gate A proves whether `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored rather than merely present in the binary.
+
+---
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
+
 ### Acceptance-test the Servanda kit
 
 **Thread:** Servanda
@@ -37,16 +58,11 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 Deliberately opportunistic. Tier 0 is about five minutes and needs no project; run it first. Tiers 1 through 3 need one real small feature in a low-stakes repo. Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
 
+**The route-launcher plan above IS that opportunity.** It is a real, low-stakes, ten-step feature in this repo with a normal plan file, which is exactly what Tiers 1 through 3 need. Running it through `/booyah` or `/yolo` acceptance-tests the kit and ships the feature in one pass, which is why it now sits ahead of this item rather than behind it. Tier 4 still needs a genuine phase boundary and is unaffected.
+
 **Ordering decision (2026-07-29):** test BEFORE the rename, even though the rename touches every command the checklist names. The rename is a mechanical layer on top; verifying behavior first is cheaper than verifying a spec that is about to be renamed. Accept that a name sweep of the checklist follows the rename.
 
-**Worth doing early, while testing:** confirm `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored, not merely present in the CLI binary. `strings` proved the name exists; nothing has proved the behavior. Gates are the wrong place to discover that assumption was wrong.
-
----
-
-## Upcoming
-
-Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
-new items for them go here with a **Thread:** tag like everything else.
+**Worth doing early, while testing:** confirm `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored, not merely present in the CLI binary. `strings` proved the name exists; nothing has proved the behavior. Gates are the wrong place to discover that assumption was wrong. Note the route-launcher plan's Gate A now covers this directly.
 
 ### Command Suite Rename (verb-scope grammar + /implement-phase)
 
