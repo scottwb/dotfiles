@@ -1,4 +1,4 @@
-Execute the "booyah" workflow for step-by-step plan execution.
+Execute a plan step-by-step on the current branch; re-running /booyah = approve the previous step, commit it, and implement the next (stops for your testing between steps).
 
 Arguments: $ARGUMENTS (optional - search term to find a plan file)
 
@@ -73,6 +73,7 @@ If no uncompleted steps remain:
    - Promote the next "Upcoming" item to "Next Immediate Step"
 2. Commit the roadmap update with message: `Complete: <feature-name>`
 3. Announce: "🎉 **Booyah!** All steps complete! Roadmap updated."
+4. **Phase gate check:** if the newly promoted "Next Immediate Step" is a `PHASE GATE: <phase name>` marker, ask the user: "Phase complete. Run the phase gate now?" On yes, spawn the audit as a fresh-context subagent via the Agent tool with `model: "fable"`, instructing it to follow `~/.claude/commands/phasegate.md` for that phase; relay its verdict, report path, and fix list. If the fable model override is unavailable, tell the user to run `/phasegate` in a Fable session instead; never run the gate on a lesser model. (The human is present in booyah, so ask rather than auto-fire.)
 
 ## Step 6: Execute Next Step
 
