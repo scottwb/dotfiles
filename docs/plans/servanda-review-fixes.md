@@ -1,7 +1,17 @@
 # Plan: Apply the Servanda Review Fixes
 
-**Status:** Blocked on [servanda-suite-baseline.md](servanda-suite-baseline.md)
-landing first. These are fixes ON TOP of the baseline, not part of it.
+**Status:** COMPLETE, 2026-07-30. All four steps landed as commits `c6e41b2`
+through `03f33de` on master, reviewed by Scott before committing.
+
+| Step | Commit |
+|---|---|
+| 1 Model pins are tier aliases | `c6e41b2` |
+| 2 Flag the unmapped audit tier | `a1d3332` |
+| 3 Provider preflight guard | `e27db86` |
+| 4 Dirty-tree assumption | `03f33de` |
+
+Step 2 landed as a decide-me marker rather than an actual tier mapping; see the step
+for why that is the correct outcome and not a shortcut.
 
 Origin: the review session of 2026-07-29 answered five design questions about the
 suite. Two of them (Q2 model pins, Q4 the `git add -A` footgun) produced concrete
@@ -29,15 +39,15 @@ Note the irony to avoid: step 4 fixes `/booyah`'s staging assumption, so do not 
 
 ## Step 1: Document that model pins are tiers, not vendors
 
-- [ ] Test-first: n/a (docs)
-- [ ] Add a paragraph to `.claude/COMMANDS.md` beside the existing verification-tiers
+- [x] Test-first: n/a (docs)
+- [x] Add a paragraph to `.claude/COMMANDS.md` beside the existing verification-tiers
       line: the `model:` values in spawn sites (`opus`, `fable`) are Claude Code tier
       ALIASES, not vendor lock-in. Each resolves through
       `ANTHROPIC_DEFAULT_<TIER>_MODEL`, so the vendor mapping lives in `env` in
       `settings.json` and nowhere else
-- [ ] State the consequence explicitly: switching to OpenRouter, Ollama, or anything
+- [x] State the consequence explicitly: switching to OpenRouter, Ollama, or anything
       else needs only the `env` block changed, never the command files
-- [ ] State the anti-goal: do NOT add per-provider fallback logic to the command
+- [x] State the anti-goal: do NOT add per-provider fallback logic to the command
       files. The indirection already exists one layer down
 
 Why this is worth a commit of its own: without it, the next reader sees
@@ -60,43 +70,63 @@ grep -n "ANTHROPIC_DEFAULT" .claude/COMMANDS.md
 
 ## Step 2: Map the audit tier in the parked Ollama profile
 
-- [ ] Test-first: n/a (config)
-- [ ] Add `ANTHROPIC_DEFAULT_FABLE_MODEL` to `x-env` in `.claude/settings.json`,
-      alongside the existing haiku/sonnet/opus entries
+**DONE 2026-07-30, as a marker rather than a mapping** (Scott's call: adding a piece
+now is harmless to the replacement process, and it makes whoever does the
+replacement think twice about the fable tier instead of missing it).
 
-The latent bug: `x-env` currently remaps haiku, sonnet, and opus but not fable.
-Flipping to the Ollama profile today would leave the audit tier unmapped, and under
-the STOP-not-degrade rule (Q2) that means a hard halt at every phase gate and every
-security pass. The profile is parked, so this has never fired, which is exactly why
-it would be a surprise the first time it does.
+What landed in `x-env`, purely additive, no existing key touched:
 
-Judgment call for whoever implements this: pointing the audit tier at a local
-30b model is arguably worse than stopping, since a phase gate is an adversarial
-audit and that is the tier where capability matters most. Two defensible options:
-map it to the same local model as its siblings for consistency, or leave it
-deliberately unmapped WITH a comment in `x-instructions` saying gates are expected
-to halt under the Ollama profile and that is intentional. Prefer the second unless
-local audits turn out to be useful.
+```
+"x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME": "<explanation + decide-explicitly instruction>"
+```
+
+**The audit tier is still deliberately unmapped.** The real
+`ANTHROPIC_DEFAULT_FABLE_MODEL` key is NOT set, because mapping it to the same local
+30b as its siblings would silently degrade an adversarial audit, exactly what the
+STOP-not-degrade rule from Q2 exists to prevent. Gates halting loudly under the
+Ollama profile is the intended behavior, not a gap.
+
+The marker key carries the `x-` prefix so it stays inert config like everything else
+in this block, and its own name says DECIDE-ME. Its whole job is to be impossible to
+miss when the profile is rewritten.
+
+- [x] Add a decide-me marker for the audit tier to `x-env` in
+      `.claude/settings.json`, without mapping it and without touching any existing
+      key
+
+Background, for whoever picks this up: `x-env` remaps haiku, sonnet, and opus but
+not fable. Under the STOP-not-degrade rule (Q2) that means a hard halt at every
+phase gate and every security pass once the profile is activated. It has never
+fired because the profile is parked, which is exactly why it would be a surprise
+the first time it does. The marker exists so that surprise happens at rewrite time,
+on purpose, instead of mid-run.
+
+**For the session that replaces this profile:** the open decision is whether local
+audits are worth having at all. If yes, map the audit tier to something genuinely
+strong and delete the marker. If no, keep it unmapped and delete the marker in
+favor of a line in the replacement's own documentation. Either way, do not leave
+the marker sitting there once the decision is made; it is a prompt, not a record.
 
 **File(s):** `.claude/settings.json`
 
 **Test:**
 ```bash
-python3 -c "import json;e=json.load(open('.claude/settings.json'))['x-env'];print({k:v for k,v in e.items() if 'DEFAULT' in k})"
-# Either FABLE is present, or x-instructions explains why it deliberately is not
+python3 -c "import json;e=json.load(open('.claude/settings.json'))['x-env'];print([k for k in e if 'FABLE' in k])"
+# Expect the DECIDE-ME marker, and NOT a real ANTHROPIC_DEFAULT_FABLE_MODEL mapping
+python3 -c "import json;json.load(open('.claude/settings.json'));print('json valid')"
 ```
 
-**Commit message:** `Settings: map (or explicitly refuse) the audit tier in the parked Ollama profile`
+**Commit message:** `Settings: flag the unmapped audit tier in the parked Ollama profile`
 
 ---
 
 ## Step 3: Add the provider preflight guard
 
-- [ ] Test-first: n/a (command specs)
-- [ ] `/beastmode` preflight and `/phasegate`'s opening check: if
+- [x] Test-first: n/a (command specs)
+- [x] `/beastmode` preflight and `/phasegate`'s opening check: if
       `ANTHROPIC_BASE_URL` is set to a non-Anthropic host AND the tier alias this
       step needs is unmapped, STOP and say so rather than spawning and guessing
-- [ ] Default when unconfigured is stop-and-ask, never guess, consistent with the
+- [x] Default when unconfigured is stop-and-ask, never guess, consistent with the
       Q2 unavailability rule
 
 The only real failure mode left after Q2: switching `ANTHROPIC_BASE_URL` without
@@ -126,14 +156,14 @@ grep -n "ANTHROPIC_BASE_URL" .claude/commands/beastmode.md .claude/commands/phas
 
 ## Step 4: Stop assuming a pre-existing dirty tree is booyah's own work
 
-- [ ] Test-first: n/a (command specs)
-- [ ] `/booyah`: on the FIRST invocation of a session with a dirty tree, do not
+- [x] Test-first: n/a (command specs)
+- [x] `/booyah`: on the FIRST invocation of a session with a dirty tree, do not
       assume the work is yours. Show what is dirty and ask whether it is the step to
       commit or unrelated work to leave alone
-- [ ] `/booyah`: second and subsequent invocations unchanged. `git add -A`, commit,
+- [x] `/booyah`: second and subsequent invocations unchanged. `git add -A`, commit,
       proceed. The no-prompt permission model ("running `/booyah` IS the permission
       signal") is preserved for the common case
-- [ ] `/yolo` state 3 (fix round): same narrow fix, same reasoning. First verify
+- [x] `/yolo` state 3 (fix round): same narrow fix, same reasoning. First verify
       whether state 3's branch-match check already narrows it enough that the ask is
       redundant; if so, document that instead of adding a prompt
 
@@ -144,6 +174,15 @@ would have read a tree dirty with six unrelated concerns as "my previous step's
 work" and swept all of it, plus the held Servanda suite, into one commit.
 
 The assumption is correct once booyah is running. It is only wrong on entry.
+
+**Finding on the `/yolo` state 3 question (2026-07-30):** the branch-match check DOES
+narrow it enough that an unconditional prompt would be overkill, so state 3 got the
+lighter treatment. Reaching state 3 requires being on this plan's own feature branch,
+and state 1 refuses to start on a dirty tree, so that branch began clean and was
+created by `/yolo` itself. Dirty work there is nearly always the command's own or the
+user's fixes. `/booyah` has neither protection: it works on whatever branch you are
+already on, main included, with no clean-tree precondition, which is why it gets the
+hard ask and `/yolo` gets a scope sanity-check before staging instead.
 
 **File(s):** `.claude/commands/booyah.md`, `.claude/commands/yolo.md`
 

@@ -25,17 +25,21 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Apply the Servanda review fixes
+### Acceptance-test the Servanda kit
 
 **Thread:** Servanda
 
-**Goal:** The concrete work that fell out of the 2026-07-29 review: document that model pins are tier aliases rather than vendor lock-in, map (or deliberately refuse) the audit tier in the parked Ollama profile, add a provider preflight guard, and stop `/booyah` and `/yolo` from assuming a pre-existing dirty tree is their own work.
+**Goal:** Walk Tiers 0 through 4 of the kit's manual test plan. The suite is now baselined and its review fixes applied, so there is finally something real to test against, and it has had **zero** acceptance testing so far.
 
-**Plan:** [servanda-review-fixes.md](servanda-review-fixes.md)
+**Plan:** [command-kit-overhaul.md](command-kit-overhaul.md)
 
-**Status:** Unblocked as of 2026-07-30, the suite baseline has landed. Four steps, four commits, all small.
+**Status:** Unblocked as of 2026-07-30. Both prerequisites landed: the suite baseline and the review fixes.
 
-Deliberately sequenced BEFORE acceptance testing so testing does not exercise code already known to be wrong. Step 4 is the fix for a real failure hit on 2026-07-29: `/booyah` could not be used to land the baseline commits because it would have swept the held suite into one commit. Note the irony to avoid, which the plan also states: do not use `/booyah` to run that plan until step 4 has landed.
+Deliberately opportunistic. Tier 0 is about five minutes and needs no project; run it first. Tiers 1 through 3 need one real small feature in a low-stakes repo. Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
+
+**Ordering decision (2026-07-29):** test BEFORE the rename, even though the rename touches every command the checklist names. The rename is a mechanical layer on top; verifying behavior first is cheaper than verifying a spec that is about to be renamed. Accept that a name sweep of the checklist follows the rename.
+
+**Worth doing early, while testing:** confirm `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored, not merely present in the CLI binary. `strings` proved the name exists; nothing has proved the behavior. Gates are the wrong place to discover that assumption was wrong.
 
 ---
 
@@ -43,18 +47,6 @@ Deliberately sequenced BEFORE acceptance testing so testing does not exercise co
 
 Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
 new items for them go here with a **Thread:** tag like everything else.
-
-### Acceptance-test the Servanda kit
-
-**Thread:** Servanda
-
-**Goal:** Walk Tiers 0 through 4 of the kit's manual test plan against the now-committed batch. The 2026-07-05 overhaul (gameplan rename, /yolo state machine, Opus-pinned review, Fable phase gates, /phasegate) is code-complete with **zero** acceptance testing so far.
-
-**Plan:** [command-kit-overhaul.md](command-kit-overhaul.md)
-
-**Status:** Suite baseline landed 2026-07-30, so the only remaining blocker is [the review fixes](servanda-review-fixes.md) (no point exercising code the review already flagged as wrong). Then deliberately opportunistic. Tier 0 is ~5 minutes and needs no project; run it as soon as the fixes land. Tiers 1 through 3 need one real small feature in a low-stakes repo; Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
-
-**Ordering decision (2026-07-29):** test BEFORE the rename below, even though the rename touches every command the checklist names. The rename is a mechanical layer on top; verifying behavior first and then renaming is cheaper than verifying a spec that is about to be renamed. Accept that a name sweep of the checklist follows the rename.
 
 ### Command Suite Rename (verb-scope grammar + /implement-phase)
 
@@ -120,6 +112,16 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 ---
 
 ## Completed
+
+### Apply the Servanda review fixes (2026-07-30)
+
+**Thread:** Servanda
+
+**Plan:** [servanda-review-fixes.md](servanda-review-fixes.md)
+
+Four commits, `c6e41b2` through `03f33de`. Documented that model pins are tier aliases rather than vendor lock-in, flagged the unmapped audit tier in the parked Ollama profile with a decide-me marker, added provider preflight guards to `/beastmode` and `/phasegate`, and stopped `/booyah` and `/yolo` from assuming a pre-existing dirty tree is their own work.
+
+Two notes worth keeping: the audit tier was deliberately left UNMAPPED rather than pointed at the local 30b, because a silently degraded adversarial audit is the exact failure STOP-not-degrade exists to prevent. And `/yolo` state 3 got a lighter scope check rather than `/booyah`'s hard ask, because its branch-match plus state 1's clean-tree precondition already narrow it.
 
 ### Baseline the Servanda suite overhaul (2026-07-30)
 
