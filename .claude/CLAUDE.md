@@ -46,6 +46,42 @@ I have custom slash commands for a structured development workflow:
 - Check environment state (Docker vs local, gem availability, etc.) when relevant
 - Confirm current state before making changes that depend on it
 
+## Secrets
+When a script or skill needs a sensitive secret (API tokens, Slack user tokens, etc.) at
+runtime, resolve it via the 1Password CLI (`op`) with TouchID gating rather than storing the
+secret in plaintext on disk.
+
+**Why:** TouchID prevents background processes from silently grabbing the secret, the token
+stays vaulted in 1Password, and rotating it means updating 1Password rather than editing
+scripts.
+
+- **No `.env` files for this pattern.** Hardcode the `op://` path and `--account` value as
+  `readonly` constants at the top of the script. Skills live in a git-tracked dotfiles repo,
+  so there is no shared-team concern; if a constant needs changing, edit the script.
+  ```bash
+  readonly OP_ACCOUNT="facetdigital.1password.com"
+  readonly OP_REF="op://Employee/Slack User API Token - Facet/credential"
+  STOK="${STOK:-$(op read --account "$OP_ACCOUNT" "$OP_REF")}"
+  ```
+- Pass `--account` explicitly. Four accounts exist, so the `OP_ACCOUNT` env var would
+  conflict when a script needs secrets from more than one.
+- The `${VAR:-...}` form keeps a manual env-var override available for one-off testing.
+- Verify the CLI exists first: `command -v op >/dev/null 2>&1 || { echo "ERROR..."; exit 1; }`
+- Document one-time setup in the skill: install `op`, enable 1Password Settings > Developer >
+  "Integrate with 1Password CLI", confirm the token exists at the hardcoded path.
+- TouchID prompts on the first `op read` per session; later calls cache briefly.
+
+**Accounts** (use the URL as the `--account` value; no shorthand is set):
+- `facetdigital.1password.com` (work, scottwb@facetdigital.com)
+- `juanitabradleys.1password.com` (personal, scottwb@gmail.com)
+- `techdna.1password.com` (Tech DNA)
+- `mile26.1password.com` (Mile26, scottwb@facetdigital.com)
+
+**Per-repo exceptions override this.** Some repos have an established `.env` convention and
+keep it; `~/src/facetdigital/harvest-tools` is one. Follow the repo's own CLAUDE.md there and
+do not propose migrating it unasked. Never blend the two into "op:// refs stored in .env",
+which is not a real convention anywhere.
+
 ## Error Handling
 - Provide helpful, explanatory error messages with context
 - Include usage messages when required args are missing
