@@ -2,6 +2,7 @@
 
 ## Writing Style
 - **NEVER use emdashes (—) in any produced content.** Use periods, commas, semicolons, colons, parentheses, or rewrite the sentence. Emdashes are an AI-writing tell and must not appear in anything that leaves Facet -- including proposals, one-pagers, LinkedIn posts, emails, SOWs, case studies, and any client-facing or public-facing text. This also applies to CLAUDE.md files and other internal documentation.
+- **Enforce this going forward, do not retrofit.** Older internal docs (roadmaps, plans, notes) contain emdashes from before the rule. Leave them. Do not open a cleanup sweep, and do not read their presence as the rule being dead. Fix them only in client-facing or public-facing material, or incidentally in a line you are already rewriting for another reason. New and edited text must be clean. Scott's call, 2026-07-29.
 
 ## Commits
 - NEVER commit without explicit approval ("commit this", "go ahead and commit")
