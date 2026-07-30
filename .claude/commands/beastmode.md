@@ -1,4 +1,4 @@
-Unleash beast mode: chew through the entire roadmap autonomously, one feature at a time, with self-review and merge between each.
+Unleash beast mode: chew through the entire roadmap autonomously, one feature at a time, with an independent Opus review loop, CI-green merges, and automatic Fable phase gates at PHASE GATE markers.
 
 Arguments: $ARGUMENTS (optional - search term to start from a specific plan; otherwise start from "Next Immediate Step")
 
@@ -42,6 +42,8 @@ For each "yolo-able" roadmap item:
 8. **STOP ON UNRESOLVABLE ERRORS** - If something fails that you cannot fix in 3 attempts, stop the entire beast mode loop and report state. Don't paper over failures to "keep moving."
 
 9. **NOT DONE UNTIL CI IS GREEN** (PR mode) - A PR is not "done" when the review loop converges. It is done when CI is green AND review is clean AND it has been merged. If CI is red, treat it as part of the work that beast mode owns and must fix before moving on.
+
+10. **PHASE GATES RUN AT FABLE TIER OR NOT AT ALL** - The phase-gate audit is spawned with `model: "fable"`. If that model is unavailable in this environment, STOP at the gate and hand off to the user. Never run the gate on a lesser model, and never skip past an unrun gate.
 
 ---
 
@@ -116,15 +118,28 @@ At the top of each outer-loop iteration:
 
 1. Read `docs/plans/development-roadmap.md`.
 2. Identify the current "Next Immediate Step".
-3. Find its linked plan in `docs/plans/`.
-4. Determine if the item is **yolo-able**:
+3. **If the item is a PHASE GATE marker** (an item titled `PHASE GATE: <phase name>`): run the phase gate per Step 1b, then loop back to Step 1.
+4. Find its linked plan in `docs/plans/`.
+5. Determine if the item is **yolo-able**:
    - Has a concrete plan file with checkbox steps
    - No "needs human input" / "decision required" / "do not auto-implement" markers
    - No `(don't plan this part)` or "manual" tags
-5. **If not yolo-able:** Skip to Step 7 (Wrap Up). Beast mode ends cleanly with a report of what got done and what got skipped and why.
-6. **If yolo-able:** Proceed to Step 2.
+6. **If not yolo-able:** Skip to Step 7 (Wrap Up). Beast mode ends cleanly with a report of what got done and what got skipped and why.
+7. **If yolo-able:** Proceed to Step 2.
 
 If `$ARGUMENTS` was provided on the initial invocation, use it ONLY to pick the first item; subsequent iterations always read fresh from the roadmap.
+
+---
+
+## Step 1b: Run the Phase Gate (PHASE GATE markers only)
+
+The phase-gate audit verifies that the just-completed phase delivered its plans' promises before beast mode rolls into the next phase. It runs at Fable tier, independently, against merged main.
+
+1. Announce: `⏳ PHASE GATE reached: <phase name> - spawning Fable audit`
+2. Spawn a fresh-context subagent via the Agent tool with `model: "fable"`, instructing it to follow `~/.claude/commands/phasegate.md` for the named phase (audit only; it must not fix code). If the fable model override is unavailable or the spawn fails on model grounds: STOP the entire run (safety rule 10) and report `🛑 Phase gate requires a Fable-tier audit - run /phasegate in a Fable session, then re-run /beastmode.`
+3. Commit the gate report the audit produces (under `docs/assessments/`) on main; push in PR mode.
+4. **Verdict PASS (or PASS_WITH_FINDINGS with nothing above low severity):** mark the PHASE GATE item complete in the roadmap, commit (`Phase gate passed: <phase name>`), announce `✅ Phase gate PASSED: <phase name>`, and loop back to Step 1 to start the next phase.
+5. **Verdict with medium+ findings or FAIL:** announce `🛑 Phase gate found issues: <phase name> (<count> findings)`, STOP the entire beast mode run, and present the fix list. Architectural findings are planned in a `/gameplan` session (Fable), never auto-fixed by the implementation model.
 
 ---
 
@@ -204,7 +219,7 @@ This is the heart of beast mode. Iterate until the review is clean.
 
 ### 4a: Spawn the Review Subagent
 
-Launch a fresh subagent via the Agent tool with `subagent_type: "general-purpose"` (or a dedicated reviewer if one exists). The subagent has NO conversation history. Brief it completely.
+Launch a fresh subagent via the Agent tool with `subagent_type: "general-purpose"` (or a dedicated reviewer if one exists) and `model: "opus"`. Pin the reviewer model explicitly: review quality must not float with whatever model happens to be driving the session. The subagent has NO conversation history. Brief it completely.
 
 **Prompt template for the review subagent:**
 
@@ -222,7 +237,7 @@ You are a senior staff engineer doing an independent code review of a feature br
 2. **Scale & performance**: N+1 queries, unbounded loops, memory issues, blocking I/O, missing indexes
 3. **Plan & architecture adherence**: does this implement what the plan said? Does it fit the existing architecture? Does it duplicate work or reinvent existing utilities?
 4. **Code quality & best practices**: naming, separation of concerns, error handling, dead code, premature abstraction
-5. **Test coverage**: new behavior has tests; bug fixes have a failing-then-passing test per the project's TDD policy in CLAUDE.md
+5. **Test coverage**: new behavior has tests; bug fixes have a failing-then-passing test per the project's TDD policy in CLAUDE.md. The bar: new modules/packages carry unit tests; every user-visible or lifecycle behavior touched has an end-to-end/conformance test where the project has such a suite; overall coverage must not decrease. Cite specific untested paths, not "add more tests"
 6. **Docs & artifacts**: README, CLAUDE.md, run script, plan file, roadmap all reflect the change
 
 ## How to investigate
@@ -271,6 +286,13 @@ Brief, specific positives (helps calibrate). Optional.
 - **NEEDS_CHANGES**: Announce `⚠️  Review pass <N>: NEEDS_CHANGES (<count> findings)`. Proceed to Step 4d.
 - **BLOCKED**: Announce `🛑 Review pass <N>: BLOCKED`. STOP the entire beast mode run. Report the blocker.
 
+### 4c-2: Fable Security Pass (security-sensitive changes only)
+
+When the review loop exits CLEAN or MINOR_ONLY, check whether the branch touches the security surface: authn/authz, permission or privilege modes, trust boundaries or prompt/contract composition, tenant or data isolation, secret handling, subprocess/argv construction, file permissions, or parsing of untrusted content.
+
+- **Not touched:** proceed as normal.
+- **Touched:** run ONE additional review pass by spawning a fresh subagent per 4a but with `model: "fable"` and a prompt focused solely on security (adversarial mindset: injection, privilege escalation, path traversal, TOCTOU, data leakage; same strict output format). Findings feed 4d like any review pass. If the fable model override is unavailable: do NOT merge this feature; STOP the run and report that a Fable security review is pending (safety-rule-10 spirit: security review never silently degrades).
+
 ### 4d: Fix the Findings
 
 For each actionable finding (critical / high / medium):
@@ -288,7 +310,7 @@ git push
 
 Go back to 4a with a fresh subagent. Repeat until CLEAN or MINOR_ONLY.
 
-**Safety cap:** If the review loop runs more than 5 passes on a single feature without converging, STOP and report. Something is wrong; a human needs to look.
+**Safety cap:** If the review loop runs more than 5 passes on a single feature without converging, STOP and report, and recommend escalating to a Fable session: a non-converging review loop usually signals an architectural misunderstanding in the plan or the code, not a bug the implementation model can patch its way out of.
 
 ---
 
@@ -342,7 +364,7 @@ When a check fails:
 
 ### 4.5d: Fix, Push, Re-wait
 
-1. Implement the fix on the same feature branch.
+1. Diagnose to the root cause before fixing: reproduce the failure, form a hypothesis, and confirm it with evidence from the logs and code. Do not shotgun speculative fixes to "see if CI likes this one." Then implement the fix on the same feature branch.
 2. If a new bug was uncovered, follow CLAUDE.md TDD policy: write the failing test first, then fix.
 3. Commit:
    ```bash
@@ -368,7 +390,7 @@ If the failure looks like infrastructure or flake (network timeout to package mi
 ### 4.5f: Safety Caps
 
 - **CI fix attempts per PR: 5** (matches the review-loop cap). If beast mode pushes 5 rounds of CI fixes and still can't get green, STOP and report.
-- **Combined cap (review + CI):** if the combined number of "fix and retry" rounds (review fixes + CI fixes) on a single PR exceeds **8**, STOP. The PR has fundamental issues that need a human.
+- **Combined cap (review + CI):** if the combined number of "fix and retry" rounds (review fixes + CI fixes) on a single PR exceeds **8**, STOP, and recommend escalating to a Fable session; repeated non-convergence usually means the plan or architecture needs rework, not more patches.
 - **Hard wall-clock cap per PR: 4 hours** from PR open to merge. If the PR can't be merged within 4 hours, STOP and report. (Most PRs will finish in under 60 minutes; this is a guardrail against silent infinite loops.)
 
 ### 4.5g: Re-trigger Review if Code Changed Significantly
@@ -449,7 +471,9 @@ Reached when:
 - The next roadmap item is not yolo-able, OR
 - The roadmap has no more "Upcoming" items, OR
 - A safety rule fired and stopped the loop, OR
-- The review loop hit the 5-pass cap on some feature.
+- The review loop hit the 5-pass cap on some feature, OR
+- A phase gate returned findings (the fix list is in the gate report), OR
+- A phase gate could not run at Fable tier.
 
 Output a final report:
 
@@ -471,6 +495,11 @@ Roadmap state:
 Review activity:
   Total review passes: <N>
   Features that needed >1 review pass: <list>
+  Fable security passes run: <N or 0>
+
+Phase gates:
+  Gates processed: <N> (<phase name>: <verdict>, ...)
+  Pending gate: <none | "<phase name>" - run /phasegate in a Fable session>
 
 Anything skipped or deferred:
   - <item> (<why>)
