@@ -56,6 +56,7 @@ Read the roadmap and display a summary:
 
 **Upcoming:**
 - List each upcoming item with [Plan Ready] or [Needs Planning] indicator
+- Items titled `PHASE GATE: <name>` are phase boundaries, not features: they are processed by /phasegate (auto-run by /beastmode and /yolo wrap-up; offered by /booyah). Show them as [Phase Gate] with no planning indicator.
 
 **Recently Completed:** (if any)
 - List recent completions
@@ -86,8 +87,8 @@ Ask the user:
 
 **If user picks an item without a plan:**
 - Tell them: "This item needs a plan first."
-- Ask: "Ready to create the plan? I'll use the /plan workflow."
-- If yes, begin the /plan workflow
+- Ask: "Ready to create the plan? I'll use the /gameplan workflow."
+- If yes, begin the /gameplan workflow
 
 **If user wants to add a new item:**
 - Ask what the new item is and a brief description

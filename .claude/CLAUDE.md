@@ -22,19 +22,25 @@ I have custom slash commands for a structured development workflow:
 | Command | When to Suggest |
 |---------|-----------------|
 | `/roadmap` | At session start, or when asking "what should I work on?" |
-| `/plan <feature>` | When starting a new feature that needs planning |
+| `/gameplan <feature>` | When starting a new feature that needs planning (formerly `/plan`, which still works as an alias) |
 | `/booyah` | When ready to implement a planned feature, or after testing a step |
+| `/yolo` | To implement a whole trusted plan unattended; re-run after testing to merge and wrap up |
+| `/beastmode` | To chew through the whole roadmap unattended with review loops and phase gates |
+| `/phasegate` | After a phase's features are merged, to audit that the phase delivered its promises |
+
+Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
 ### Workflow
 1. `/roadmap` → View what's next, pick something to work on
-2. `/plan` → Create detailed plan with checkboxes (if not already planned)
+2. `/gameplan` → Create detailed plan with checkboxes (if not already planned)
 3. `/booyah` → Execute plan step-by-step (implement → test → commit → repeat)
 
 ### Proactive Suggestions
 - If I mention wanting to start something new → suggest `/roadmap`
-- If discussing a feature that needs planning → suggest `/plan`
+- If discussing a feature that needs planning → suggest `/gameplan`
 - If a plan exists and I say "let's do it" or "ready to implement" → suggest `/booyah`
 - After I test something and say it works → remind me to run `/booyah` to commit and continue
+- After `/yolo` manual testing passes → remind me that re-running `/yolo` merges and wraps up
 
 ## Scope
 - Make minimal, targeted changes; don't touch unrelated code

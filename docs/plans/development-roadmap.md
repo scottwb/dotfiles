@@ -25,32 +25,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Review and baseline the Servanda suite overhaul
-
-**Thread:** Servanda
-
-**Goal:** Review the 2026-07-05 command-kit overhaul (~1,400 lines across ten files, still uncommitted), then land it as seven commits. Scott explicitly wants to review the current state, and likely work on these files further, before they get baselined.
-
-**Plan:** [servanda-suite-baseline.md](servanda-suite-baseline.md)
-
-**Status:** STILL HELD on Scott's read-through of the files. **Do not commit.**
-
-Two gates, do not confuse them:
-
-- **Design questions: CLEARED 2026-07-29.** All five settled with reasoning, rejected alternatives, and consequences recorded in the plan's "Review first" section. Q1 keep the 4-state /yolo, Q2 keep the model pins (they are already provider-agnostic tier aliases) with STOP-not-degrade, Q3 keep all four safety caps, Q4 fix booyah to ask on first invocation only, Q5 baseline separately rather than folding into the rename.
-- **Scott's read-through of the ten files: STILL OPEN.** Answering the design questions did not clear this. The decisions say what shape the suite should have; they do not certify the working tree implements that shape.
-
-**Sequence decided in Q5:** baseline the suite, then [the review fixes](servanda-review-fixes.md), then acceptance testing, then the rename. Rationale: 1,400 lines currently exist only in the working tree, so getting them into git beats a cleaner history. Accepted cost: four files get touched in three passes.
-
-This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires.
-
----
-
-## Upcoming
-
-Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
-new items for them go here with a **Thread:** tag like everything else.
-
 ### Apply the Servanda review fixes
 
 **Thread:** Servanda
@@ -59,21 +33,16 @@ new items for them go here with a **Thread:** tag like everything else.
 
 **Plan:** [servanda-review-fixes.md](servanda-review-fixes.md)
 
-**Status:** Blocked on the suite baseline landing first. Four steps, four commits, all small.
+**Status:** Unblocked as of 2026-07-30, the suite baseline has landed. Four steps, four commits, all small.
 
-Deliberately sequenced BEFORE acceptance testing so testing does not exercise code already known to be wrong. Step 4 is the fix for a real failure hit on 2026-07-29, not an inspection finding: `/booyah` could not be used to land the baseline commits because it would have swept the held suite into one commit.
+Deliberately sequenced BEFORE acceptance testing so testing does not exercise code already known to be wrong. Step 4 is the fix for a real failure hit on 2026-07-29: `/booyah` could not be used to land the baseline commits because it would have swept the held suite into one commit. Note the irony to avoid, which the plan also states: do not use `/booyah` to run that plan until step 4 has landed.
 
-### Decide the Claude Code session model pin
+---
 
-**Thread:** Servanda (settings, not commands)
+## Upcoming
 
-**Goal:** Settle whether `.claude/settings.json` should keep its pinned `"model": "claude-fable-5[1m]"` or run unpinned. The working tree currently has the pin REMOVED along with three cosmetic prefs (`cleanupPeriodDays: 90`, `theme: dark`, `agentPushNotifEnabled: false`), all uncommitted and held on purpose.
-
-**Status:** Held, no plan needed. This is a one-file decision, not a feature.
-
-Context for the decision: the kit does not depend on the session model, since it spawns subagents with explicit `model: "fable"` and `model: "opus"` overrides, so unpinning does not weaken the Fable-tier gate rules. The question is purely what you want driving interactive sessions by default. Worth deciding alongside the suite review, since the model pins are one of that review's open questions.
-
-If the answer is "unpin," this can land as one commit (`Settings: unpin the model, extend cleanup retention to 90 days, record UI prefs`), or two if you want the behavior change findable separately from the cosmetics.
+Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
+new items for them go here with a **Thread:** tag like everything else.
 
 ### Acceptance-test the Servanda kit
 
@@ -83,7 +52,7 @@ If the answer is "unpin," this can land as one commit (`Settings: unpin the mode
 
 **Plan:** [command-kit-overhaul.md](command-kit-overhaul.md)
 
-**Status:** Blocked on the suite baseline AND [the review fixes](servanda-review-fixes.md) landing first (nothing to test against until the suite is committed, and no point exercising code the review already flagged as wrong). Then deliberately opportunistic. Tier 0 is ~5 minutes and needs no project; run it as soon as the fixes land. Tiers 1 through 3 need one real small feature in a low-stakes repo; Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
+**Status:** Suite baseline landed 2026-07-30, so the only remaining blocker is [the review fixes](servanda-review-fixes.md) (no point exercising code the review already flagged as wrong). Then deliberately opportunistic. Tier 0 is ~5 minutes and needs no project; run it as soon as the fixes land. Tiers 1 through 3 need one real small feature in a low-stakes repo; Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
 
 **Ordering decision (2026-07-29):** test BEFORE the rename below, even though the rename touches every command the checklist names. The rename is a mechanical layer on top; verifying behavior first and then renaming is cheaper than verifying a spec that is about to be renamed. Accept that a name sweep of the checklist follows the rename.
 
@@ -151,6 +120,26 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 ---
 
 ## Completed
+
+### Baseline the Servanda suite overhaul (2026-07-30)
+
+**Thread:** Servanda
+
+**Plan:** [servanda-suite-baseline.md](servanda-suite-baseline.md)
+
+Seven commits, `5ceaeca` through `08dbbb2`, on `feature/servanda-suite-baseline`, merged to master with full history. The 2026-07-05 overhaul (~1,400 lines across ten files) had existed only in the working tree for 25 days and is now in git: the /gameplan rename, the /yolo state machine, /phasegate, PHASE GATE awareness in /booyah and /roadmap, the /beastmode hardening, COMMANDS.md with /workflow-help, and the CLAUDE.md workflow table.
+
+Both gates cleared: the five design questions on 2026-07-29, and Scott's read-through of the diffs on 2026-07-30. Every commit staged explicitly by path, never `git add -A`.
+
+### Decide the Claude Code session model pin (2026-07-30)
+
+**Thread:** Servanda (settings, not commands)
+
+**Decided: keep the pin.** `.claude/settings.json` retains `"model": "claude-fable-5[1m]"`. An earlier working-tree state had removed it; that removal was reverted rather than committed, so `23706ca` landed only the three cosmetic preferences (`cleanupPeriodDays: 90`, `theme: dark`, `agentPushNotifEnabled: false`) and changed no behavior.
+
+The parked `x-env` / `x-model` / `x-instructions` Ollama block stays untouched until its replacement is proven in separate work. It reads like cruft and is not.
+
+Note this is the SESSION model only. It is independent of the suite's spawn-site tier pins, which resolve through `ANTHROPIC_DEFAULT_*_MODEL` (see Q2 in the suite plan).
 
 ### Land the independent baseline commits (2026-07-29)
 

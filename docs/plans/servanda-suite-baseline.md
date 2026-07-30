@@ -1,28 +1,29 @@
 # Plan: Review and Baseline the Servanda Suite Overhaul
 
-**Status:** STILL HELD. **Do not commit anything in this plan until Scott has read
-through the files themselves and says go** (reaffirmed 2026-07-29).
-
-Two separate gates, do not confuse them:
+**Status:** COMPLETE, 2026-07-30. Both gates cleared, all eight steps landed.
 
 | Gate | State |
 |---|---|
 | The five design questions below | CLEARED 2026-07-29, all five decided with reasoning recorded |
-| Scott's read-through of the ten files | **STILL OPEN.** Nothing commits until this clears. |
+| Scott's read-through of the ten files | CLEARED 2026-07-30: "I have read the diffs and approve of them all" |
 
-Answering the design questions did not clear the review. Scott explicitly wants to
-read the current state, and may work on these files further, before they are
-baselined. The design decisions tell you *what shape* the suite should have; they do
-not certify that what is in the working tree actually implements that shape.
+Landed as seven commits, `5ceaeca` through `08dbbb2`, on branch
+`feature/servanda-suite-baseline`, merged to master with full history. Each step
+records its SHA under **Landed:**. Unpushed at time of completion; pushing is
+Scott's call.
 
-This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires,
-and it gates [command-kit-overhaul.md](command-kit-overhaul.md) acceptance
-testing.
+The 1,400 lines that existed only in the working tree since 2026-07-05 are now in
+git. Every commit was staged explicitly by path, never with `git add -A`, and
+`.claude/CLAUDE.md` was verified to carry only its workflow-table hunk before
+staging.
 
-## What is held
+**Next:** [servanda-review-fixes.md](servanda-review-fixes.md), then acceptance
+testing in [command-kit-overhaul.md](command-kit-overhaul.md), then
+[command-suite-rename.md](command-suite-rename.md).
 
-The 2026-07-05 command-kit overhaul, code-complete and never committed. All of it
-is sitting uncommitted in the working tree; the only copy is the tree itself.
+## What was held (now landed)
+
+The 2026-07-05 command-kit overhaul, code-complete and uncommitted for 25 days.
 
 | File | State | Change |
 |---|---|---|
@@ -231,13 +232,15 @@ then test.
 
 ## Step 1: Rename /plan to /gameplan, keep /plan as a deprecated alias
 
-- [ ] Test-first: n/a (command specs)
-- [ ] `commands/gameplan.md` (new) carries the planning flow, now TDD-shaped with
+- [x] Test-first: n/a (command specs)
+- [x] `commands/gameplan.md` (new) carries the planning flow, now TDD-shaped with
       **Satisfies:** citations
-- [ ] `commands/plan.md` reduced to a 7-line alias stub that emits a one-time FYI
+- [x] `commands/plan.md` reduced to a 7-line alias stub that emits a one-time FYI
       then defers
 
 Motivation: `/plan` collided with Claude Code's built-in plan mode.
+
+**Landed:** `5ceaeca`
 
 **File(s):** `.claude/commands/gameplan.md`, `.claude/commands/plan.md`
 
@@ -253,17 +256,19 @@ head -2 .claude/commands/gameplan.md .claude/commands/plan.md
 
 ## Step 2: Rewrite /yolo as a re-invocation state machine
 
-- [ ] Test-first: n/a (command specs)
-- [ ] Four states keyed off observable git and plan state (fresh run, resume, fix
+- [x] Test-first: n/a (command specs)
+- [x] Four states keyed off observable git and plan state (fresh run, resume, fix
       round, wrap-up), `/yolo done` to force wrap-up, merge and roadmap update
       and phase gate at wrap-up
-- [ ] Safety rules generalized: prod-affecting integrations rather than Harvest
+- [x] Safety rules generalized: prod-affecting integrations rather than Harvest
       specifically; STOP on unresolvable failures instead of noting and
       continuing
 
 The largest single behavior change in the batch (+277/-162). The key idea: the
 user re-invoking `/yolo` on a complete clean branch IS the approval signal, the
 same grammar `/booyah` already used per step.
+
+**Landed:** `1df8bdc`
 
 **File(s):** `.claude/commands/yolo.md`
 
@@ -279,11 +284,13 @@ grep -c "State [1-4]" .claude/commands/yolo.md
 
 ## Step 3: Add /phasegate
 
-- [ ] Test-first: n/a (command specs)
-- [ ] `commands/phasegate.md` (new): Fable-tier audit of a completed phase, walks
+- [x] Test-first: n/a (command specs)
+- [x] `commands/phasegate.md` (new): Fable-tier audit of a completed phase, walks
       every plan step's **Satisfies:** citation against real code,
       security-surface triage, verdict plus fix list to
       `docs/assessments/phasegate-<slug>.md`, audit only, never fixes code
+
+**Landed:** `5b5e460`
 
 **File(s):** `.claude/commands/phasegate.md`
 
@@ -299,11 +306,13 @@ grep -n "docs/assessments" .claude/commands/phasegate.md
 
 ## Step 4: Teach /booyah and /roadmap about PHASE GATE markers
 
-- [ ] Test-first: n/a (command specs)
-- [ ] `/booyah` step 5 asks (never auto-fires) when a completed plan promotes a
+- [x] Test-first: n/a (command specs)
+- [x] `/booyah` step 5 asks (never auto-fires) when a completed plan promotes a
       `PHASE GATE:` marker, spawning the gate at Fable tier
-- [ ] `/roadmap` shows gate items as `[Phase Gate]` with no planning indicator,
+- [x] `/roadmap` shows gate items as `[Phase Gate]` with no planning indicator,
       and routes to `/gameplan`
+
+**Landed:** `f9837b5`
 
 **File(s):** `.claude/commands/booyah.md`, `.claude/commands/roadmap.md`
 
@@ -318,16 +327,18 @@ grep -n "PHASE GATE" .claude/commands/booyah.md .claude/commands/roadmap.md
 
 ## Step 5: Harden /beastmode
 
-- [ ] Test-first: n/a (command specs)
-- [ ] Review subagents pinned to `model: "opus"` so review quality does not float
+- [x] Test-first: n/a (command specs)
+- [x] Review subagents pinned to `model: "opus"` so review quality does not float
       with the session model
-- [ ] Automatic Fable phase gates at `PHASE GATE:` markers (step 1b), with safety
+- [x] Automatic Fable phase gates at `PHASE GATE:` markers (step 1b), with safety
       rule 10: Fable tier or STOP, never a lesser model, never skip an unrun gate
-- [ ] Step 4c-2 Fable security pass when the branch touches the security surface
-- [ ] Root-cause-before-fixing rule for CI failures (no shotgun "see if CI likes
+- [x] Step 4c-2 Fable security pass when the branch touches the security surface
+- [x] Root-cause-before-fixing rule for CI failures (no shotgun "see if CI likes
       this one"), coverage-bar language in the review prompt, cap breaches
       recommend escalating to a Fable session, wrap-up report accounts for gates
       and security passes
+
+**Landed:** `4b5a853`
 
 **File(s):** `.claude/commands/beastmode.md`
 
@@ -343,11 +354,13 @@ grep -n "Step 1b\|4c-2" .claude/commands/beastmode.md
 
 ## Step 6: Add COMMANDS.md contract reference and /workflow-help
 
-- [ ] Test-first: n/a (docs)
-- [ ] `.claude/COMMANDS.md` (new): the autonomy ladder table, shared conventions,
+- [x] Test-first: n/a (docs)
+- [x] `.claude/COMMANDS.md` (new): the autonomy ladder table, shared conventions,
       per-command "does / does not" contracts, typical flows
-- [ ] `commands/workflow-help.md` answers questions from it on demand, so
+- [x] `commands/workflow-help.md` answers questions from it on demand, so
       contracts never sit in standing context
+
+**Landed:** `79fbcba`
 
 **File(s):** `.claude/COMMANDS.md`, `.claude/commands/workflow-help.md`
 
@@ -363,17 +376,19 @@ grep -n "Autonomy Ladder" .claude/COMMANDS.md
 
 ## Step 7: Update global CLAUDE.md for the expanded suite
 
-- [ ] Test-first: n/a (docs)
-- [ ] Workflow table gains `/yolo`, `/beastmode`, `/phasegate`; `/plan` becomes
+- [x] Test-first: n/a (docs)
+- [x] Workflow table gains `/yolo`, `/beastmode`, `/phasegate`; `/plan` becomes
       `/gameplan`; pointer to `COMMANDS.md` with an explicit "do not load
       preemptively"; proactive-suggestion trigger for the `/yolo` wrap-up
-- [ ] **Stage the workflow-table change only.** By the time this step runs,
+- [x] **Stage the workflow-table change only.** By the time this step runs,
       [land-baseline-commits.md](land-baseline-commits.md) steps 5 and 6 have
       already committed the other two changes to this file (the Writing Style
       enforce-forward clause and the `## Secrets` section), so a plain `git add`
       should be safe. Verify that with `git diff .claude/CLAUDE.md` before
       relying on it: that file is edited often, and a new unrelated change may
       have appeared since. If one has, use `git add -p` and select by content.
+
+**Landed:** `08dbbb2`
 
 **File(s):** `.claude/CLAUDE.md`
 
@@ -391,10 +406,12 @@ grep -nE "gameplan|phasegate|beastmode" .claude/CLAUDE.md
 
 ## Step 8: Flip the acceptance test plan to live
 
-- [ ] Test-first: n/a (docs)
-- [ ] Update [command-kit-overhaul.md](command-kit-overhaul.md): batch committed,
+- [x] Test-first: n/a (docs)
+- [x] Update [command-kit-overhaul.md](command-kit-overhaul.md): batch committed,
       testing IN PROGRESS
-- [ ] Keep every unchecked tier item as-is: they are the live test plan
+- [x] Keep every unchecked tier item as-is: they are the live test plan
+
+**Landed:** `(this commit)`
 
 **File(s):** `docs/plans/command-kit-overhaul.md`
 
