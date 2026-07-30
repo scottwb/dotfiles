@@ -90,19 +90,19 @@ The cheapest possible gate. Free, local, no routing, no key, no server. Every
 context-budget decision downstream depends on this number, and it is currently a
 guess.
 
-- [ ] Write the failing test first: there is no recorded number for the upfront
+- [x] Write the failing test first: there is no recorded number for the upfront
       MCP tool schema cost. Create `docs/assessments/mcp-schema-budget.md` with
       the measurement table empty and the three threshold questions unanswered.
       The "test" fails while the table has no numbers in it.
-- [ ] Launch a normal Anthropic session with tool search forced off:
+- [x] Launch a normal Anthropic session with tool search forced off:
       `ENABLE_TOOL_SEARCH=false claude`
-- [ ] Run `/context` and record total tool-schema tokens, plus the per-server
+- [x] Run `/context` and record total tool-schema tokens, plus the per-server
       breakdown if shown
-- [ ] Repeat with `ENABLE_CLAUDEAI_MCP_SERVERS=false` to get the cost of the nine
+- [x] Repeat with `ENABLE_CLAUDEAI_MCP_SERVERS=false` to get the cost of the nine
       self-configured servers alone, without the claude.ai connectors
-- [ ] Record a third number with Trello and Google Docs disabled, since those two
+- [x] Record a third number with Trello and Google Docs disabled, since those two
       are roughly half the tool count
-- [ ] Verify green: the table has all three numbers, and each threshold question
+- [x] Verify green: the table has all three numbers, and each threshold question
       below is answered yes or no
 
 **Threshold questions this step must answer:**
@@ -110,9 +110,14 @@ guess.
 1. Does the full set fit comfortably inside `glm-4.7-flash`'s window (198K if the
    Modelfile is fixed) with room left for actual work? If no, routed Ollama
    sessions need a trimmed MCP set.
+   **ANSWERED: no.** 105.5k MCP on a 49.9k non-MCP floor leaves 42.6k of a 198K
+   window. Routed Ollama needs a trimmed set, which is new scope for Steps 4/5.
 2. Does the full set fit inside a 1M OpenRouter model without meaningful cost?
    Expected yes, which is what makes D5 viable.
+   **Window fit yes (15.5% of 1M). Cost DEFERRED to Gate B Check 6**, since it
+   turns on whether OpenRouter cache-hits the schema block.
 3. Is trimming needed for OpenRouter at all? Expected no.
+   **Not for window fit. Possibly for cost. DEFERRED to Gate B Check 6.**
 
 **Satisfies:** D5. Determines whether a trimmed-MCP design is required, which was
 deliberately deferred pending this measurement.
@@ -121,10 +126,15 @@ deliberately deferred pending this measurement.
 
 **Test:**
 ```bash
-# The measurement itself is the test. Confirm the record exists and is complete:
-test -f docs/assessments/mcp-schema-budget.md && \
-  grep -qE '[0-9]{3,}' docs/assessments/mcp-schema-budget.md && \
-  echo "PASS: budget recorded" || echo "FAIL: no numbers recorded"
+# The measurement itself is the test. Confirm the record exists and is complete.
+# Keyed off the unanswered markers, not a bare digit match: the scaffold carries
+# reference numbers (tool counts, window sizes), so a digit match passes while
+# the table is still empty.
+test -f docs/assessments/mcp-schema-budget.md \
+  && ! grep -q "UNANSWERED" docs/assessments/mcp-schema-budget.md \
+  && ! grep -q "INCOMPLETE" docs/assessments/mcp-schema-budget.md \
+  && echo "PASS: budget recorded and thresholds answered" \
+  || echo "FAIL: gate 0 not resolved"
 ```
 
 **Commit message:** `Measure the upfront MCP schema budget for routed sessions`
@@ -206,7 +216,13 @@ the entire OpenRouter half of the plan.
 - [ ] **Check 5:** confirm whether `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`
       populates `/model` with OpenRouter's catalog. If it works, fewer thin
       wrappers are worth writing.
-- [ ] Verify green: all five checks answered
+- [ ] **Check 6:** resolve Gate 0's deferred Q2 and Q3. Record OpenRouter's input
+      rate for `openai/gpt-5.6-sol`, and confirm on turn two whether the ~105.5k
+      schema block is a cache hit or is re-sent in full. Cached, the schema cost
+      is negligible; uncached, it is the dominant line item and OpenRouter needs
+      the same trimming Ollama does. Write the answers back into
+      `docs/assessments/mcp-schema-budget.md`.
+- [ ] Verify green: all six checks answered, and Gate 0 no longer reads PARTIAL
 
 **If Check 2 fails**, stop and report. Per D5, MCP tool calling is the mission.
 Do not silently narrow the plan to a non-MCP subset; that is Scott's call to make,
