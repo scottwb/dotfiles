@@ -6,12 +6,14 @@ Companion to `.claude/COMMANDS.md`. This is the acceptance checklist for the 202
 
 - Batch applied to `~/src/scottwb/dotfiles/.claude`: 2026-07-05
 - Relocated here from `.claude/COMMANDS-TESTING.md`: 2026-07-29
-- Batch committed: NOT YET. Held on Scott's review of the suite; commits happen via [servanda-suite-baseline.md](servanda-suite-baseline.md)
-- Testing: BLOCKED until the suite is baselined. Tier 0 first once it is; it needs no project.
+- Batch committed: **YES, 2026-07-30**, via [servanda-suite-baseline.md](servanda-suite-baseline.md). Seven commits, `5ceaeca` through `08dbbb2`, on `feature/servanda-suite-baseline` and merged to master.
+- Testing: **LIVE, nothing checked off yet.** Tier 0 first; it needs no project and takes about five minutes.
 
 **This file is no longer a commit gate.** It originally held the batch hostage ("commit when everything is checked"), reversed deliberately on 2026-07-29: the batch gets committed first so the only copy is not the working tree, and testing runs against committed code where findings become fix commits on a known baseline. Rationale in [servanda-suite-baseline.md](servanda-suite-baseline.md) under "Decision: commit before acceptance testing."
 
-The gate that DOES stand is Scott's review of the suite's current state, which is a gate on content rather than on testing. Order: review, then commit, then test.
+Scott's content review of the suite cleared on 2026-07-30 ("I have read the diffs and approve of them all"), which is what unblocked the baseline.
+
+**Run [servanda-review-fixes.md](servanda-review-fixes.md) before working through the tiers below.** Those four fixes address problems the review already found, so testing ahead of them would exercise code known to be wrong.
 
 Philosophy: no throwaway sandbox. Test each behavior the next time real (hobby-grade) work gives you the opportunity. Low-stakes repos are the proving ground; smyk v1 implementation is the graduation exercise, not the test bed.
 
