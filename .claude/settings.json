@@ -41,6 +41,7 @@
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3:30b-a3b",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3:30b-a3b",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3:30b-a3b",
+    "x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME": "The audit tier is deliberately UNMAPPED in this profile. Servanda spawns phase gates and security passes with model 'fable', which resolves through ANTHROPIC_DEFAULT_FABLE_MODEL. Pointing that at a local 30b would silently degrade an adversarial audit, which the STOP-not-degrade rule exists to prevent, so leaving it unmapped is the intended behavior: gates halt loudly under this profile rather than running weak. If you are replacing this profile, DECIDE explicitly. Either map the audit tier to something genuinely strong, or keep it unmapped on purpose and say so. Do not let it fall through unnoticed. See docs/plans/servanda-review-fixes.md step 2.",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "X-CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
     "DISABLE_TELEMETRY": "1",
