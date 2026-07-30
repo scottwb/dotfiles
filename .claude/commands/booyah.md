@@ -37,13 +37,41 @@ Do NOT ask for confirmation before committing. Do NOT ask "are you ready?" - jus
 
 Run `git status` to check if there are uncommitted changes.
 
-**If there ARE uncommitted changes:**
-- This means the previous `/booyah` session completed work that needs committing
-- Proceed to Step 3 (Update Plan) and Step 4 (Commit)
-
 **If there are NO uncommitted changes (clean working tree):**
 - Skip directly to Step 5 (Identify Next Step)
 - The plan's checkboxes already reflect completed work
+
+**If there ARE uncommitted changes, first ask: is this work mine?**
+
+The default assumption is that uncommitted work is the previous `/booyah` step
+finishing, because that is what it usually is. That assumption is only safe once
+this command has actually been running.
+
+- **Second and later invocation in this session** (you already implemented a step
+  in this conversation): the work IS yours. Proceed to Step 3 and Step 4 without
+  asking. This is the common path and it stays frictionless.
+
+- **First invocation in this session** (no active plan yet, fresh conversation, or
+  you have not implemented anything here): do NOT assume. The tree may hold work
+  that has nothing to do with this plan. Show it and ask:
+
+  ```
+  The working tree was already dirty before I started:
+
+    <git status --short output>
+
+  Is this the step to commit, or unrelated work I should leave alone?
+  ```
+
+  Wait for the answer. If the user says it is unrelated: do not commit it, do not
+  stage it, and skip to Step 5 to implement the next step. Leave those files
+  untouched for the rest of the run.
+
+**Why this exists:** committing under a message that describes something else is
+hard to notice and annoying to unpick. This actually happened on 2026-07-29, when
+a tree holding six unrelated concerns plus a deliberately held feature branch's
+worth of work would have been swept into one commit. Running `/booyah` is
+permission to commit YOUR work, not everything present.
 
 ## Step 3: Update the Plan (only if uncommitted changes exist)
 
@@ -53,9 +81,17 @@ Mark the just-completed step as done:
 
 ## Step 4: Commit Changes (only if uncommitted changes exist)
 
-Commit all staged and unstaged changes WITHOUT asking permission:
+Commit the step's work WITHOUT asking permission:
 1. Run `git status` and `git diff` to see what changed
-2. Stage all changes with `git add -A`
+2. Stage it:
+   - **Default:** `git add -A`. Correct when everything dirty is this step's work,
+     which is the normal case once you have been running.
+   - **If Step 2 established that some of the tree is unrelated:** stage the step's
+     files explicitly by path instead, and leave the rest alone. Confirm before
+     committing:
+     ```bash
+     git diff --cached --name-only     # must list ONLY this step's files
+     ```
 3. Write a clear, descriptive commit message that:
    - Summarizes what was done (not just "completed step X")
    - Follows the repo's commit conventions if any

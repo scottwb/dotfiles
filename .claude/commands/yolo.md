@@ -162,10 +162,24 @@ The dirty tree is the just-finished fix work from the user's testing feedback.
 
 1. `git status` and `git diff` to see what changed
 2. Ensure any bug fixed here has its failing-test-first coverage per CLAUDE.md TDD policy
-3. `git add -A` and commit with a message describing the fixes (e.g. `Fix from manual testing: <summary>`)
+3. **Sanity-check the scope before staging.** Read the diff and ask whether all of it
+   plausibly belongs to this plan or the issues the user reported.
+   - Everything fits (the normal case): `git add -A` and commit with a message
+     describing the fixes (e.g. `Fix from manual testing: <summary>`).
+   - Something clearly does not fit (touches files unrelated to the plan, or looks
+     like a different piece of work): name it and ask before including it. Stage the
+     rest explicitly by path if the user says leave it.
 4. Re-present a DELTA testing checklist: only what the fixes affected
 5. Announce: "Fixes committed. Run `/yolo` again when testing passes to merge and wrap up."
 6. STOP.
+
+**Why this is a judgment check and not an unconditional prompt** (unlike `/booyah`
+Step 2, which always asks on first invocation): state 3 is already well narrowed.
+Reaching it requires being on this plan's own feature branch, and state 1 refuses to
+start on a dirty tree, so the branch began clean and was created by this command.
+Dirty work here is nearly always yours or the user's fixes. The residual case is the
+user doing something unrelated on the feature branch between testing rounds, which is
+plausible but uncommon, so it warrants a look rather than a gate.
 
 ---
 
