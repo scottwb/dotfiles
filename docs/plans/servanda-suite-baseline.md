@@ -1,8 +1,19 @@
 # Plan: Review and Baseline the Servanda Suite Overhaul
 
-**Status:** HELD. Do not start committing until Scott has reviewed the suite's
-current state. He explicitly wants to review these files, and likely work on them
-further, before they get baselined (2026-07-29).
+**Status:** STILL HELD. **Do not commit anything in this plan until Scott has read
+through the files themselves and says go** (reaffirmed 2026-07-29).
+
+Two separate gates, do not confuse them:
+
+| Gate | State |
+|---|---|
+| The five design questions below | CLEARED 2026-07-29, all five decided with reasoning recorded |
+| Scott's read-through of the ten files | **STILL OPEN.** Nothing commits until this clears. |
+
+Answering the design questions did not clear the review. Scott explicitly wants to
+read the current state, and may work on these files further, before they are
+baselined. The design decisions tell you *what shape* the suite should have; they do
+not certify that what is in the working tree actually implements that shape.
 
 This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires,
 and it gates [command-kit-overhaul.md](command-kit-overhaul.md) acceptance
@@ -30,36 +41,162 @@ Roughly 1,400 lines across ten files. Zero acceptance testing so far.
 
 ## Review first (the actual gate)
 
-Before any commit below, review the current state. Open questions worth deciding
-during the review, all of which are cheaper to change before baselining than
-after:
+Before any commit below, review the current state. Questions worth deciding during
+the review, all cheaper to change before baselining than after. Answers recorded
+as they are settled (review session 2026-07-29).
 
-- **Is the `/yolo` 4-state machine the right shape?** It is the largest behavior
-  change in the batch. States are keyed off observable git and plan state (fresh
-  run, resume, fix round, wrap-up), with re-invocation as the approval signal.
-- **Are the model pins right?** Review subagents pinned to Opus, phase gates and
-  security passes pinned to Fable with STOP-rather-than-degrade. These interact
-  with the held `settings.json` model-unpin decision.
-- **Are the safety caps right?** 5 review passes, 5 CI fix attempts, 8 combined,
-  4-hour wall clock per PR.
-- **`/booyah` Step 4's `git add -A` is a footgun** (found 2026-07-29 while trying
-  to use `/booyah` to land the baseline commits). Step 2 treats any dirty tree as
-  "my previous step's work needs committing," then Step 4 stages with `git add -A`.
-  Any pre-existing unrelated dirty work therefore gets swept into a step commit
-  with a message describing something else. This is not hypothetical: it is why
-  [land-baseline-commits.md](land-baseline-commits.md) has to be run manually.
-  Candidate fix: stage only the paths in the step's declared **File(s)** line, and
-  refuse to proceed (or ask) when the tree contains modifications outside them.
-  Note `/yolo` shares the shape of this assumption in its state 3 (fix round),
-  which also commits a dirty tree it did not necessarily create; check whether the
-  same fix applies there.
-- **Does the rename land on top cleanly,** or should some of this be folded into
-  the rename rather than committed twice? The rename plan renames every command
-  here. If a file needs substantive rework anyway, doing it as part of the rename
-  may be cheaper than baseline-then-rename.
+### Q1: Is the `/yolo` 4-state machine the right shape? DECIDED: yes, keep as-is
 
-That last question is the one that could restructure this whole plan. Settle it
-during the review.
+States keyed off observable git and plan state, with re-invocation as the approval
+signal, same grammar `/booyah` uses per step:
+
+| Detected state | Condition | Action |
+|---|---|---|
+| 1 fresh run | on main/master | branch, implement all steps, stop with checklist |
+| 2 resume | on plan branch, unchecked steps remain | continue from first unchecked |
+| 3 fix round | on plan branch, all checked, dirty tree | commit fixes, re-list what to retest |
+| 4 wrap-up | on plan branch, all checked, clean tree | MERGE, delete branch, roadmap, gate |
+| STOP | branch matches no plan | refuse the mismatch |
+
+`/yolo done` forces state 4. The command announces the detected state in one line
+before acting.
+
+Considered and rejected: adding a confirmation before the wrap-up merge (breaks the
+"re-invocation IS approval" promise at exactly the rung where unattended behavior
+is the point), and splitting wrap-up into a separate command (loses the "keep
+running /yolo until done" rhythm). Accepted risk: state is inferred rather than
+declared, and the riskiest inference is fix-round vs wrap-up, which turns only on
+whether the tree is dirty. The one-line state announcement is the mitigation, so
+keep it.
+
+### Q2: Are the model pins right? DECIDED: yes, and no new abstraction needed
+
+The pins are already provider-agnostic capability tiers. `model: "fable"` does not
+mean "Anthropic Fable 5"; it means "whatever `ANTHROPIC_DEFAULT_FABLE_MODEL`
+resolves to." All four aliases (haiku, sonnet, opus, fable) have
+`ANTHROPIC_DEFAULT_*_MODEL` remap vars, confirmed present in the CLI binary
+(`strings` on `~/.local/share/claude/versions/2.1.220`, build 2.1.220). The parked
+Ollama profile in `settings.json` already exploits this for haiku/sonnet/opus.
+
+So switching to OpenRouter with GPT-5.6 or Kimi K3 needs only the `env` block
+changed: set `ANTHROPIC_DEFAULT_FABLE_MODEL=openai/gpt-5.6`,
+`ANTHROPIC_DEFAULT_OPUS_MODEL=moonshot/kimi-k3`, and all five spawn sites work
+unchanged. The vendor mapping lives in exactly one place already.
+
+Considered and rejected: a semantic tier layer ("super smart" / "smart") mapped per
+provider, and threading tier params through every spawn site. Both would stack a
+second indirection on one that already ships. The alias names read as vendor names,
+which is what made them look Anthropic-locked, but semantically they are tiers.
+
+**Unavailability: STOP, never degrade** (Scott's call, 2026-07-29: "networks fail,
+Anthropic has a whopping 89% uptime"). Confirmed as written in safety rule 10.
+
+Three follow-ups this decision creates. All three touch `beastmode.md` and
+`phasegate.md`, which is a third argument for folding into the rename (see Q5):
+
+1. **Document that the pins are tiers, not vendors** (one paragraph in
+   `COMMANDS.md` beside the existing verification-tiers line). Without it, a future
+   reader sees `model: "fable"` and concludes the suite is Anthropic-locked, then
+   adds fallback logic that is not needed.
+2. **Fix the parked Ollama profile:** `x-env` remaps haiku, sonnet, and opus but
+   NOT fable. Flipping to Ollama today would leave the audit tier unmapped, which
+   under STOP-not-degrade means a hard halt at every gate. One line, in the held
+   `settings.json`.
+3. **Add a preflight guard** to `/beastmode` preflight and `/phasegate`'s opening
+   check: if `ANTHROPIC_BASE_URL` points at a non-Anthropic host AND the tier alias
+   this step needs is unmapped, STOP and say so rather than guessing. Default when
+   unconfigured is stop-and-ask, consistent with the unavailability rule.
+
+**Still to verify behaviorally:** `strings` proves the env var name is present in
+the binary, not that it is honored as described. The inference is strong (its three
+siblings demonstrably work through the Ollama profile, and the
+`_NAME`/`_DESCRIPTION`/`_SUPPORTED_CAPABILITIES` companions match the supported
+pattern), but set it to something identifiable once and confirm a spawned subagent
+lands on that model before relying on it for gates.
+
+### Q3: Are the safety caps right? DECIDED: keep all four as written
+
+| Cap | Value |
+|---|---|
+| Review passes per feature | 5 |
+| CI fix attempts per PR | 5 |
+| Combined fix rounds per PR | 8 |
+| Wall clock per PR | 4 hours |
+
+Breach behavior stays: STOP and recommend escalating to a Fable session, on the
+theory that a non-converging loop signals a wrong plan or architecture rather than
+code needing another patch. That framing is the actual safety mechanism; the exact
+thresholds matter less than the fact that something stops.
+
+Considered and rejected: logging every breach to build empirical thresholds (real
+value, but it only pays off after several runs and adds an artifact to maintain),
+and dropping the 4-hour wall clock (it is the one cap that can fire on healthy work
+when CI queues are slow, but it is also the only backstop against a stuck loop that
+never trips the count caps).
+
+Acknowledged: these numbers are untested guesses. Accepted deliberately rather than
+deferred. If acceptance testing shows 5 review passes is routinely too few, that is
+a cheap one-line change later.
+
+### Q4: `/booyah` Step 4's `git add -A` is a footgun. DECIDED: ask on first invocation only
+
+Found 2026-07-29 while trying to use `/booyah` to land the baseline commits. Step 2
+treats any dirty tree as "my previous step's work needs committing," then Step 4
+stages with `git add -A`. Any pre-existing unrelated dirty work therefore gets swept
+into a step commit with a message describing something else. This is not
+hypothetical: it is why [land-baseline-commits.md](land-baseline-commits.md) had to
+be run manually.
+
+**Key insight that shapes the fix:** the assumption is CORRECT in the normal case.
+If `/booyah` has been running in this session, a dirty tree genuinely is its own
+work. The bug bites only on the FIRST invocation against a tree that was already
+dirty. So the fix is narrow.
+
+The fix:
+
+- **First invocation of a session, dirty tree:** do NOT assume the work is yours.
+  Show what is dirty and ask whether it is the step to commit or unrelated work to
+  leave alone.
+- **Second and subsequent invocations:** unchanged. `git add -A`, commit, proceed.
+  By then the tree really is booyah's own work, and the no-prompt permission model
+  ("running `/booyah` IS the permission signal") is preserved for the common case.
+
+Considered and rejected: staging only the step's declared **File(s)** paths (real
+regression risk, since plans routinely touch files the File(s) line did not
+anticipate, and those edits would be silently left uncommitted, which is worse than
+a commit with a slightly-off message), and tracking the files booyah itself edited
+(most accurate, but the record does not survive a session restart and booyah is
+designed to resume from cold git state, so it would need the ask-fallback anyway).
+
+**Also apply to `/yolo` state 3 (fix round),** which shares the shape: it commits a
+dirty tree it did not necessarily create. Same narrow fix, same reasoning. Verify
+during implementation whether state 3's branch-match check already narrows it enough
+that the ask is redundant.
+
+### Q5: Fold into the rename, or baseline separately? DECIDED: keep separate, baseline first
+
+Sequence:
+
+1. **Baseline the suite as-is** (this plan, steps 1 through 8)
+2. **Apply the Q2 and Q4 fixes** ([servanda-review-fixes.md](servanda-review-fixes.md))
+3. **Acceptance testing** ([command-kit-overhaul.md](command-kit-overhaul.md))
+4. **Rename** ([command-suite-rename.md](command-suite-rename.md))
+
+The deciding factor: 1,400 lines currently exist only in the working tree. Getting
+them into git today beats a cleaner history later. Secondary: git history then shows
+what the 2026-07-05 overhaul actually was, separately from the mechanical rename,
+and acceptance testing gets a real baseline to sit on.
+
+Accepted cost: `beastmode.md`, `phasegate.md`, `booyah.md`, and `yolo.md` get
+touched in three passes (baseline, fixes, rename), so some diffs are churn. Judged
+worth it. History is verbose but honest.
+
+Considered and rejected: folding the fixes into the rename (known bugs would sit in
+the baseline for however long the rename takes, and acceptance testing would
+exercise code already known to be wrong), and one big pass doing rename plus fixes
+plus first commit together (each file touched once, but nothing is committed until
+all of it is, which is the largest possible risk window for work that has no other
+copy).
 
 ## Execution Instructions (after the review clears)
 

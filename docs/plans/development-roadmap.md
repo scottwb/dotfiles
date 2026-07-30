@@ -33,11 +33,16 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [servanda-suite-baseline.md](servanda-suite-baseline.md)
 
-**Status:** HELD on Scott's review. Do not start committing. The plan's "Review first" section lists the open questions worth settling during that review.
+**Status:** STILL HELD on Scott's read-through of the files. **Do not commit.**
 
-**Decision to make DURING the review, not after (it changes what you are reviewing for):** whether some of this suite rework should be folded into the [Command Suite Rename](command-suite-rename.md) instead of committed twice. The rename touches all ten of these files anyway, so any file needing substantive rework may be cheaper to fix once, as part of the rename, than to baseline now and rewrite later. If the answer is "fold it," the suite-baseline plan shrinks considerably and the rename plan grows. Revisit this the moment the review starts.
+Two gates, do not confuse them:
 
-This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires, and it gates acceptance testing below.
+- **Design questions: CLEARED 2026-07-29.** All five settled with reasoning, rejected alternatives, and consequences recorded in the plan's "Review first" section. Q1 keep the 4-state /yolo, Q2 keep the model pins (they are already provider-agnostic tier aliases) with STOP-not-degrade, Q3 keep all four safety caps, Q4 fix booyah to ask on first invocation only, Q5 baseline separately rather than folding into the rename.
+- **Scott's read-through of the ten files: STILL OPEN.** Answering the design questions did not clear this. The decisions say what shape the suite should have; they do not certify the working tree implements that shape.
+
+**Sequence decided in Q5:** baseline the suite, then [the review fixes](servanda-review-fixes.md), then acceptance testing, then the rename. Rationale: 1,400 lines currently exist only in the working tree, so getting them into git beats a cleaner history. Accepted cost: four files get touched in three passes.
+
+This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires.
 
 ---
 
@@ -45,6 +50,18 @@ This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires
 
 Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
 new items for them go here with a **Thread:** tag like everything else.
+
+### Apply the Servanda review fixes
+
+**Thread:** Servanda
+
+**Goal:** The concrete work that fell out of the 2026-07-29 review: document that model pins are tier aliases rather than vendor lock-in, map (or deliberately refuse) the audit tier in the parked Ollama profile, add a provider preflight guard, and stop `/booyah` and `/yolo` from assuming a pre-existing dirty tree is their own work.
+
+**Plan:** [servanda-review-fixes.md](servanda-review-fixes.md)
+
+**Status:** Blocked on the suite baseline landing first. Four steps, four commits, all small.
+
+Deliberately sequenced BEFORE acceptance testing so testing does not exercise code already known to be wrong. Step 4 is the fix for a real failure hit on 2026-07-29, not an inspection finding: `/booyah` could not be used to land the baseline commits because it would have swept the held suite into one commit.
 
 ### Decide the Claude Code session model pin
 
@@ -66,7 +83,7 @@ If the answer is "unpin," this can land as one commit (`Settings: unpin the mode
 
 **Plan:** [command-kit-overhaul.md](command-kit-overhaul.md)
 
-**Status:** Blocked on the suite baseline above (nothing to test against until the suite is committed, and testing uncommitted work means findings have no baseline to sit on top of). Then deliberately opportunistic. Tier 0 is ~5 minutes and needs no project; run it as soon as the suite lands. Tiers 1 through 3 need one real small feature in a low-stakes repo; Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
+**Status:** Blocked on the suite baseline AND [the review fixes](servanda-review-fixes.md) landing first (nothing to test against until the suite is committed, and no point exercising code the review already flagged as wrong). Then deliberately opportunistic. Tier 0 is ~5 minutes and needs no project; run it as soon as the fixes land. Tiers 1 through 3 need one real small feature in a low-stakes repo; Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
 
 **Ordering decision (2026-07-29):** test BEFORE the rename below, even though the rename touches every command the checklist names. The rename is a mechanical layer on top; verifying behavior first and then renaming is cheaper than verifying a spec that is about to be renamed. Accept that a name sweep of the checklist follows the rename.
 
