@@ -25,29 +25,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Land the independent baseline commits
-
-**Thread:** Shell + Machine setup (plus one Servanda-adjacent doc commit; see the plan's excludes table)
-
-**Goal:** Land the six commits that are independent of the Servanda command suite: repo hygiene, the `docs/plans` relocation, the devcontainer theme fix, two aliases, the emdash rule's going-forward scope, and the 1Password secrets convention. Shrinks the tree so the suite can be reviewed without unrelated diffs in the way.
-
-**Plan:** [land-baseline-commits.md](land-baseline-commits.md)
-
-**Status:** Ready to implement, 6 steps. Every change already exists in the working tree; this is review, group, commit.
-
-**Deliberately excludes** the Servanda suite (held for Scott's review, see next item) and `.claude/settings.json` (held pending the model-pin decision below).
-
-**A clean session picking this up should:** read the plan, run `git status --short` and `git diff` to confirm the tree still matches its "What is in the working tree" table, then walk the steps MANUALLY.
-
-**Do not use `/booyah` for this plan.** It treats a dirty tree as its own previous step's work and stages with `git add -A`, which would sweep the held Servanda suite into the first commit. Stage explicitly per step instead; the plan's Execution Instructions spell this out. Also heed its `.claude/CLAUDE.md` warning: that file carries three changes, two landable and one held, so steps 5 and 6 need `git add -p` with selection by anchor text rather than hunk number. Scott edits that file often, so expect the hunk set to have changed again by the time you read this.
-
----
-
-## Upcoming
-
-Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
-new items for them go here with a **Thread:** tag like everything else.
-
 ### Review and baseline the Servanda suite overhaul
 
 **Thread:** Servanda
@@ -61,6 +38,13 @@ new items for them go here with a **Thread:** tag like everything else.
 **Decision to make DURING the review, not after (it changes what you are reviewing for):** whether some of this suite rework should be folded into the [Command Suite Rename](command-suite-rename.md) instead of committed twice. The rename touches all ten of these files anyway, so any file needing substantive rework may be cheaper to fix once, as part of the rename, than to baseline now and rewrite later. If the answer is "fold it," the suite-baseline plan shrinks considerably and the rename plan grows. Revisit this the moment the review starts.
 
 This is the pre-step [command-suite-rename.md](command-suite-rename.md) requires, and it gates acceptance testing below.
+
+---
+
+## Upcoming
+
+Ordered by priority. The Tools and Terminal & editors threads have nothing queued;
+new items for them go here with a **Thread:** tag like everything else.
 
 ### Decide the Claude Code session model pin
 
@@ -150,6 +134,16 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 ---
 
 ## Completed
+
+### Land the independent baseline commits (2026-07-29)
+
+**Thread:** Shell + Machine setup (plus two Servanda-adjacent doc commits)
+
+**Plan:** [land-baseline-commits.md](land-baseline-commits.md)
+
+Six commits, `d2b612f` through `7aff8a1`: ignore hygiene, the `docs/plans` relocation and roadmap rescope, the devcontainer theme fix, two aliases, the emdash rule's going-forward scope, and the 1Password secrets convention. The Servanda suite was deliberately excluded and stayed untouched.
+
+Two findings worth remembering, both recorded in [servanda-suite-baseline.md](servanda-suite-baseline.md): `/booyah` cannot run a plan like this (its `git add -A` would sweep held work into a step commit), and `.claude/CLAUDE.md` needed per-hunk staging because it accumulates unrelated changes faster than a plan can reference them by number.
 
 ### Kit naming decision (2026-07-29)
 

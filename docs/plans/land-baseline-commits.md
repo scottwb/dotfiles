@@ -1,7 +1,12 @@
 # Plan: Land the Independent Baseline Commits
 
-**Status:** Ready to implement. Six commits, none of which touch the Servanda
-command suite.
+**Status:** COMPLETE, 2026-07-29. All six commits landed, `d2b612f` through
+`7aff8a1`, none of which touched the Servanda command suite. Each step records its
+SHA under **Landed:**. Unpushed at time of completion.
+
+The separation held: every commit was staged explicitly, and the
+`git diff --cached ... grep -c "gameplan"` guard returned 0 on both CLAUDE.md
+commits, with the workflow table left unstaged throughout.
 
 ## Why this plan exists
 
@@ -93,12 +98,12 @@ exact hunks non-interactively by writing them to a patch and using
 
 ## Step 1: Repo hygiene: ignore session junk, anchor the plans rule
 
-- [ ] Test-first: n/a (ignore rules)
-- [ ] Already applied: new root `.gitignore` (`.DS_Store`, `tmp/`)
-- [ ] Already applied: `.claude/.gitignore` gains `sessions/`, `backups/`,
+- [x] Test-first: n/a (ignore rules)
+- [x] Already applied: new root `.gitignore` (`.DS_Store`, `tmp/`)
+- [x] Already applied: `.claude/.gitignore` gains `sessions/`, `backups/`,
       `uploads/`, `image-cache/`, `.last-cleanup`, `.last-update-result.json`,
       `mcp-needs-auth-cache.json`, `plugins/blocklist.json`
-- [ ] Already applied: bare `plans/` anchored to `/plans/`
+- [x] Already applied: bare `plans/` anchored to `/plans/`
 
 Three things this fixes:
 
@@ -114,6 +119,8 @@ Three things this fixes:
    were.
 3. The bare `plans/` rule matched at any depth, which is exactly how
    `.claude/docs/plans/` got silently swallowed (see step 2).
+
+**Landed:** `d2b612f`
 
 **File(s):** `.gitignore`, `.claude/.gitignore`
 
@@ -136,14 +143,14 @@ in `.git/info/exclude` can be trimmed by hand. Harmless if left.
 
 ## Step 2: Move the roadmap and plans to repo-root docs/plans
 
-- [ ] Test-first: n/a (file moves)
-- [ ] Already applied: `development-roadmap.md` and `command-suite-rename.md`
+- [x] Test-first: n/a (file moves)
+- [x] Already applied: `development-roadmap.md` and `command-suite-rename.md`
       moved from `.claude/docs/plans/` to `docs/plans/`; empty `.claude/docs/`
       removed
-- [ ] Already applied: `COMMANDS-TESTING.md` moved from `.claude/` to
+- [x] Already applied: `COMMANDS-TESTING.md` moved from `.claude/` to
       `docs/plans/command-kit-overhaul.md`
-- [ ] Already applied: README note that non-dot top-level dirs are repo-only
-- [ ] Verify the relative links among the plan docs still resolve
+- [x] Already applied: README note that non-dot top-level dirs are repo-only
+- [x] Verify the relative links among the plan docs still resolve
 
 The bug this fixes: `~/.claude` is a symlink to `~/src/scottwb/dotfiles/.claude`,
 so the roadmap used to live *inside* Claude Code's runtime state directory. All
@@ -179,6 +186,8 @@ Upcoming roadmap item. (Checked 2026-07-29: no `servanda` or `servando` repo
 exists locally under `~/src/scottwb` or `~/src/facetdigital`, nor in either
 GitHub org. The name has no code behind it yet.)
 
+**Landed:** `e984666`
+
 **File(s):** `docs/` (all four plan files), `README.md`
 
 **Test:**
@@ -195,13 +204,15 @@ grep -n "repo-only" README.md
 
 ## Step 3: zsh: stop stomping an active theme on Linux
 
-- [ ] Test-first: n/a (shell config; verified by real use)
-- [ ] Already applied: `.zsh/linux` guards the spartan prompt behind
+- [x] Test-first: n/a (shell config; verified by real use)
+- [x] Already applied: `.zsh/linux` guards the spartan prompt behind
       `[ -z "$ZSH_THEME" ]`
 
 Real bug fix, not a preference: the bare-Linux minimal prompt was overwriting
 oh-my-zsh's devcontainers theme inside VS Code devcontainers. Gets its own commit
 because it is the only behavior fix in the shell thread.
+
+**Landed:** `6cb5305`
 
 **File(s):** `.zsh/linux`
 
@@ -217,9 +228,11 @@ zsh -c 'echo "ZSH_THEME=$ZSH_THEME PROMPT=$PROMPT"'
 
 ## Step 4: Add dcsh and pev2-health-check aliases
 
-- [ ] Test-first: n/a (aliases)
-- [ ] Already applied: `dcsh` (shell into the repo's devcontainer) and
+- [x] Test-first: n/a (aliases)
+- [x] Already applied: `dcsh` (shell into the repo's devcontainer) and
       `pev2-health-check` (Heroku daily health check for prepare-enrich)
+
+**Landed:** `f5d33da`
 
 **File(s):** `.zsh/aliases`
 
@@ -234,12 +247,14 @@ source ~/.zsh/aliases && alias dcsh pev2-health-check
 
 ## Step 5: Scope the emdash rule to going-forward only
 
-- [ ] Test-first: n/a (docs)
-- [ ] Already applied: `.claude/CLAUDE.md` `## Writing Style` gains an
+- [x] Test-first: n/a (docs)
+- [x] Already applied: `.claude/CLAUDE.md` `## Writing Style` gains an
       enforce-forward clause: older internal docs keep their emdashes, no cleanup
       sweep, their presence does not mean the rule is dead; fix only in
       client-facing material or incidentally while rewriting a line anyway
-- [ ] **Stage the Writing Style hunk only** via `git add -p .claude/CLAUDE.md`
+- [x] **Stage the Writing Style hunk only** via `git add -p .claude/CLAUDE.md`
+
+**Landed:** `e16e7f0`
 
 **File(s):** `.claude/CLAUDE.md` (partial)
 
@@ -256,17 +271,19 @@ git diff --cached .claude/CLAUDE.md | grep -c "gameplan"          # MUST be 0
 
 ## Step 6: Document the 1Password secret-resolution convention
 
-- [ ] Test-first: n/a (docs)
-- [ ] Already applied: `.claude/CLAUDE.md` gains a `## Secrets` section: resolve
+- [x] Test-first: n/a (docs)
+- [x] Already applied: `.claude/CLAUDE.md` gains a `## Secrets` section: resolve
       runtime secrets via the `op` CLI with TouchID gating, no `.env` files for
       this pattern, hardcoded `readonly` `OP_ACCOUNT`/`OP_REF` constants,
       explicit `--account` because four accounts exist, the four account URLs,
       and the per-repo exception for `harvest-tools`
-- [ ] **Stage the `## Secrets` hunk only** via `git add -p .claude/CLAUDE.md`;
+- [x] **Stage the `## Secrets` hunk only** via `git add -p .claude/CLAUDE.md`;
       leave the Servanda workflow table unstaged
 
 Together with step 5, this is where the held suite doc is most likely to ride
 along by accident. Get the hunk selection right.
+
+**Landed:** `7aff8a1`
 
 **File(s):** `.claude/CLAUDE.md` (partial)
 
