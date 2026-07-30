@@ -105,7 +105,25 @@ Before starting the outer loop, validate the environment ONCE:
    ```
    - Capture for PR assignment.
 
-5. **Final confirmation:**
+5. **Model tier availability:**
+   ```bash
+   echo "base=${ANTHROPIC_BASE_URL:-<anthropic default>}"
+   echo "opus=${ANTHROPIC_DEFAULT_OPUS_MODEL:-<unset>}"
+   echo "fable=${ANTHROPIC_DEFAULT_FABLE_MODEL:-<unset>}"
+   ```
+   The `model:` values this command spawns with are tier aliases, not vendor names (see COMMANDS.md). They resolve through those env vars, so a custom provider needs them mapped.
+
+   - If `ANTHROPIC_BASE_URL` is unset or points at Anthropic: the aliases resolve natively. Proceed.
+   - If `ANTHROPIC_BASE_URL` points at a non-Anthropic host AND either alias above is unset: **STOP before the confirmation prompt.** Do not spawn and hope.
+     ```
+     🛑 Provider is <host> but the <opus|fable> tier is unmapped.
+        This run needs Opus-tier review and Fable-tier gates.
+        Map ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_FABLE_MODEL
+        in settings.json env, then re-run /beastmode.
+     ```
+   - Never guess a model name, and never substitute a lower tier. Unconfigured means stop and ask, the same rule as safety rule 10.
+
+6. **Final confirmation:**
    - Show the user: mode (PR / Local), starting roadmap item, and how many "Upcoming" items follow.
    - Ask: "Engage beast mode? This will run autonomously through these items until done or blocked."
    - Wait for confirmation. **This is the only user prompt in the entire run.**

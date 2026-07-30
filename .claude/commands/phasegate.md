@@ -10,6 +10,23 @@ It runs once per phase, after the phase's features are merged, and its findings 
 
 **Model check:** if you are executing this command and you are not a Fable-tier model, tell the user and ask whether to proceed anyway or defer to a Fable session. Do not silently run a degraded gate.
 
+**Provider check (run this first, before Step 1):** the `model: "fable"` used to spawn this gate is a tier alias, not a vendor name (see COMMANDS.md); it resolves through `ANTHROPIC_DEFAULT_FABLE_MODEL`.
+
+```bash
+echo "base=${ANTHROPIC_BASE_URL:-<anthropic default>}"
+echo "fable=${ANTHROPIC_DEFAULT_FABLE_MODEL:-<unset>}"
+```
+
+If `ANTHROPIC_BASE_URL` points at a non-Anthropic host AND `ANTHROPIC_DEFAULT_FABLE_MODEL` is unset, STOP immediately:
+
+```
+🛑 Provider is <host> but the audit tier is unmapped.
+   Map ANTHROPIC_DEFAULT_FABLE_MODEL in settings.json env,
+   then re-run /phasegate.
+```
+
+Never guess a model name and never fall back to a lower tier. An audit that silently degrades is worse than one that refuses to run, which is the same principle as the model check above.
+
 **Prime directive: audit, do not fix.** The gate reads, verifies, and reports. It never edits product code, tests, or plans. The only files it writes are its report and the roadmap gate-item checkbox.
 
 ## Step 1: Identify the Phase and Gather Inputs
