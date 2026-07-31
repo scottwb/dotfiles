@@ -705,18 +705,37 @@ otherwise be.
 The D9 structure stands: one workhorse plus a small number of named entry points
 for the backends and default models actually reached for daily.
 
-#### Incidental: OpenRouter's catalog and the Claude 5 family
+#### The catalog is ZDR-filtered, and that shapes everything above
 
 The visible Anthropic entries top out at `claude-sonnet-4.5`, `claude-opus-4.1`,
-and `claude-haiku-4.5`, with `:batch` variants. **No Opus 5, Sonnet 5, Fable 5,
-or Haiku 4.5-successor appears** in the visible portion.
+and `claude-haiku-4.5`, with no Claude 5 family present.
 
-This bears on the plan's open question about whether Opus 5 and Fable 5 clear
-OpenRouter's "older than Opus 4.8" gate for deferred tool loading. Suggestive
-rather than conclusive: 23 entries were collapsed behind "+23 models" and were
-not inspected. Low impact either way, since Anthropic models go direct on the Max
-subscription rather than through OpenRouter, where they would be billed per token
-instead.
+**This is not OpenRouter's full catalog.** Zero Data Retention settings are
+enabled on the account, which filters out providers and models that do not offer
+ZDR. The missing newer Claude models are a consequence of that filter, not of
+OpenRouter lacking them. Scott may revisit the ZDR setting later.
+
+Three corrections follow from this:
+
+1. **The ~56 models shown are the ZDR-compatible subset**, not the catalog. Any
+   count or coverage claim based on that list is a claim about the filtered view.
+2. **It says nothing about the tool-loading gate.** An earlier draft of this
+   section read the absence of Opus 5 and Fable 5 as weak evidence about
+   OpenRouter's "older than Opus 4.8" rule for deferred tool loading. That
+   inference was wrong: the models are absent because of ZDR, so the plan's open
+   question on that gate remains open and untested. Low impact either way, since
+   Anthropic models go direct on the Max subscription rather than being billed
+   per token through OpenRouter.
+3. **It constrains the roadmap's model expansion.** The queued follow-on to add
+   `kimi`, `deepseek`, and `qwen` should verify each is ZDR-available before
+   assuming it is reachable. A model in OpenRouter's public catalog is not
+   necessarily in this account's.
+
+ZDR is a deliberate privacy posture consistent with D10's telemetry stance, so it
+should be treated as intended configuration rather than something to work around.
+Worth noting in the README that the reachable model set is account-dependent,
+since a reader on a non-ZDR account will see a different `/model` list from the
+same launcher.
 
 ### Check 6: resolve Gate 0's deferred Q2 and Q3
 

@@ -531,7 +531,12 @@ grep -q "claude-run" README.md && echo "PASS: documented"
 - [ ] Test-first: n/a, roadmap only.
 - [ ] Add: remaining OpenRouter models (`kimi`, `deepseek`, `qwen`, and a decision
       on the `glm` alias collision, since GLM exists on both backends and the alias
-      currently resolves to Ollama)
+      currently resolves to Ollama). **Verify ZDR availability for each first.**
+      Zero Data Retention is enabled on the account, which filters the reachable
+      model set; a model in OpenRouter's public catalog is not necessarily in this
+      account's. Gate B Check 5 also showed this makes wrappers-per-model
+      unnecessary, since gateway discovery reaches the whole filtered catalog
+      in-session, so this item is convenience rather than access.
 - [ ] Add: `ollama-tools` scope reduction, deleting `claude-install` and demoting
       its README's harness support to a mention
 - [ ] Add: launchers for aider, codex, opencode, and pi following this pattern,
