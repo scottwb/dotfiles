@@ -3,8 +3,9 @@
 **Gate:** 0 (of the three gates in [claude-route-launchers.md](../plans/claude-route-launchers.md))
 **Cost:** Free. Local only, no routing, no API key, no server.
 **Measured:** 2026-07-30, on Fable 5 (`claude-fable-5`, 1M window)
-**Status:** ⚠️ **PARTIAL.** Q1 answered. Q2 and Q3 deferred to Gate B, which is
-where the OpenRouter pricing and caching behavior become observable.
+**Status:** ✅ **RESOLVED.** All three threshold questions answered. Q1 on
+2026-07-30 from these measurements; Q2 and Q3 the same day via Gate B Check 6,
+which supplied the OpenRouter caching behavior that could not be observed here.
 
 ---
 
@@ -143,51 +144,52 @@ stays no.
 
 ### Q2. Does the full set fit inside a 1M OpenRouter model without meaningful cost?
 
-- **Status:** DEFERRED to Gate B (Step 3)
-- **Answer so far: fits, cost unknown.**
+- **Status:** ANSWERED, 2026-07-30, by Gate B Check 6
+- **Answer: Yes.**
 
-Window fit is not in question. 155.4k of 1M is 15.5%, leaving 88% free. That
-half of the question is a clear yes.
+Window fit was never in question: 155.4k of 1M is 15.5%, leaving 88% free.
 
-Cost is the open half, and it turns on a single fact that is not observable
-without a key: **does OpenRouter prompt-cache the schema block for
-`openai/gpt-5.6-sol`?**
+Cost was the open half, and it turned on one fact not observable without a key:
+does OpenRouter prompt-cache the schema block? Measured on `openai/gpt-5.6-sol`:
 
-| Caching | What 105.5k costs |
-|---|---|
-| Cached | Paid once at session start. Negligible. |
-| Not cached | Re-sent every turn. A 50-turn session is 5.3M input tokens on schemas alone. |
+```json
+"input_tokens": 34531,
+"cache_read_input_tokens": 29184,
+"cache_creation_input_tokens": 0
+```
 
-That is a difference of roughly fifty times, and it decides whether the answer is
-"rounding error" or "the dominant line item." Answering it by guessing at a
-price would be worse than leaving it open, so it is deferred rather than
-estimated.
+**84.5% served from cache.** OpenAI models cache automatically, with no explicit
+`cache_control` markers, so the launcher does not need to request it. The schema
+block is paid once rather than re-sent every turn, which is the outcome that
+makes D5 viable as designed.
 
-Gate B already requires the key and credit, so this costs nothing extra to
-resolve there. Record the input rate and the cache-hit behavior when running it.
-
-- **Consequence if no:** the OpenRouter half of the plan needs a cost ceiling and
-  a trimmed set, which merges with Q3.
+Observed cost was $0.194907 actual for a two-turn probe, against Claude Code's
+$0.193987 estimate. Not free, but the schema block is not what drives it.
 
 ### Q3. Is trimming needed for OpenRouter at all?
 
-- **Status:** DEFERRED to Gate B (Step 3), follows directly from Q2
-- **Answer so far: not for window fit. Possibly for cost.**
+- **Status:** ANSWERED, 2026-07-30, by Gate B Check 6
+- **Answer: No.** Not for window fit, and not for cost.
 
-The original expectation was a confident no, on the assumption that a 1M window
-makes the question moot. The window reasoning holds. The cost reasoning is the
-one that might flip it, and it is the same uncached-schema scenario as Q2.
+The original expectation of a confident no holds, for the reason expected on
+window fit and for a better reason than expected on cost.
 
-- **Consequence if yes:** trimming stops being an Ollama-only concern. The
-  allowlist mechanism Q1 already forces into Steps 4 and 5 becomes a shared
-  feature of the workhorse rather than a provider-specific branch, which is a
-  cleaner design anyway and argues for building it that way from the start.
+**Design consequence, and it simplifies rather than complicates.** The MCP
+allowlist that Q1 forces into Steps 4 and 5 stays **Ollama-specific** rather than
+becoming a shared feature of the workhorse. The backends genuinely differ:
+
+| | Ollama | OpenRouter |
+|---|---|---|
+| Schema caching | none (`0` / `0`) | 84.5% cache read |
+| Window | 202752 | 1M |
+| Startup at config A | ~8 min | ~5 sec |
+| Trimming needed | **yes** | **no** |
 
 ---
 
 ## Verdict
 
-**Gate 0 passes, with one design change.**
+✅ **Gate 0 passes, with one design change.** Fully resolved 2026-07-30.
 
 What it established:
 
@@ -204,11 +206,13 @@ What it established:
 
 What carries forward:
 
-- Q1's answer changes Step 4. `bin/claude-run` needs a per-model or per-provider
-  MCP allowlist. Build it as a shared mechanism rather than an Ollama special
-  case, since Q3 may pull OpenRouter into it.
-- Q2 and Q3 resolve during Gate B at no extra cost. Record OpenRouter's input
-  rate for `openai/gpt-5.6-sol` and whether the schema block is cache-hit on
-  turn two.
-- Q1's arithmetic assumes a 198K window. Gate A measures the real one. Revise
-  the table above if it differs.
+- Q1's answer changes Step 4. `bin/claude-run` needs an MCP allowlist. Per Q3,
+  build it as an **Ollama-specific** mechanism rather than a shared one:
+  OpenRouter needs no trimming on either window fit or cost.
+- Q1's arithmetic assumed a 198K window. **Gate A confirmed it**: `/api/ps`
+  measures the effective window at 202752. No revision needed.
+- Gate A added a constraint this gate could not see. Cold start on Ollama is
+  dominated by a **fixed ~2 minute cost**, not by prompt size, so trimming helps
+  window fit but will not make routed Ollama sessions feel responsive. Against
+  OpenRouter's 4.9 second time-to-first-token, that is the sharpest practical
+  difference between the backends.

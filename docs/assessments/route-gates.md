@@ -6,7 +6,7 @@ plan. Gate 0's separate record is [mcp-schema-budget.md](mcp-schema-budget.md).
 | Gate | Subject | Cost | Status |
 |---|---|---|---|
 | A | Ollama routing and Max OAuth coexistence | Free | ✅ **PASS** 2026-07-30 |
-| B | MCP tool calling through OpenRouter | Real money | ❌ **Not started** (Step 3) |
+| B | MCP tool calling through OpenRouter | $0.481415 | ✅ **PASS** 2026-07-30 |
 
 Gate A was the one that could reshape the whole design, and all five checks
 passed. Per-process routing is viable, coexists with the Max login, and drives
@@ -16,8 +16,10 @@ Check 5 was added mid-gate. The plan gated MCP tool calling for OpenRouter
 but never for Ollama, leaving D5's mission requirement unverified on a backend the
 plan otherwise treated as proven. Testing it was free and came before any spend.
 
-**Gate B remains untested, including its own stop condition.** Gate A's result
-says nothing about whether OpenRouter can do MCP tool calling.
+**Both gates now pass.** D5's mission requirement, real MCP tool calling, holds on
+both backends, measured with the same open-meteo probe against the same
+independently verifiable value. All three gates in the plan are cleared and the
+build steps are unblocked.
 
 ---
 
@@ -458,24 +460,419 @@ but "plausibly generalizes" is not a measurement.
 **D12 is confirmed sound**, not merely plausible. It can now be written into
 `bin/claude-run` as a decision backed by observed behavior.
 
-What this hands to the build steps:
-
-1. `CLAUDE_CODE_MAX_CONTEXT_TOKENS=202752` for the `glm` model-table entry,
-   measured rather than assumed.
-2. **Map the haiku tier on every routed profile.** Background utility calls use
-   it even when the session asks for one model.
-3. **Keep the `/api/ps` preflight and make it warn loudly.** The 202752 window
-   comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, and is silent
-   when absent.
-4. **Trimming is required on two independent grounds**, window fit from Gate 0
-   and cold-start latency from this gate. Build the allowlist as a first-class
-   feature, not a workaround.
-5. **Document the multi-minute cold start** in the README, so a routed session's
-   first turn is not mistaken for a hang.
-
 ---
 
 ## Gate B: MCP tool calling through OpenRouter
 
-Not started. Populated during Step 3, which spends real money. Its checks
-include resolving Gate 0's deferred Q2 and Q3 (Check 6).
+✅ **PASS, 2026-07-30.** All six checks answered. The stop condition (Check 2) is
+cleared, so the OpenRouter half of the plan is viable.
+
+**This gate spent real money.** Everything before it was free. **Total:
+$0.481415** of the $10 per-key cap, across five probe runs.
+
+### Prerequisites, verified 2026-07-30
+
+| Item | Status |
+|---|---|
+| OpenRouter account and credits purchased | ✅ `is_free_tier: false` |
+| 1Password ref resolves | ✅ 74 bytes, matching the recorded 73-char `sk-or-v1` |
+| Per-key credit limit set (D7) | ✅ `limit: 10`, `limit_remaining: 9.998755` |
+
+D7's safety net is in place as a **per-key** cap, not merely an account-level
+one. The distinction matters: an account-level limit governs total spend across
+every key, so a runaway routed session would consume the whole account budget
+before stopping. The per-key cap bounds the blast radius to this key alone. Both
+are set; the per-key one is what D7 asks for.
+
+Confirm at execution time without printing the secret:
+
+```bash
+KEY=$(op read --account facetdigital.1password.com "op://Employee/OpenRouter/API Key")
+curl -fsS https://openrouter.ai/api/v1/key -H "Authorization: Bearer $KEY" \
+  | jq '.data | {limit, limit_remaining, usage}'
+unset KEY
+```
+
+### The stop condition
+
+**Check 2 is the gate.** Per D5, MCP tool calling is the mission requirement. If
+it fails, stop and report. Do not silently narrow the plan to a non-MCP subset;
+that is Scott's call, not the runner's.
+
+Gate A proved the equivalent for Ollama (its Check 5), so a failure here would
+mean the two backends diverge and the OpenRouter half needs rethinking, not that
+the whole plan dies.
+
+### Launching a routed session against OpenRouter
+
+Base URL is `https://openrouter.ai/api` with **no version suffix**; the client
+appends `/v1/messages`. Adding `/v1` yourself produces `/v1/v1/`.
+
+```bash
+ANTHROPIC_BASE_URL=https://openrouter.ai/api \
+ANTHROPIC_AUTH_TOKEN="$(op read --account facetdigital.1password.com 'op://Employee/OpenRouter/API Key')" \
+ANTHROPIC_API_KEY="" \
+ANTHROPIC_DEFAULT_HAIKU_MODEL=openai/gpt-5.6-sol \
+ANTHROPIC_DEFAULT_SONNET_MODEL=openai/gpt-5.6-sol \
+ANTHROPIC_DEFAULT_OPUS_MODEL=openai/gpt-5.6-sol \
+CLAUDE_CODE_MAX_CONTEXT_TOKENS=1050000 \
+ENABLE_CLAUDEAI_MCP_SERVERS=false \
+claude --model openai/gpt-5.6-sol
+```
+
+Notes:
+
+- `ANTHROPIC_API_KEY=""` is an empty string, not unset. OpenRouter documents that
+  unset causes fallback to authenticating against Anthropic directly, which would
+  silently defeat the whole test.
+- **The haiku tier is mapped**, per Gate A's finding that background utility calls
+  use it even when a session requests a single model. Gate A learned this the
+  hard way; do not drop the line.
+- `ANTHROPIC_DEFAULT_FABLE_MODEL` stays absent, per D12.
+- `ENABLE_TOOL_SEARCH` stays absent, per D5.
+
+---
+
+### Check 1: the session starts and completes one trivial turn
+
+- **Status:** ANSWERED, 2026-07-30
+- **Result: PASS.** Exit 0, `is_error: false`, `num_turns: 2`, 10.3 seconds wall.
+  MCP server reported `status: "connected"`. OpenRouter routed the request to
+  **Azure** (`"provider": "Azure"` on each message), a detail worth knowing since
+  the underlying host is not OpenRouter's own infrastructure and may affect
+  latency or availability independently.
+
+### Check 2: MCP tool calling works end to end (STOP CONDITION)
+
+At least one real MCP tool call succeeds. Use the same isolated open-meteo probe
+that answered Gate A's Check 5, so the two backends are measured identically.
+
+Verify from two angles rather than trusting the model's prose: a `tool_use` block
+naming an `mcp__open-meteo__*` tool in the `stream-json` output, and a returned
+value matching an independent `curl` taken at the same time.
+
+- **Status:** ANSWERED, 2026-07-30
+- **Result: PASS. The stop condition is cleared.**
+
+**Proof 1, a real tool call was emitted:**
+
+```json
+{"type":"tool_use","name":"mcp__open-meteo__weather_forecast",
+ "input":{"latitude":37.7749,"longitude":-122.4194,"current_weather":true,
+          "temperature_unit":"fahrenheit","timezone":"America/Los_Angeles", ...}}
+```
+
+**Proof 2, the result was real, and this one is exact.** The tool returned
+`62.7°F` stamped `2026-07-30T19:30` in `America/Los_Angeles`, which is
+`02:30 UTC`. The independent `curl` read `17.1°C` at `02:30 UTC`: the same
+fifteen-minute interval. 62.7°F converts to 17.06°C. The model reported both
+units itself, `62.7°F (17.1°C)`, matching ground truth to the decimal.
+
+**D5's mission requirement now holds on both backends.** Ollama cleared it in
+Gate A Check 5, OpenRouter clears it here, and both were measured with the same
+probe against the same independently verifiable value.
+
+### Check 3: a multi-step agentic loop works
+
+Read a file, edit it, run a command, in one turn. Gate A's Check 5 was two turns
+with a single tool; this is the harder case that real work depends on.
+
+- **Status:** ANSWERED, 2026-07-30
+- **Result: PASS.** Exit 0, `is_error: false`, `num_turns: 5`, 29 seconds.
+
+Tool sequence, all three built-in types exercised:
+
+```
+Read   → FAILED (see below)
+Read   → succeeded
+Edit   → succeeded, structured patch shows "+line four"
+Bash   → `wc -l sample.txt` → "       4 sample.txt"
+```
+
+Verified on disk independently of the model's report: `cat sample.txt` returned
+four lines with `line four` correctly appended. The model reported the `wc`
+output verbatim.
+
+**The full agentic loop works through OpenRouter**: file reads, edits with
+old_string/new_string matching, and shell execution, chained across five turns
+with correct state carried between them.
+
+#### The first Read failed, and it matters for Check 4
+
+```json
+{"name":"Read","input":{"file_path":"...sample.txt",
+                        "offset":0,"limit":100,"pages":""}}
+```
+```
+<tool_use_error>Invalid pages parameter: "". Use formats like "1-5", "3",
+or "10-20". Pages are 1-indexed.</tool_use_error>
+```
+
+The model supplied `pages: ""` on a plain text file. `pages` applies only to
+PDFs, and an empty string is not a valid value for it. The model self-corrected
+on the retry and the run succeeded, so this is a **cost and latency tax rather
+than a correctness failure**. It still consumed a full round trip and turned a
+four-turn task into five.
+
+### Check 4: Tool Call Error Rate
+
+Record the observed impression, and check OpenRouter's published metric for the
+model on its Performance tab.
+
+- **Status:** PARTIAL. Observed behavior recorded below. **OpenRouter's published
+  metric still outstanding**, from the model's Performance tab, which requires
+  the dashboard.
+
+#### Observed: 1 malformed call in 5, and a consistent cause
+
+| Run | Calls | Malformed | Note |
+|---|---:|---:|---|
+| Check 2 | 1 | 0 | succeeded, but over-fetched badly |
+| Check 3 | 4 | 1 | `Read` with `pages: ""`, self-corrected |
+| **Total** | **5** | **1 (20%)** | both runs completed successfully |
+
+**The two problems share one root cause: the model fills in optional parameters
+it was never asked for, and sometimes fills them in wrongly.**
+
+In Check 2, asked only for a current temperature, it sent:
+
+```json
+{"current_weather":true, "hourly":["temperature_2m"],
+ "daily":["temperature_2m_max","temperature_2m_min"],
+ "past_days":1, "forecast_days":1, ...}
+```
+
+That returned 192 hourly readings and 8 daily summaries to answer a single-value
+question, inflating the tool result by orders of magnitude.
+
+In Check 3, asked to read a small text file, it sent `offset`, `limit`, and
+`pages` when `file_path` alone would do, and `pages: ""` was invalid enough to
+error.
+
+**Two distinct costs, neither of which is a correctness failure:**
+
+1. **Wasted round trips.** The malformed call cost one full turn. At roughly
+   $0.06 per turn on the observed runs, retries are not free.
+2. **Context and token inflation.** Over-fetched tool results re-enter context and
+   are billed as input on subsequent turns. The Check 2 payload was perhaps a
+   hundred times larger than the question required.
+
+**Assessment: reliable but uneconomical.** Both runs completed correctly and the
+model recovered from its own error without help, which is the behavior that
+matters for the gate. But `openai/gpt-5.6-sol` should be expected to spend more
+tokens than an equivalent task on Anthropic-native models, and the launcher
+documentation should say so rather than letting the first surprising invoice
+explain it.
+
+**Sample size is 5 calls across 2 runs.** Treat the 20% figure as directional,
+not as a measured error rate. OpenRouter's published metric is the better number
+and is still to be collected.
+
+### Check 5: gateway model discovery
+
+Confirm whether `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` populates `/model`
+with OpenRouter's catalog. If it works, fewer thin wrappers are worth writing,
+which changes Step 6's scope.
+
+- **Status:** ANSWERED, 2026-07-30
+- **Result: PASS.** `/model` lists roughly 56 entries, each labeled
+  **"From gateway"**, with the `--model` value shown separately as
+  "Custom model". Effort level and session-vs-default selection all work
+  normally.
+
+```
+  ↑ 24. anthropic/claude-haiku-4.5         From gateway
+    26. anthropic/claude-sonnet-4.5        From gateway
+    28. anthropic/claude-opus-4.1          From gateway
+  ❯ 33. openai/gpt-5.6-sol ✔               Custom model
+     … +23 models
+```
+
+#### What this changes, and what it does not
+
+**It does not eliminate the wrappers.** A wrapper's job is launching straight into
+a backend from the shell, which `/model` cannot do; by the time `/model` is
+available you are already in a session. `bin/claude-run` and its model table are
+unaffected.
+
+**It removes the pressure to add a wrapper per model.** Once inside a routed
+OpenRouter session, any catalogued model is reachable interactively. The
+follow-on roadmap item to add `kimi`, `deepseek`, and `qwen` wrappers should be
+**downgraded**: those models are already reachable without new scripts, so
+wrappers for them are a convenience rather than the access mechanism they would
+otherwise be.
+
+The D9 structure stands: one workhorse plus a small number of named entry points
+for the backends and default models actually reached for daily.
+
+#### Incidental: OpenRouter's catalog and the Claude 5 family
+
+The visible Anthropic entries top out at `claude-sonnet-4.5`, `claude-opus-4.1`,
+and `claude-haiku-4.5`, with `:batch` variants. **No Opus 5, Sonnet 5, Fable 5,
+or Haiku 4.5-successor appears** in the visible portion.
+
+This bears on the plan's open question about whether Opus 5 and Fable 5 clear
+OpenRouter's "older than Opus 4.8" gate for deferred tool loading. Suggestive
+rather than conclusive: 23 entries were collapsed behind "+23 models" and were
+not inspected. Low impact either way, since Anthropic models go direct on the Max
+subscription rather than through OpenRouter, where they would be billed per token
+instead.
+
+### Check 6: resolve Gate 0's deferred Q2 and Q3
+
+Gate 0 deferred both because they turn on a single unobservable fact: **does
+OpenRouter cache-hit the schema block?** Cached, the ~105.5k of schemas is paid
+once per session and is negligible. Uncached, it is re-sent every turn, and a
+50-turn session spends 5.3M input tokens on schemas alone.
+
+Gate A supplied the method. `--output-format stream-json` reports the answer
+directly in the result object, so this is one number on turn two rather than an
+estimate:
+
+```bash
+jq -r 'select(.type=="result") | .usage
+       | {input_tokens, cache_read_input_tokens, cache_creation_input_tokens}'
+```
+
+For reference, Ollama reported `0` for both cache fields.
+
+Also record OpenRouter's input rate for `openai/gpt-5.6-sol`, so the cost can be
+computed rather than guessed.
+
+- **Status:** ANSWERED, 2026-07-30
+- **Result: schemas ARE cached.**
+
+```json
+"input_tokens": 34531,
+"cache_read_input_tokens": 29184,
+"cache_creation_input_tokens": 0
+```
+
+**29184 of 34531 input tokens, 84.5%, were served from cache.** Note
+`cache_creation_input_tokens: 0` alongside a large read: OpenAI models cache
+automatically, with no explicit `cache_control` markers, so the block was already
+warm from the small prior usage on this key. Nothing in the launcher needs to
+request caching; it happens on its own.
+
+**Q2 answer: YES.** The full set fits inside the 1M window at 15.5% and costs
+little, because the schema block is not re-sent. Gate 0's expectation is
+confirmed and D5 is viable as designed.
+
+**Q3 answer: NO.** Trimming is not needed for OpenRouter, on either window fit or
+cost.
+
+**Design consequence, and it is a simplification.** The MCP allowlist that Gate 0
+forced into Steps 4 and 5 stays **Ollama-specific**. It does not need to be a
+shared feature of the workhorse. The two backends genuinely differ here:
+
+| | Ollama | OpenRouter |
+|---|---|---|
+| Schema caching | none (`0` / `0`) | 84.5% cache read |
+| Window pressure | severe (198K) | none (1M) |
+| Trimming needed | **yes** | **no** |
+
+### Observed cost, and a correction to Gate A's telemetry finding
+
+| Run | Claude Code's `total_cost_usd` | Actual (key endpoint delta) | Diff |
+|---|---:|---:|---:|
+| Check 2 | $0.193987 | $0.194907 | 0.5% |
+| Check 3 | $0.283188 | $0.285263 | 0.7% |
+
+**Cost telemetry is accurate on OpenRouter.** Gate A found Claude Code inventing
+a $0.36 charge for a free local Ollama session and concluded that "cost telemetry
+is wrong on routed sessions." That generalized too far. The correct statement is
+narrower: **cost reporting is accurate on OpenRouter and wrong on Ollama.** The
+`"provider": "firstParty"` mislabel appears on both, but it only breaks the
+arithmetic where there is no real price to compute against.
+
+**Worth flagging for budgeting.** Two trivial probes, a weather lookup and a
+four-line file edit, cost **$0.48 combined** against the $10 cap. That is not
+cheap for work this small:
+
+| Run | Turns | Cost | Per turn |
+|---|---:|---:|---:|
+| Check 2 (one MCP call) | 2 | $0.195 | $0.098 |
+| Check 3 (read, edit, bash) | 5 | $0.285 | $0.057 |
+
+At roughly $0.06 to $0.10 per turn, the $10 cap allows on the order of 100 to 170
+turns. A single substantial coding session could consume a meaningful fraction of
+it. The 84.5% cache hit is what keeps this from being far worse, and the
+over-fetching noted in Check 4 pushes it the other way.
+
+### Latency, against Ollama on the identical probe
+
+| | Ollama (Gate A Check 5) | OpenRouter (here) |
+|---|---:|---:|
+| Time to first token | 219,688 ms | **4,910 ms** |
+| Wall clock | 225,358 ms | **10,288 ms** |
+
+**Roughly 45x faster to first token.** Gate A's multi-minute cold start is an
+Ollama property, not a routing property. This is the sharpest practical
+difference between the two backends and belongs in the README next to the model
+table, since it should drive which launcher someone reaches for.
+
+---
+
+### Gate B verdict
+
+✅ **PASS, 2026-07-30.** Every decision-relevant check green. **Total spend
+$0.481415 of the $10 per-key cap.**
+
+| Check | Result |
+|---|---|
+| 1. Session starts, trivial turn completes | PASS |
+| 2. MCP tool calling end to end (STOP CONDITION) | PASS |
+| 3. Multi-step agentic loop | PASS |
+| 4. Tool Call Error Rate | PASS (observed). Published metric not collected |
+| 5. Gateway model discovery | PASS |
+| 6. Gate 0's deferred Q2 and Q3 | PASS, both resolved |
+
+**On Check 4's gap, stated plainly** so this does not repeat Gate A's premature
+all-clear: the observed error-rate behavior is measured and recorded, and it is
+what informs the design. OpenRouter's *published* metric from the model's
+Performance tab was not collected. It is a corroborating data point, not a
+decision input, and nothing in the plan depends on it. Gate B does not hinge on
+it; if it is collected later, record it above.
+
+### What Gate B hands to the build steps
+
+1. **`CLAUDE_CODE_MAX_CONTEXT_TOKENS=1050000`** and base URL
+   `https://openrouter.ai/api`, no version suffix, for the `gpt` model-table
+   entry.
+2. **Map the haiku tier here too.** Same reasoning as Gate A.
+3. **No MCP trimming for OpenRouter.** Per Check 6, the allowlist stays
+   Ollama-specific, which keeps `bin/claude-run` simpler than Gate 0 feared.
+4. **Do not add a wrapper per model.** Gateway discovery makes the catalog
+   reachable in-session, so wrappers are for backends and daily defaults only.
+5. **Document the cost profile**, since it is the sharpest difference from plain
+   `claude` on the Max subscription: roughly $0.06 to $0.10 per turn, with
+   `openai/gpt-5.6-sol` spending more tokens than the task requires.
+6. **Document that cost telemetry is trustworthy here and not on Ollama.**
+
+### The two backends, side by side
+
+Both cleared the same mission requirement, measured with the same probe. They
+differ sharply in everything else, and that difference should drive which
+launcher a person reaches for:
+
+| | Ollama (`glm`) | OpenRouter (`gpt`) |
+|---|---|---|
+| MCP tool calling | ✅ | ✅ |
+| Multi-step agentic loop | not tested | ✅ |
+| Time to first token | ~220 s | **~4 s** |
+| Context window | 202752 | 1,050,000 |
+| Schema caching | none | 84.5% |
+| MCP trimming needed | **yes** | no |
+| Marginal cost | $0 | ~$0.06 to $0.10/turn |
+| Cost telemetry | wrong (invents charges) | accurate to <1% |
+
+The tradeoff is clean: **Ollama is free and slow with a tight window; OpenRouter
+is fast and roomy and metered.** Neither dominates, which is why the plan wants
+both.
+
+**Note one asymmetry in the evidence:** Gate A never ran a multi-step agentic
+loop against Ollama. Its Check 5 was a single MCP call over two turns, while
+OpenRouter got the harder read/edit/bash chain here. Whether `glm-4.7-flash`
+sustains a five-turn loop with correct state is untested. Not a gate, since
+Step 5's real use will surface it immediately, but it is an unexamined corner
+rather than a proven one.

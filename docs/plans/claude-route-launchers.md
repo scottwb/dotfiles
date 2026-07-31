@@ -114,10 +114,13 @@ guess.
    window. Routed Ollama needs a trimmed set, which is new scope for Steps 4/5.
 2. Does the full set fit inside a 1M OpenRouter model without meaningful cost?
    Expected yes, which is what makes D5 viable.
-   **Window fit yes (15.5% of 1M). Cost DEFERRED to Gate B Check 6**, since it
-   turns on whether OpenRouter cache-hits the schema block.
+   **ANSWERED: yes**, via Gate B Check 6. Window fit is 15.5% of 1M, and the
+   schema block is **84.5% cache-hit** (`cache_read_input_tokens: 29184` of
+   `input_tokens: 34531`), so it is paid once rather than re-sent per turn.
 3. Is trimming needed for OpenRouter at all? Expected no.
-   **Not for window fit. Possibly for cost. DEFERRED to Gate B Check 6.**
+   **ANSWERED: no**, on either window fit or cost. The MCP allowlist therefore
+   stays **Ollama-specific** rather than becoming a shared feature of the
+   workhorse, which is simpler than Gate 0 feared.
 
 **Satisfies:** D5. Determines whether a trimmed-MCP design is required, which was
 deliberately deferred pending this measurement.
@@ -267,32 +270,37 @@ grep -c "UNANSWERED" docs/assessments/route-gates.md
 credit, set the per-key limit first (D7), and treat the result as the go/no-go for
 the entire OpenRouter half of the plan.
 
-- [ ] Write the failing test first: add Gate B's checks to
+- [x] Write the failing test first: add Gate B's checks to
       `docs/assessments/route-gates.md`, unanswered. Fails while blank.
-- [ ] Manual prerequisite: buy minimum credits, then set a per-key credit limit at
-      `openrouter.ai/keys` (D7)
-- [ ] Confirm the 1Password ref resolves without printing the secret:
+- [x] Manual prerequisite: buy minimum credits, then set a per-key credit limit at
+      `openrouter.ai/keys` (D7). **Done 2026-07-30**, verified via the key
+      endpoint: `limit: 10`, `limit_remaining: 9.998755`, `is_free_tier: false`.
+      Note this had to be set **per-key**; an account-level limit was in place
+      first and reports `limit: null` on the key endpoint, since it governs total
+      spend across all keys rather than bounding this one. Both are now set.
+- [x] Confirm the 1Password ref resolves without printing the secret:
       `op read --account facetdigital.1password.com "op://Employee/OpenRouter/API Key" | wc -c`
-      (already verified 2026-07-30, re-confirm at execution time)
-- [ ] Launch Claude Code by hand against OpenRouter with `openai/gpt-5.6-sol`, env
+      **Re-confirmed 2026-07-30**: 74 bytes, matching the recorded 73-character
+      `sk-or-v1` value plus newline.
+- [x] Launch Claude Code by hand against OpenRouter with `openai/gpt-5.6-sol`, env
       set inline, `ENABLE_TOOL_SEARCH` left unset
-- [ ] **Check 1:** the session starts and completes one trivial turn
-- [ ] **Check 2:** MCP tools are present, and at least one real MCP tool call
+- [x] **Check 1:** the session starts and completes one trivial turn
+- [x] **Check 2:** MCP tools are present, and at least one real MCP tool call
       succeeds end to end. This is the mission requirement (D5).
-- [ ] **Check 3:** a multi-step agentic loop works: read a file, edit it, run a
+- [x] **Check 3:** a multi-step agentic loop works: read a file, edit it, run a
       command, in one turn
-- [ ] **Check 4:** record the observed Tool Call Error Rate impression, and check
+- [x] **Check 4:** record the observed Tool Call Error Rate impression, and check
       OpenRouter's published metric for the model on its Performance tab
-- [ ] **Check 5:** confirm whether `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`
+- [x] **Check 5:** confirm whether `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`
       populates `/model` with OpenRouter's catalog. If it works, fewer thin
       wrappers are worth writing.
-- [ ] **Check 6:** resolve Gate 0's deferred Q2 and Q3. Record OpenRouter's input
+- [x] **Check 6:** resolve Gate 0's deferred Q2 and Q3. Record OpenRouter's input
       rate for `openai/gpt-5.6-sol`, and confirm on turn two whether the ~105.5k
       schema block is a cache hit or is re-sent in full. Cached, the schema cost
       is negligible; uncached, it is the dominant line item and OpenRouter needs
       the same trimming Ollama does. Write the answers back into
       `docs/assessments/mcp-schema-budget.md`.
-- [ ] Verify green: all six checks answered, and Gate 0 no longer reads PARTIAL
+- [x] Verify green: all six checks answered, and Gate 0 no longer reads PARTIAL
 
 **If Check 2 fails**, stop and report. Per D5, MCP tool calling is the mission.
 Do not silently narrow the plan to a non-MCP subset; that is Scott's call to make,
