@@ -147,33 +147,97 @@ Still free. Uses the local Ollama server, so no spend. This gate answers the
 question that would reshape the whole design if it failed: whether per-process
 routing coexists with the stored Max login.
 
-**Manual prerequisite for Scott, do not automate:** fix the `num_ctz` typo in
-`~/src/scottwb/ollama-tools/Modelfile.glm-4.7-flash` (it should be `num_ctx`),
-rebuild the derived model, and start the server. The typo means the intended
-~198K context is almost certainly not being applied today. Do not commit in
-`ollama-tools`; Scott reviews by diffing against `main`.
+**Manual prerequisite: RESOLVED 2026-07-30, no rebuild needed.** The premise was
+half right. The `num_ctz` typo is real and Ollama silently drops the parameter,
+but `OLLAMA_CONTEXT_LENGTH=262144` in the environment supplies a 256K default
+that clamps to the model's 202752 architecture ceiling. `/api/ps` on the loaded
+model measures the effective window at **202752**, which is the number the
+Modelfile was aiming for. Gate 0's Q1 assumption of 198K is confirmed.
 
-- [ ] Write the failing test first: `docs/assessments/route-gates.md` with Gate A's
+Two things this changed:
+
+- The `ollama show | grep "context length"` check below is **not a valid
+  measurement**. It reports the GGUF architecture ceiling and reads 202752
+  whether or not `num_ctx` is applied. Only `/api/ps` on a loaded model reflects
+  the allocated window. Test updated accordingly.
+- The window now depends on `OLLAMA_CONTEXT_LENGTH` being set wherever the
+  server is started, which is fragile and silent when wrong. This is the concrete
+  reason Step 5's `/api/ps` preflight must warn loudly rather than be dropped as
+  redundant.
+
+Fixing the Modelfile is still worth doing, since a baked-in `num_ctx` survives
+any server environment. It is a roadmap item now, not a gate. Whoever does it
+must also change line 5 from the raw blob path to `FROM glm-4.7-flash:latest`;
+building from the blob re-imports the GGUF and fails in `llama-quantize` on
+Ollama 0.30.7. Do not commit in `ollama-tools`; Scott reviews by diffing against
+`main`.
+
+- [x] Write the failing test first: `docs/assessments/route-gates.md` with Gate A's
       four checks listed and all four unanswered. Fails while any is blank.
-- [ ] Confirm the real context: `ollama show glm-4.7-flash` and record the actual
-      context length, before and after the typo fix
-- [ ] Start the server and confirm the preflight endpoint answers:
+- [x] Confirm the real context. NOT via `ollama show`, which reports the GGUF
+      architecture ceiling and cannot distinguish applied from unapplied. Load the
+      model and read `/api/ps`, which reports the window actually allocated.
+      Measured 202752, matching intent. See the assessment for why the rebuild
+      turned out to be unnecessary.
+- [x] Start the server and confirm the preflight endpoint answers:
       `curl -fsS http://localhost:11434/api/version`
-- [ ] Launch Claude Code by hand with the Ollama env set inline (no scripts yet),
+- [x] Launch Claude Code by hand with the Ollama env set inline (no scripts yet),
       confirm it starts and completes one trivial turn
-- [ ] **Check 1:** in that routed session, confirm no login prompt appeared and no
-      `/logout` was required
-- [ ] **Check 2:** exit, run plain `claude`, and confirm it is still on the Max
-      subscription with no re-login (`/status` shows the subscription account)
-- [ ] **Check 3:** confirm CLI `--model` overrides the `settings.json` pin
-      (`claude-fable-5[1m]`), since routed sessions depend on that precedence
-- [ ] **Check 4:** confirm `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored
+- [x] **Check 1:** in that routed session, confirm no login prompt appeared and no
+      `/logout` was required. **PASS.**
+- [x] **Check 2:** exit, run plain `claude`, and confirm it is still on the Max
+      subscription with no re-login (`/status` shows the subscription account).
+      **PASS.** This is the result the per-process design rests on.
+- [x] **Check 3:** confirm CLI `--model` overrides the `settings.json` pin
+      (`claude-fable-5[1m]`), since routed sessions depend on that precedence.
+      **PASS.**
+- [x] **Check 4:** confirm `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored
       rather than merely present in the binary. The roadmap flags this as
-      unproven, and D12 depends on knowing which way it behaves.
-- [ ] Verify green: all four checks answered in the assessment file
+      unproven, and D12 depends on knowing which way it behaves. Split in the
+      assessment into **4a**, that leaving it unmapped makes a fable-tier spawn
+      halt loudly rather than silently falling through to the Opus or Sonnet
+      mapping, and **4b**, that setting it to a distinct installed model makes a
+      fable-tier subagent actually use that model. D12 needs both: 4a is the
+      behavior it relies on, 4b proves the variable is live at all.
+      **BOTH PASS. D12 is confirmed sound.** Unmapped resolves to the literal
+      `claude-fable-5`, which the backend rejects with a hard error and exit 1,
+      rather than falling through to the Opus or Sonnet mapping.
+- [x] **Check 5 (added mid-gate):** confirm MCP tool calling works through Ollama.
+      The plan gated this for OpenRouter (Gate B, Check 2) but never for Ollama,
+      leaving D5's mission requirement unverified on a backend the plan otherwise
+      treated as proven. Free, and it belongs before Gate B's spend. **PASS.**
+      `glm-4.7-flash` emitted a real `mcp__open-meteo__weather_forecast` call with
+      correct arguments, parsed the response, and reported a temperature matching
+      an independent `curl`.
+- [x] Verify green: all checks answered in the assessment file
 
 **If Check 1 or 2 fails**, stop. The design becomes global-mode-flip rather than
 per-process, and the rest of this plan needs rewriting.
+**Both passed 2026-07-30.** The design holds as written.
+
+**Three findings from this gate feed the build steps:**
+
+1. **Map the haiku tier on every routed profile.** Claude Code makes background
+   utility calls at that tier even when a session requests a single model, so a
+   profile with haiku unmapped will see those calls fail.
+2. **Cold-start latency is a hard constraint, independent of window fit.** Prompt
+   processing measured ~330 tokens/sec, so the trimmed ~58.5k prompt took about
+   three minutes before the first output token, and the full MCP set extrapolates
+   to roughly eight. Combined with Gate 0's Q1, trimming is required on two
+   independent grounds. Build the allowlist as a first-class feature, and
+   document the cold start in Step 9 so it is not mistaken for a hang.
+3. **The 202752 window is environment-dependent and silent when wrong**, so
+   Step 5's `/api/ps` preflight must warn loudly rather than be treated as
+   redundant with the `/api/tags` check.
+4. **Cost telemetry is actively wrong on routed sessions, not absent.** Claude
+   Code labeled a local Ollama model `"provider": "firstParty"` and invented a
+   $0.36 charge for a free session. Step 9 must document that `/usage` and
+   `/insights` are meaningless under routing, since silently wrong numbers invite
+   being summed against real Anthropic spend.
+5. **Gate B Check 6 now has a precise method.** Gate 0's deferred Q2 asks whether
+   OpenRouter cache-hits the schema block; `--output-format stream-json` reports
+   `cache_read_input_tokens` directly in the result object. Read it on turn two
+   rather than estimating. (Ollama reported 0 for both cache fields.)
 
 **Satisfies:** D2, D12. Also closes the roadmap's open question on
 `ANTHROPIC_DEFAULT_FABLE_MODEL` behavior.
@@ -183,8 +247,14 @@ per-process, and the rest of this plan needs rewriting.
 **Test:**
 ```bash
 curl -fsS --max-time 2 http://localhost:11434/api/version || echo "FAIL: ollama down"
-ollama show glm-4.7-flash | grep -i "context length"
-grep -c "ANSWERED" docs/assessments/route-gates.md   # expect 4 for Gate A
+# NOT `ollama show | grep "context length"`: that is the GGUF architecture
+# ceiling and reads 202752 whether or not num_ctx was ever applied. /api/ps
+# reports the window the runner actually allocated, which is the real number.
+curl -fsS http://localhost:11434/api/ps | jq '.models[] | {name, context_length}'
+# Count UNANSWERED, not ANSWERED: "UNANSWERED" contains "ANSWERED" as a
+# substring, so the naive grep counts every open check as a closed one.
+# Expect 0 when Gate A is resolved.
+grep -c "UNANSWERED" docs/assessments/route-gates.md
 ```
 
 **Commit message:** `Record Gate A: Ollama routing and Max OAuth coexistence`
@@ -236,7 +306,8 @@ not the runner's.
 ```bash
 op read --account facetdigital.1password.com "op://Employee/OpenRouter/API Key" >/dev/null \
   && echo "PASS: op ref resolves" || echo "FAIL: op ref"
-grep -c "ANSWERED" docs/assessments/route-gates.md   # expect 9 total across both gates
+# Same substring trap as Gate A. Expect 0 once both gates are resolved.
+grep -c "UNANSWERED" docs/assessments/route-gates.md
 ```
 
 **Commit message:** `Record Gate B: MCP tool calling through OpenRouter`
@@ -463,6 +534,13 @@ grep -q "claude-run" README.md && echo "PASS: documented"
       are the live candidates
 - [ ] Add: a periodic model-slug refresh, since OpenRouter's catalog churns and
       several 2025-era slugs already carry expiration dates
+- [ ] Add: bake `num_ctx` into `Modelfile.glm-4.7-flash` properly, fixing both the
+      `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`,
+      since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K
+      window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which
+      is silent when absent. A baked-in parameter survives any server start
+      method. Demoted from a Gate A blocker on 2026-07-30; see
+      `docs/assessments/route-gates.md`.
 - [ ] Verify green: each item has a Thread tag and a Status
 
 **Satisfies:** D4, D8.
