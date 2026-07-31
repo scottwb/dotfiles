@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#
+# claude-glm - Launch Claude Code on the local glm-4.7-flash model via Ollama.
+#
+# Thin wrapper over claude-run (D9). All logic lives there; this exists so the
+# common case is one word instead of two.
+#
+# Free, but slow to start: expect several minutes of prompt processing before
+# the first token, dominated by a fixed cost rather than by prompt size. Use
+# claude-gpt when responsiveness matters more than cost.
+#
+# Usage: claude-glm [claude args...]
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# NO `exec` (D6). what-claude reports each session's route by walking process
+# ancestry; exec would replace this shell and erase the ancestor it matches on.
+"$SCRIPT_DIR/claude-run" glm "$@"

@@ -369,18 +369,18 @@ bin/claude-run bogus-alias; test $? -ne 0 && echo "PASS: rejects unknown alias"
 
 ### Step 5: Add the Ollama provider path and its preflight
 
-- [ ] Write the failing test first: extend `claude-route-selftest` to assert that
+- [x] Write the failing test first: extend `claude-route-selftest` to assert that
       with the server down, `claude-run glm` exits non-zero with a message naming
       the unreachable host and suggesting `ollama serve`. Fails because no
       preflight exists.
-- [ ] Implement the Ollama preflight in `claude-run`: `GET /api/version` with a
+- [x] Implement the Ollama preflight in `claude-run`: `GET /api/version` with a
       2-second timeout, then `GET /api/tags` to confirm the model is installed
-- [ ] Implement the loaded-context check: `GET /api/ps` reports the actual
+- [x] Implement the loaded-context check: `GET /api/ps` reports the actual
       `context_length` of a loaded model; warn if it is below the table value
-- [ ] Implement `bin/claude-ollama` as a thin wrapper selecting the provider with
+- [x] Implement `bin/claude-ollama` as a thin wrapper selecting the provider with
       its default model
-- [ ] Implement `bin/claude-glm` as a thin wrapper for `claude-run glm`
-- [ ] Verify green: selftest passes with the server both up and down
+- [x] Implement `bin/claude-glm` as a thin wrapper for `claude-run glm`
+- [x] Verify green: selftest passes with the server both up and down
 
 **Satisfies:** D2, D4, D9.
 

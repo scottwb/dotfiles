@@ -33,7 +33,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [claude-route-launchers.md](claude-route-launchers.md)
 
-**Status:** In progress, 4 of 10 steps done as of 2026-07-30. **All three gates passed**, so the design holds as written and the build steps are unblocked. `bin/claude-run` and `bin/claude-route-selftest` exist with dry-run mode and 38 passing assertions. Next: Step 5, the Ollama provider path and its preflight.
+**Status:** In progress, 5 of 10 steps done as of 2026-07-30. **All three gates passed**, so the design holds as written and the build steps are unblocked. `bin/claude-run` has dry-run mode plus a three-stage Ollama preflight; `bin/claude-glm` and `bin/claude-ollama` are live; `bin/claude-route-selftest` covers it with 65 passing assertions. Next: Step 6, the OpenRouter path with 1Password secret resolution.
 
 **The gates are done; they cost $0.48.** Steps 1 and 2 were free; Step 3 spent $0.481415 of a $10 per-key OpenRouter cap. What they established:
 

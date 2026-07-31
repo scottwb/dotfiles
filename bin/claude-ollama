@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# claude-ollama - Launch Claude Code against local Ollama on its default model.
+#
+# Thin wrapper over claude-run (D9). Provider-oriented rather than
+# model-oriented: this means "run locally", and the default model is whatever
+# the Ollama backend currently leads with.
+#
+# Today that resolves to the same place as claude-glm. They are kept separate
+# because they answer different questions, and will diverge as soon as a second
+# Ollama model is worth reaching for: claude-glm will always mean glm-4.7-flash,
+# while claude-ollama follows the default below.
+#
+# Usage: claude-ollama [claude args...]
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# The Ollama backend's default alias. Change this one line to move the default.
+readonly OLLAMA_DEFAULT_ALIAS="glm"
+
+# NO `exec` (D6). See the note in claude-run's launch section.
+"$SCRIPT_DIR/claude-run" "$OLLAMA_DEFAULT_ALIAS" "$@"

@@ -21,6 +21,8 @@ FAILED_NAMES=""
 
 # ---------------------------------------------------------------- assertions
 
+SKIP=0
+
 ok()   { PASS=$((PASS + 1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  {
   FAIL=$((FAIL + 1))
@@ -28,6 +30,10 @@ bad()  {
   printf '  \033[31m✗\033[0m %s\n' "$1"
   [ -n "${2:-}" ] && printf '      %s\n' "$2"
   return 0
+}
+skip() {
+  SKIP=$((SKIP + 1))
+  printf '  \033[33m-\033[0m %s \033[2m(skipped: %s)\033[0m\n' "$1" "$2"
 }
 
 # assert_contains <description> <haystack> <needle>
@@ -159,15 +165,109 @@ else
   ok "claude-run contains no 'exec'"
 fi
 
+# ---------------------------------------------------------------- preflight
+#
+# The Ollama preflight is the only thing standing between a misconfigured or
+# stopped server and a session that fails confusingly several turns in. Gate A
+# found the 202752 window depends on OLLAMA_CONTEXT_LENGTH in the server's
+# environment and is silent when absent, which is why this is not optional.
+
+section "Ollama preflight: server unreachable"
+
+# Port 1 is closed, so this refuses instantly rather than waiting for a timeout.
+# Using a dead port rather than stopping the real server keeps the suite
+# non-destructive: it can run while a session is live.
+down_out="$(CLAUDE_ROUTE_OLLAMA_PORT=1 "$CLAUDE_RUN" glm 2>&1)"
+down_rc=$?
+
+assert_exit     "unreachable server exits non-zero" "6" "$down_rc"
+assert_contains "message names the unreachable host" "$down_out" "localhost:1"
+assert_contains "message suggests 'ollama serve'"    "$down_out" "ollama serve"
+assert_contains "message mentions the host override" "$down_out" "CLAUDE_ROUTE_OLLAMA_HOST"
+
+# Dry run does no network at all, so it must still work with the server down.
+# That is the property that makes the rest of this suite runnable anywhere.
+downdry_out="$(CLAUDE_ROUTE_DRYRUN=1 CLAUDE_ROUTE_OLLAMA_PORT=1 "$CLAUDE_RUN" glm 2>&1)"
+downdry_rc=$?
+assert_exit     "dry run still exits 0 with server down" "0" "$downdry_rc"
+assert_contains "dry run still resolves the plan" "$downdry_out" "glm-4.7-flash"
+
+section "Ollama preflight: server reachable"
+
+if curl -fsS --max-time 2 http://localhost:11434/api/version >/dev/null 2>&1; then
+  pf_out="$(CLAUDE_ROUTE_PREFLIGHT_ONLY=1 "$CLAUDE_RUN" glm 2>&1)"
+  pf_rc=$?
+  assert_exit     "preflight-only exits 0 against a live server" "0" "$pf_rc"
+  assert_contains "preflight reports the server version"  "$pf_out" "Ollama"
+  assert_contains "preflight confirms the model"          "$pf_out" "glm-4.7-flash"
+
+  # :latest matters. /api/tags reports "glm-4.7-flash:latest" while the model
+  # table says "glm-4.7-flash". A naive string match reports the model missing
+  # when it is installed.
+  assert_not_contains "installed model is not reported missing" "$pf_out" "not installed"
+
+  # A model that genuinely is not installed must fail, or the check is theater.
+  miss_out="$(CLAUDE_ROUTE_PREFLIGHT_ONLY=1 CLAUDE_ROUTE_MODEL=definitely-not-installed "$CLAUDE_RUN" glm 2>&1)"
+  miss_rc=$?
+  assert_exit     "missing model exits non-zero"      "7" "$miss_rc"
+  assert_contains "missing model is named"            "$miss_out" "definitely-not-installed"
+  assert_contains "missing model suggests ollama pull" "$miss_out" "ollama pull"
+else
+  skip "preflight-only exits 0 against a live server" "ollama not running"
+  skip "preflight reports the server version"         "ollama not running"
+  skip "preflight confirms the model"                 "ollama not running"
+  skip "installed model is not reported missing"      "ollama not running"
+  skip "missing model exits non-zero"                 "ollama not running"
+  skip "missing model is named"                       "ollama not running"
+  skip "missing model suggests ollama pull"           "ollama not running"
+fi
+
+# ---------------------------------------------------------------- wrappers
+
+section "Thin wrappers (D9)"
+
+for wrapper in claude-glm claude-ollama; do
+  W="$SCRIPT_DIR/$wrapper"
+  if [ ! -x "$W" ]; then
+    bad "[$wrapper] exists and is executable" "missing or not executable: $W"
+    continue
+  fi
+  ok "[$wrapper] exists and is executable"
+
+  w_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" 2>&1)"
+  w_rc=$?
+  assert_exit     "[$wrapper] dry run exits 0"       "0" "$w_rc"
+  assert_contains "[$wrapper] resolves to ollama"    "$w_out" "ollama"
+  assert_contains "[$wrapper] resolves the model"    "$w_out" "glm-4.7-flash"
+  assert_contains "[$wrapper] carries the context"   "$w_out" "202752"
+
+  # D6 again: an exec in a wrapper erases the ancestor just as effectively as
+  # one in the workhorse, and the failure is silent.
+  if grep -nE '^[[:space:]]*exec[[:space:]]' "$W" >/dev/null 2>&1; then
+    bad "[$wrapper] contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$W")"
+  else
+    ok "[$wrapper] contains no 'exec'"
+  fi
+
+  # Wrappers must forward arguments through to claude, or `claude-glm -p "..."`
+  # silently drops the prompt.
+  fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
+  assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
+done
+
 # ---------------------------------------------------------------- summary
 
 TOTAL=$((PASS + FAIL))
 printf '\n'
 if [ "$FAIL" -eq 0 ]; then
-  printf '\033[32m✓ PASS\033[0m  %d/%d assertions\n\n' "$PASS" "$TOTAL"
+  printf '\033[32m✓ PASS\033[0m  %d/%d assertions' "$PASS" "$TOTAL"
+  [ "$SKIP" -gt 0 ] && printf ', \033[33m%d skipped\033[0m' "$SKIP"
+  printf '\n\n'
   exit 0
 else
-  printf '\033[31m✗ FAIL\033[0m  %d/%d passed, %d failed:' "$PASS" "$TOTAL" "$FAIL"
+  printf '\033[31m✗ FAIL\033[0m  %d/%d passed, %d failed' "$PASS" "$TOTAL" "$FAIL"
+  [ "$SKIP" -gt 0 ] && printf ', %d skipped' "$SKIP"
+  printf ':'
   printf '%b\n\n' "$FAILED_NAMES"
   exit 1
 fi

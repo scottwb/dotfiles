@@ -35,6 +35,10 @@ set -uo pipefail
 readonly OLLAMA_HOST_DEFAULT="localhost"
 readonly OLLAMA_PORT_DEFAULT="11434"
 
+# Seconds to wait on the Ollama liveness probe. Short on purpose: a stopped
+# server should fail immediately with a useful message, not hang.
+readonly OLLAMA_PREFLIGHT_TIMEOUT="2"
+
 # D1: overridable const rather than a hardcoded flag. Routed sessions are for
 # throwaway and experimental work, so skipping prompts is the useful default.
 CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---dangerously-skip-permissions}"
@@ -106,7 +110,7 @@ resolve_model() {
 resolve_provider() {
   case "$1" in
     ollama)
-      ROUTE_BASE_URL="http://${CLAUDE_ROUTE_OLLAMA_HOST:-$OLLAMA_HOST_DEFAULT}:${OLLAMA_PORT_DEFAULT}"
+      ROUTE_BASE_URL="http://${CLAUDE_ROUTE_OLLAMA_HOST:-$OLLAMA_HOST_DEFAULT}:${CLAUDE_ROUTE_OLLAMA_PORT:-$OLLAMA_PORT_DEFAULT}"
       # Ollama accepts any credential and never validates it.
       ROUTE_AUTH_TOKEN="ollama"
       ;;
@@ -206,6 +210,81 @@ redact_env() {
     -e 's/^\(ANTHROPIC_AUTH_TOKEN=\)$/\1<resolved from 1Password at launch>/'
 }
 
+# ---------------------------------------------------------------- preflight
+#
+# Ollama only. Three checks, cheapest first, each with its own exit code so a
+# caller can tell them apart:
+#
+#   6  server unreachable
+#   7  model not installed
+#
+# The loaded-context check warns rather than failing, because a mismatch is
+# recoverable and the session may still be useful.
+ollama_preflight() {
+  local version tags loaded_ctx
+
+  # --- 1. liveness
+  version="$(curl -fsS --max-time "$OLLAMA_PREFLIGHT_TIMEOUT" \
+    "${ROUTE_BASE_URL}/api/version" 2>/dev/null)"
+  if [ -z "$version" ]; then
+    err "Ollama is not reachable at ${ROUTE_BASE_URL}"
+    info "Start it with:  ollama serve"
+    info "Point elsewhere with CLAUDE_ROUTE_OLLAMA_HOST=<host> (and CLAUDE_ROUTE_OLLAMA_PORT)"
+    info "Inspect without connecting:  CLAUDE_ROUTE_DRYRUN=1 claude-run ${ROUTE_ALIAS}"
+    return 6
+  fi
+  info "Ollama $(printf '%s' "$version" | sed 's/.*"version":"\([^"]*\)".*/\1/') at ${ROUTE_BASE_URL}"
+
+  # --- 2. model installed
+  #
+  # /api/tags reports fully qualified names: "glm-4.7-flash:latest". The model
+  # table carries the bare name. Ollama treats the two as the same model, so a
+  # naive exact match would report an installed model as missing.
+  tags="$(curl -fsS --max-time "$OLLAMA_PREFLIGHT_TIMEOUT" \
+    "${ROUTE_BASE_URL}/api/tags" 2>/dev/null)"
+  if ! printf '%s' "$tags" | grep -q "\"name\":\"${ROUTE_MODEL}\(:latest\)\?\""; then
+    err "Model '${ROUTE_MODEL}' is not installed on this Ollama server."
+    info "Install it with:  ollama pull ${ROUTE_MODEL}"
+    info "Installed models:"
+    printf '%s' "$tags" \
+      | sed 's/},{/}\n{/g' \
+      | sed -n 's/.*"name":"\([^"]*\)".*/    \1/p' >&2
+    return 7
+  fi
+  info "Model ${ROUTE_MODEL} is installed"
+
+  # --- 3. loaded context, a warning rather than a failure
+  #
+  # Gate A: the effective window comes from OLLAMA_CONTEXT_LENGTH in the
+  # environment the SERVER was started from, not from the Modelfile. A server
+  # launched via brew services or launchd, or from a shell that does not export
+  # it, silently falls back to a much smaller default. Nothing warns, and
+  # sessions just start truncating. This is that warning.
+  #
+  # Only meaningful once the model is loaded, so silence when it is not.
+  loaded_ctx="$(curl -fsS --max-time "$OLLAMA_PREFLIGHT_TIMEOUT" \
+    "${ROUTE_BASE_URL}/api/ps" 2>/dev/null \
+    | sed 's/},{/}\n{/g' \
+    | grep "\"name\":\"${ROUTE_MODEL}\(:latest\)\?\"" \
+    | sed -n 's/.*"context_length":\([0-9]*\).*/\1/p' \
+    | head -1)"
+
+  if [ -n "$loaded_ctx" ]; then
+    if [ "$loaded_ctx" -lt "$ROUTE_CONTEXT" ]; then
+      printf '\033[33mWARNING\033[0m: %s is loaded with a %s-token window, but this route assumes %s.\n' \
+        "$ROUTE_MODEL" "$loaded_ctx" "$ROUTE_CONTEXT" >&2
+      info "Claude Code will believe it has ${ROUTE_CONTEXT} tokens and overrun the real window."
+      info "Usual cause: the server was started without OLLAMA_CONTEXT_LENGTH set."
+      info "Fix: stop the server, export OLLAMA_CONTEXT_LENGTH=${ROUTE_CONTEXT}, and restart it."
+      info "Or accept it for this run:  CLAUDE_ROUTE_CONTEXT=${loaded_ctx} claude-run ${ROUTE_ALIAS}"
+    else
+      info "Loaded window is ${loaded_ctx} tokens, matching the route"
+    fi
+  fi
+
+  return 0
+}
+
 # ---------------------------------------------------------------- dry run
 
 print_plan() {
@@ -266,8 +345,24 @@ build_env
 ROUTE_EXTRA_DISPLAY=""
 [ $# -gt 0 ] && ROUTE_EXTRA_DISPLAY=" $*"
 
+# Dry run deliberately touches no network. That is what lets the plan be
+# inspected with the server down, the key absent, or neither installed.
 if [ -n "${CLAUDE_ROUTE_DRYRUN:-}" ]; then
   print_plan
+  exit 0
+fi
+
+# ---------------------------------------------------------------- preflight
+
+if [ "$ROUTE_PROVIDER" = "ollama" ]; then
+  ollama_preflight || exit $?
+fi
+
+# Health check without launching. Useful on its own ("is my Ollama ready?")
+# and it is how the selftest exercises the preflight against a live server
+# without starting a session.
+if [ -n "${CLAUDE_ROUTE_PREFLIGHT_ONLY:-}" ]; then
+  info "Preflight passed. Not launching (CLAUDE_ROUTE_PREFLIGHT_ONLY is set)."
   exit 0
 fi
 
