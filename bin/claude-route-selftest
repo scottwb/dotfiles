@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+#
+# claude-route-selftest - Verify the claude-run route launcher resolves correctly
+#                         without launching a session or spending a token.
+#
+# Every assertion here runs against CLAUDE_ROUTE_DRYRUN=1, which is the whole
+# point of building dry-run mode first: the launcher family stays testable
+# without a live Ollama server, an OpenRouter key, or any inference cost.
+#
+# Usage: bin/claude-route-selftest
+# Exit:  0 if every assertion passes, 1 otherwise.
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLAUDE_RUN="$SCRIPT_DIR/claude-run"
+
+PASS=0
+FAIL=0
+FAILED_NAMES=""
+
+# ---------------------------------------------------------------- assertions
+
+ok()   { PASS=$((PASS + 1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }
+bad()  {
+  FAIL=$((FAIL + 1))
+  FAILED_NAMES="${FAILED_NAMES}\n    - $1"
+  printf '  \033[31m✗\033[0m %s\n' "$1"
+  [ -n "${2:-}" ] && printf '      %s\n' "$2"
+  return 0
+}
+
+# assert_contains <description> <haystack> <needle>
+assert_contains() {
+  case "$2" in
+    *"$3"*) ok "$1" ;;
+    *)      bad "$1" "expected to find: $3" ;;
+  esac
+}
+
+# assert_not_contains <description> <haystack> <needle>
+assert_not_contains() {
+  case "$2" in
+    *"$3"*) bad "$1" "should NOT contain: $3" ;;
+    *)      ok "$1" ;;
+  esac
+}
+
+# assert_exit <description> <expected_code> <actual_code>
+assert_exit() {
+  if [ "$2" = "$3" ]; then ok "$1"; else bad "$1" "expected exit $2, got $3"; fi
+}
+
+section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
+
+# ---------------------------------------------------------------- preflight
+
+if [ ! -x "$CLAUDE_RUN" ]; then
+  printf '\n\033[31m✗ FAIL\033[0m: %s is missing or not executable.\n\n' "$CLAUDE_RUN"
+  exit 1
+fi
+
+printf '\n\033[1mclaude-route-selftest\033[0m  (dry run only, nothing is launched)\n'
+
+# ---------------------------------------------------------------- glm / ollama
+
+section "Alias 'glm' resolves to the local Ollama backend"
+
+glm_out="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" glm 2>&1)"
+glm_rc=$?
+
+assert_exit      "dry run exits 0"                "0" "$glm_rc"
+assert_contains  "names the alias"                "$glm_out" "glm"
+assert_contains  "provider is ollama"             "$glm_out" "ollama"
+assert_contains  "base URL is the Ollama default" "$glm_out" "http://localhost:11434"
+assert_contains  "model id is glm-4.7-flash"      "$glm_out" "glm-4.7-flash"
+assert_contains  "context is the Gate A value"    "$glm_out" "202752"
+assert_contains  "permission mode is present"     "$glm_out" "--dangerously-skip-permissions"
+assert_contains  "haiku tier is mapped"           "$glm_out" "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+assert_contains  "context override is set"        "$glm_out" "CLAUDE_CODE_MAX_CONTEXT_TOKENS"
+
+# ---------------------------------------------------------------- gpt / openrouter
+
+section "Alias 'gpt' resolves to OpenRouter"
+
+gpt_out="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" gpt 2>&1)"
+gpt_rc=$?
+
+assert_exit      "dry run exits 0"                 "0" "$gpt_rc"
+assert_contains  "provider is openrouter"          "$gpt_out" "openrouter"
+assert_contains  "base URL has no version suffix"  "$gpt_out" "https://openrouter.ai/api"
+assert_not_contains "base URL does not end in /v1" "$gpt_out" "openrouter.ai/api/v1"
+assert_contains  "model id is openai/gpt-5.6-sol"  "$gpt_out" "openai/gpt-5.6-sol"
+assert_contains  "context is 1050000"              "$gpt_out" "1050000"
+
+# ---------------------------------------------------------------- invariants
+
+section "Invariants that hold on every route"
+
+for out_name in glm_out gpt_out; do
+  eval "out=\$$out_name"
+  alias_name="${out_name%_out}"
+
+  # D5: tool search must stay unset. Setting it true against a proxy that does
+  # not forward tool_reference is a hard request failure, not degradation.
+  assert_not_contains "[$alias_name] ENABLE_TOOL_SEARCH is never set" \
+    "$out" "ENABLE_TOOL_SEARCH="
+
+  # D12: the audit tier stays unmapped so Servanda gates halt loudly rather
+  # than running a weak adversarial audit. Gate A Check 4a proved this works.
+  assert_not_contains "[$alias_name] audit tier stays unmapped" \
+    "$out" "ANTHROPIC_DEFAULT_FABLE_MODEL="
+
+  # D10: telemetry and privacy block applied unconditionally.
+  assert_contains "[$alias_name] telemetry is disabled" "$out" "DISABLE_TELEMETRY=1"
+  assert_contains "[$alias_name] DO_NOT_TRACK is set"   "$out" "DO_NOT_TRACK=1"
+  assert_contains "[$alias_name] OTEL is disabled"      "$out" "OTEL_SDK_DISABLED=true"
+
+  # Gate 0: worth 37.4k of context and removes run-to-run variance.
+  assert_contains "[$alias_name] claude.ai connectors are off" \
+    "$out" "ENABLE_CLAUDEAI_MCP_SERVERS=false"
+
+  # Empty string, not unset. Unset makes Claude Code authenticate against
+  # Anthropic directly, silently defeating the route.
+  assert_contains "[$alias_name] ANTHROPIC_API_KEY is explicitly empty" \
+    "$out" 'ANTHROPIC_API_KEY=""'
+
+  # No secret may ever reach dry-run output.
+  assert_not_contains "[$alias_name] no OpenRouter secret leaks" "$out" "sk-or-"
+done
+
+# ---------------------------------------------------------------- errors
+
+section "Error handling"
+
+bogus_out="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" no-such-alias 2>&1)"
+bogus_rc=$?
+
+assert_exit     "unknown alias exits non-zero" "2" "$bogus_rc"
+assert_contains "unknown alias names the bad input" "$bogus_out" "no-such-alias"
+assert_contains "unknown alias lists known aliases" "$bogus_out" "glm"
+assert_contains "unknown alias lists known aliases" "$bogus_out" "gpt"
+
+noargs_out="$("$CLAUDE_RUN" 2>&1)"
+noargs_rc=$?
+
+assert_exit     "no arguments exits non-zero"  "2" "$noargs_rc"
+assert_contains "no arguments prints usage"    "$noargs_out" "Usage"
+
+# ---------------------------------------------------------------- D6
+
+section "D6: no exec anywhere in the launcher chain"
+
+# Route detection walks process ancestry. An exec replaces the launcher
+# process, erasing the ancestor what-claude looks for.
+if grep -nE '^[[:space:]]*exec[[:space:]]' "$CLAUDE_RUN" >/dev/null 2>&1; then
+  bad "claude-run contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$CLAUDE_RUN")"
+else
+  ok "claude-run contains no 'exec'"
+fi
+
+# ---------------------------------------------------------------- summary
+
+TOTAL=$((PASS + FAIL))
+printf '\n'
+if [ "$FAIL" -eq 0 ]; then
+  printf '\033[32m✓ PASS\033[0m  %d/%d assertions\n\n' "$PASS" "$TOTAL"
+  exit 0
+else
+  printf '\033[31m✗ FAIL\033[0m  %d/%d passed, %d failed:' "$PASS" "$TOTAL" "$FAIL"
+  printf '%b\n\n' "$FAILED_NAMES"
+  exit 1
+fi

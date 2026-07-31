@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+#
+# claude-run - Launch Claude Code against a non-Anthropic backend, per process.
+#
+# This is the workhorse. It owns the provider table, the model table, and all
+# environment construction; bin/claude-glm, bin/claude-gpt, bin/claude-ollama
+# and bin/claude-openrouter are thin wrappers over it.
+#
+# Plain `claude` and `claudedsp` are deliberately untouched and stay on the
+# Anthropic Max subscription. Routing here is per process, so a routed session
+# and a plain one can run side by side. Gate A proved that routing does not
+# disturb the stored Max OAuth credentials.
+#
+# Usage:
+#   claude-run <alias> [claude args...]
+#   CLAUDE_ROUTE_DRYRUN=1 claude-run <alias>     # print the plan, launch nothing
+#
+# Overrides (all optional):
+#   CLAUDE_ROUTE_PROVIDER    force the provider for this run
+#   CLAUDE_ROUTE_MODEL       force the model id
+#   CLAUDE_ROUTE_CONTEXT     force the context-token ceiling
+#   CLAUDE_ROUTE_OLLAMA_HOST point at another Ollama host (see D2 below)
+#   CLAUDE_ROUTE_PERMISSION_MODE  override the permission flag (D1)
+#
+# Design decisions this file implements are cited as D1..D12 and are recorded
+# in docs/plans/claude-route-launchers.md. Gate findings are in
+# docs/assessments/route-gates.md and docs/assessments/mcp-schema-budget.md.
+#
+set -uo pipefail
+
+# ---------------------------------------------------------------- constants
+
+# D2: one place to repoint Ollama. Swap for a Tailscale name, saber.local, or a
+# fixed IP; nothing else in the file needs to change.
+readonly OLLAMA_HOST_DEFAULT="localhost"
+readonly OLLAMA_PORT_DEFAULT="11434"
+
+# D1: overridable const rather than a hardcoded flag. Routed sessions are for
+# throwaway and experimental work, so skipping prompts is the useful default.
+CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---dangerously-skip-permissions}"
+
+readonly KNOWN_ALIASES="glm gpt"
+
+# ---------------------------------------------------------------- helpers
+
+err()  { printf '\033[31mERROR\033[0m: %s\n' "$1" >&2; }
+info() { printf '\033[34mi\033[0m %s\n' "$1" >&2; }
+
+usage() {
+  cat >&2 <<'USAGE'
+Usage: claude-run <alias> [claude args...]
+
+Launches Claude Code against a non-Anthropic backend. Plain `claude` is
+untouched and stays on the Max subscription.
+
+Aliases:
+  glm    Ollama, local, glm-4.7-flash          free, ~4 min cold start, 198K window
+  gpt    OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 s start, 1M window
+
+Options:
+  CLAUDE_ROUTE_DRYRUN=1    print the resolved plan and exit without launching
+
+Examples:
+  claude-run glm
+  claude-run gpt -p "explain this repo"
+  CLAUDE_ROUTE_DRYRUN=1 claude-run gpt
+USAGE
+}
+
+# ---------------------------------------------------------------- model table
+#
+# alias -> (provider, model id, context tokens)
+#
+# Context values are measured, not assumed:
+#   glm  202752  Gate A, via /api/ps on the loaded model. NOT `ollama show`,
+#                which reports the GGUF architecture ceiling and reads the same
+#                number whether or not num_ctx was ever applied.
+#   gpt  1050000 Gate B, confirmed in-session as contextWindow: 1050000.
+#
+# CLAUDE_CODE_MAX_CONTEXT_TOKENS matters because Claude Code assumes a
+# Claude-sized window for model names it does not recognize, and would
+# otherwise overrun the real one.
+resolve_model() {
+  case "$1" in
+    glm)
+      ROUTE_PROVIDER="ollama"
+      ROUTE_MODEL="glm-4.7-flash"
+      ROUTE_CONTEXT="202752"
+      ;;
+    gpt)
+      ROUTE_PROVIDER="openrouter"
+      ROUTE_MODEL="openai/gpt-5.6-sol"
+      ROUTE_CONTEXT="1050000"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+# ---------------------------------------------------------------- provider table
+#
+# Both base URLs are bare, with no version suffix. The client appends
+# /v1/messages itself; adding /v1 here produces /v1/v1/ and a 404.
+resolve_provider() {
+  case "$1" in
+    ollama)
+      ROUTE_BASE_URL="http://${CLAUDE_ROUTE_OLLAMA_HOST:-$OLLAMA_HOST_DEFAULT}:${OLLAMA_PORT_DEFAULT}"
+      # Ollama accepts any credential and never validates it.
+      ROUTE_AUTH_TOKEN="ollama"
+      ;;
+    openrouter)
+      ROUTE_BASE_URL="https://openrouter.ai/api"
+      # D11: resolved at launch from 1Password with TouchID gating, never
+      # stored on disk. Implemented in Step 6; until then the openrouter path
+      # resolves for dry-run inspection but refuses to launch.
+      ROUTE_AUTH_TOKEN=""
+      ROUTE_AUTH_PENDING="yes"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+# ---------------------------------------------------------------- environment
+#
+# Builds ROUTE_ENV as one KEY=VALUE per line. Used verbatim for the launch and,
+# with the token redacted, for dry-run output.
+build_env() {
+  ROUTE_ENV=""
+  add() { ROUTE_ENV="${ROUTE_ENV}${1}"$'\n'; }
+
+  # --- transport
+  add "ANTHROPIC_BASE_URL=${ROUTE_BASE_URL}"
+  add "ANTHROPIC_AUTH_TOKEN=${ROUTE_AUTH_TOKEN}"
+  # Empty string, NOT unset. OpenRouter documents that leaving this unset makes
+  # Claude Code fall back to authenticating against Anthropic directly, which
+  # would silently defeat the route rather than fail.
+  add 'ANTHROPIC_API_KEY=""'
+
+  # --- tier mapping
+  #
+  # Gate A Check 4b: Claude Code makes background utility calls at the haiku
+  # tier even when a session requests a single model. A profile with haiku
+  # unmapped sees those calls fail against a backend that has no
+  # claude-haiku-4-5.
+  add "ANTHROPIC_DEFAULT_HAIKU_MODEL=${ROUTE_MODEL}"
+  add "ANTHROPIC_DEFAULT_SONNET_MODEL=${ROUTE_MODEL}"
+  add "ANTHROPIC_DEFAULT_OPUS_MODEL=${ROUTE_MODEL}"
+  #
+  # D12: the audit tier is deliberately LEFT UNMAPPED.
+  #
+  # Servanda spawns phase gates and security passes with model 'fable', which
+  # resolves through ANTHROPIC_DEFAULT_FABLE_MODEL. Pointing that at a local 30b
+  # or a cheap hosted model would silently degrade an adversarial audit, which
+  # is exactly what the STOP-not-degrade rule exists to prevent. Leaving it
+  # unmapped is the intended behavior: gates halt loudly under a routed profile
+  # rather than running weak.
+  #
+  # Gate A Check 4a proved this works rather than merely assuming it. With the
+  # variable unset, `--model fable` resolves to the literal `claude-fable-5`,
+  # which the backend rejects with a hard error and exit 1. It does NOT fall
+  # through to the Opus or Sonnet mapping above, which was the dangerous case.
+  #
+  # If you are ever tempted to map it: decide explicitly, and say so here.
+  # Do not let it fall through unnoticed.
+
+  # --- context ceiling
+  add "CLAUDE_CODE_MAX_CONTEXT_TOKENS=${ROUTE_CONTEXT}"
+
+  # --- MCP
+  #
+  # Gate 0: worth 37.4k of context, and it removes a real source of
+  # run-to-run variance. The claude.ai connector cost swings between roughly
+  # 2k unauthenticated and 37.4k authenticated on identical configuration.
+  add "ENABLE_CLAUDEAI_MCP_SERVERS=false"
+  #
+  # ENABLE_TOOL_SEARCH is deliberately NOT set here. D5 reframes the mission
+  # requirement from tool search to tool calling, because both backends force
+  # it: Ollama does not implement tool_reference at all, and setting the flag
+  # true against a proxy that does not forward it is a hard request failure
+  # rather than graceful degradation. Leave it unset and load tools upfront.
+
+  # --- telemetry and privacy (D10)
+  #
+  # Applied unconditionally on every routed launch, and never in the global
+  # environment. Plain `claude` to Anthropic keeps its defaults.
+  add "CLAUDE_CODE_ENABLE_TELEMETRY=0"
+  add "DISABLE_TELEMETRY=1"
+  add "DO_NOT_TRACK=1"
+  add "DISABLE_AUTOUPDATER=1"
+  add "DISABLE_ERROR_REPORTING=1"
+  add "OTEL_SDK_DISABLED=true"
+  add "OTEL_TRACES_EXPORTER=none"
+  add "OTEL_METRICS_EXPORTER=none"
+  add "OTEL_LOGS_EXPORTER=none"
+}
+
+# Mask anything secret-shaped so it can never reach dry-run output or a log.
+redact_env() {
+  printf '%s' "$ROUTE_ENV" | sed \
+    -e 's/^\(ANTHROPIC_AUTH_TOKEN=\)sk-or-.*/\1<redacted sk-or-...>/' \
+    -e 's/^\(ANTHROPIC_AUTH_TOKEN=\)$/\1<resolved from 1Password at launch>/'
+}
+
+# ---------------------------------------------------------------- dry run
+
+print_plan() {
+  cat <<PLAN
+
+claude-run: resolved launch plan (dry run, nothing launched)
+
+  alias              ${ROUTE_ALIAS}
+  provider           ${ROUTE_PROVIDER}
+  base url           ${ROUTE_BASE_URL}
+  model              ${ROUTE_MODEL}
+  context tokens     ${ROUTE_CONTEXT}
+  permission mode    ${CLAUDE_ROUTE_PERMISSION_MODE}
+
+  environment:
+PLAN
+  redact_env | sed 's/^/    /'
+  cat <<PLAN
+
+  command:
+    claude --model ${ROUTE_MODEL} ${CLAUDE_ROUTE_PERMISSION_MODE}${ROUTE_EXTRA_DISPLAY}
+
+PLAN
+}
+
+# ---------------------------------------------------------------- main
+
+[ $# -eq 0 ] && { usage; exit 2; }
+
+ROUTE_ALIAS="$1"
+shift
+
+case "$ROUTE_ALIAS" in
+  -h|--help|help) usage; exit 0 ;;
+esac
+
+if ! resolve_model "$ROUTE_ALIAS"; then
+  err "Unknown alias: ${ROUTE_ALIAS}"
+  printf '\nKnown aliases: %s\n\n' "$KNOWN_ALIASES" >&2
+  usage
+  exit 2
+fi
+
+# Per-run overrides, applied after the table so they win.
+ROUTE_PROVIDER="${CLAUDE_ROUTE_PROVIDER:-$ROUTE_PROVIDER}"
+ROUTE_MODEL="${CLAUDE_ROUTE_MODEL:-$ROUTE_MODEL}"
+ROUTE_CONTEXT="${CLAUDE_ROUTE_CONTEXT:-$ROUTE_CONTEXT}"
+
+ROUTE_AUTH_PENDING="no"
+if ! resolve_provider "$ROUTE_PROVIDER"; then
+  err "Unknown provider: ${ROUTE_PROVIDER}"
+  printf '\nKnown providers: ollama openrouter\n\n' >&2
+  exit 2
+fi
+
+build_env
+
+ROUTE_EXTRA_DISPLAY=""
+[ $# -gt 0 ] && ROUTE_EXTRA_DISPLAY=" $*"
+
+if [ -n "${CLAUDE_ROUTE_DRYRUN:-}" ]; then
+  print_plan
+  exit 0
+fi
+
+# ---------------------------------------------------------------- launch
+
+if [ "$ROUTE_AUTH_PENDING" = "yes" ]; then
+  err "The openrouter provider cannot launch yet."
+  info "Secret resolution lands in Step 6 of docs/plans/claude-route-launchers.md."
+  info "Dry-run inspection works now: CLAUDE_ROUTE_DRYRUN=1 claude-run ${ROUTE_ALIAS}"
+  exit 3
+fi
+
+# D11: the 1Password CLI is how secrets are resolved. Check before launching so
+# the failure is one clear message rather than an auth error from the backend.
+if [ "$ROUTE_PROVIDER" = "openrouter" ] && ! command -v op >/dev/null 2>&1; then
+  err "1Password CLI ('op') not found; the openrouter route needs it to resolve the API key."
+  info "Install:  brew install 1password-cli"
+  info "Then enable 1Password > Settings > Developer > 'Integrate with 1Password CLI'."
+  exit 4
+fi
+
+CLAUDE_BIN="$(command -v claude 2>/dev/null)"
+if [ -z "$CLAUDE_BIN" ]; then
+  err "The 'claude' binary was not found on PATH."
+  info "D1: this script invokes the binary directly and never a shell alias,"
+  info "so a 'claude' alias defined in .zshrc will not satisfy this."
+  exit 5
+fi
+
+# Export the resolved environment.
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  key="${line%%=*}"
+  val="${line#*=}"
+  # ANTHROPIC_API_KEY carries literal quotes in the plan for display; strip
+  # them so the variable is a genuine empty string rather than two quote marks.
+  case "$val" in '""') val="" ;; esac
+  export "$key=$val"
+done <<< "$ROUTE_ENV"
+
+# D6: NO `exec` HERE, AND NONE IN ANY WRAPPER.
+#
+# what-claude reports each session's route by walking process ancestry with
+# `ps -o ppid=` and matching ancestors against claude-run and its wrappers.
+# `exec` replaces this shell with the claude process, erasing the very ancestor
+# that detection depends on, and the ROUTE column would silently fall back to
+# reporting "anthropic (default)" for every routed session.
+#
+# The cost of not exec'ing is one extra shell process per session. That is the
+# price of route detection working at all.
+"$CLAUDE_BIN" --model "$ROUTE_MODEL" $CLAUDE_ROUTE_PERMISSION_MODE "$@"

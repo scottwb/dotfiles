@@ -327,11 +327,11 @@ grep -c "UNANSWERED" docs/assessments/route-gates.md
 The dry-run mode comes first deliberately: it is what makes every later step
 testable without launching a session, hitting a server, or spending tokens.
 
-- [ ] Write the failing test first: create `bin/claude-route-selftest`, which
+- [x] Write the failing test first: create `bin/claude-route-selftest`, which
       asserts that `CLAUDE_ROUTE_DRYRUN=1 claude-run glm` prints a resolved plan
       containing the expected base URL, model, and permission mode. It fails
       because `bin/claude-run` does not exist yet.
-- [ ] Implement `bin/claude-run` with:
+- [x] Implement `bin/claude-run` with:
       - a PROVIDER table (`ollama` -> `http://localhost:11434` per D2; `openrouter`
         -> `https://openrouter.ai/api`, no version suffix)
       - a MODEL table mapping alias to (provider, model id, context tokens)
@@ -347,9 +347,9 @@ testable without launching a session, hitting a server, or spending tokens.
       - the audit tier left unmapped, with a comment citing D12
       - `${VAR:-default}` overrides for provider, model, context, and host
       - **no `exec`** anywhere, with a comment explaining that D6 depends on it
-- [ ] Implement usage/error handling: unknown alias exits non-zero with the list of
+- [x] Implement usage/error handling: unknown alias exits non-zero with the list of
       known aliases; missing `op` exits with install guidance
-- [ ] Verify green: run `bin/claude-route-selftest`
+- [x] Verify green: run `bin/claude-route-selftest`
 
 **Satisfies:** D1, D2, D5, D6, D9, D10, D12.
 

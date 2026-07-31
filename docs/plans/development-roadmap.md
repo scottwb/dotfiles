@@ -33,9 +33,17 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [claude-route-launchers.md](claude-route-launchers.md)
 
-**Status:** Ready to implement. Ten steps, the first three of which are gates.
+**Status:** In progress, 4 of 10 steps done as of 2026-07-30. **All three gates passed**, so the design holds as written and the build steps are unblocked. `bin/claude-run` and `bin/claude-route-selftest` exist with dry-run mode and 38 passing assertions. Next: Step 5, the Ollama provider path and its preflight.
 
-**Run the gates interactively.** Steps 1 through 3 exist to kill or reshape everything after them, and Step 3 spends real money. Do not let an unattended runner blow through a failed gate into the build steps. Steps 1 and 2 are free.
+**The gates are done; they cost $0.48.** Steps 1 and 2 were free; Step 3 spent $0.481415 of a $10 per-key OpenRouter cap. What they established:
+
+- **Per-process routing works and leaves the Max login untouched**, so the launcher family stays per-process rather than becoming a global mode flip.
+- **D12 is confirmed by observed behavior**, not assumed. An unmapped audit tier resolves to the literal `claude-fable-5`, which routed backends reject with exit 1 rather than falling through to the Opus or Sonnet mapping.
+- **MCP tool calling works on both backends**, measured with the same probe against the same independently verifiable value.
+- **Ollama needs MCP trimming, OpenRouter does not.** New scope for Steps 4 and 5, but Ollama-specific rather than a shared feature of the workhorse.
+- **The backends differ sharply**: ~220s vs ~4s to first token, 202752 vs 1M context, free vs ~$0.06-0.10/turn. Neither dominates, which is why the plan wants both.
+
+Full records in [mcp-schema-budget.md](../assessments/mcp-schema-budget.md) and [route-gates.md](../assessments/route-gates.md).
 
 Two things this plan settles that the Servanda thread was carrying: it answers the `x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME` marker planted by [servanda-review-fixes.md](servanda-review-fixes.md) step 2 (decision: routed profiles leave the audit tier deliberately unmapped so gates halt loudly), and its Gate A proves whether `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored rather than merely present in the binary.
 
