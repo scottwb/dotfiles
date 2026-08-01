@@ -38,6 +38,15 @@ plugins/installed_plugins.json
 plugins/known_marketplaces.json
 plugins/marketplaces/
 plugins/blocklist.json
+plugins/.last_inuse_sweep
+
+# security-guidance plugin state. Ignored for a stronger reason than the rest
+# of this list: its warnings-state JSON records `untracked_at_baseline`, the
+# filenames present when a session started, from WHATEVER repo that session was
+# in. Committing it would publish client and project filenames into this PUBLIC
+# repo. Observed doing exactly that on 2026-07-31, carrying a filename from an
+# unrelated repo whose baseline SHA does not even exist here.
+security/
 
 # Backup files
 *.bak
