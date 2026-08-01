@@ -39,6 +39,17 @@ readonly OLLAMA_PORT_DEFAULT="11434"
 # server should fail immediately with a useful message, not hang.
 readonly OLLAMA_PREFLIGHT_TIMEOUT="2"
 
+# D11: the OpenRouter key is resolved at launch through the 1Password CLI, with
+# TouchID gating so a background process cannot silently grab it. The reference
+# and account are hardcoded here on purpose, per the global convention: these
+# are paths, not secrets, and this repo is public but contains no secret. There
+# is deliberately NO .env file, and op:// refs must never be stored in one.
+#
+# --account is passed explicitly because several 1Password accounts exist and
+# the OP_ACCOUNT environment variable would collide across them.
+readonly OP_ACCOUNT="facetdigital.1password.com"
+readonly OP_REF="op://Employee/OpenRouter/API Key"
+
 # D1: overridable const rather than a hardcoded flag. Routed sessions are for
 # throwaway and experimental work, so skipping prompts is the useful default.
 CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---dangerously-skip-permissions}"
@@ -116,11 +127,13 @@ resolve_provider() {
       ;;
     openrouter)
       ROUTE_BASE_URL="https://openrouter.ai/api"
-      # D11: resolved at launch from 1Password with TouchID gating, never
-      # stored on disk. Implemented in Step 6; until then the openrouter path
-      # resolves for dry-run inspection but refuses to launch.
-      ROUTE_AUTH_TOKEN=""
-      ROUTE_AUTH_PENDING="yes"
+      # Left empty here on purpose. The secret is resolved on the launch path
+      # only (see resolve_openrouter_secret), so a dry run never triggers a
+      # TouchID prompt and never has a secret to leak.
+      #
+      # An existing ANTHROPIC_AUTH_TOKEN wins, which keeps a one-off override
+      # available for testing without touching the vault.
+      ROUTE_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
       ;;
     *)
       return 1
@@ -203,11 +216,65 @@ build_env() {
   add "OTEL_LOGS_EXPORTER=none"
 }
 
-# Mask anything secret-shaped so it can never reach dry-run output or a log.
+# Mask the auth token so it can never reach dry-run output or a log.
+#
+# Deliberately a denylist of ONE known-safe value rather than an allowlist of
+# secret-looking prefixes. Matching on "sk-or-" would silently print anything
+# that did not match the pattern, and the failure mode of guessing wrong here
+# is a leaked credential. Redact by default; exempt only the literal string
+# Ollama ignores anyway.
 redact_env() {
-  printf '%s' "$ROUTE_ENV" | sed \
-    -e 's/^\(ANTHROPIC_AUTH_TOKEN=\)sk-or-.*/\1<redacted sk-or-...>/' \
-    -e 's/^\(ANTHROPIC_AUTH_TOKEN=\)$/\1<resolved from 1Password at launch>/'
+  printf '%s' "$ROUTE_ENV" | while IFS= read -r line; do
+    case "$line" in
+      "ANTHROPIC_AUTH_TOKEN=")
+        printf '%s\n' "ANTHROPIC_AUTH_TOKEN=<resolved from 1Password at launch>"
+        ;;
+      "ANTHROPIC_AUTH_TOKEN=ollama")
+        # Not a secret. Ollama accepts any credential and never validates it.
+        printf '%s\n' "$line"
+        ;;
+      ANTHROPIC_AUTH_TOKEN=*)
+        printf 'ANTHROPIC_AUTH_TOKEN=<redacted, %s chars>\n' \
+          "$(printf '%s' "${line#ANTHROPIC_AUTH_TOKEN=}" | wc -c | tr -d ' ')"
+        ;;
+      *)
+        printf '%s\n' "$line"
+        ;;
+    esac
+  done
+}
+
+# D11: resolve the OpenRouter key at launch, never before.
+#
+# Called only on the launch path, so a dry run neither prompts for TouchID nor
+# holds a secret. TouchID gating is the point: it stops a background process
+# from silently reading the credential.
+resolve_openrouter_secret() {
+  [ -n "$ROUTE_AUTH_TOKEN" ] && return 0   # override already supplied
+
+  if ! command -v op >/dev/null 2>&1; then
+    err "1Password CLI ('op') not found; the openrouter route needs it to resolve the API key."
+    info "Install:  brew install 1password-cli"
+    info "Then enable 1Password > Settings > Developer > 'Integrate with 1Password CLI'."
+    info "Confirm the item exists at:  ${OP_REF}"
+    info "Inspect without the key:  CLAUDE_ROUTE_DRYRUN=1 claude-run ${ROUTE_ALIAS}"
+    return 4
+  fi
+
+  info "Resolving the OpenRouter key from 1Password (TouchID may prompt)..."
+  ROUTE_AUTH_TOKEN="$(op read --account "$OP_ACCOUNT" "$OP_REF" 2>/dev/null)"
+
+  if [ -z "$ROUTE_AUTH_TOKEN" ]; then
+    err "Could not read the OpenRouter key from 1Password."
+    info "Account:   ${OP_ACCOUNT}"
+    info "Reference: ${OP_REF}"
+    info "Check that you are signed in ('op signin') and that the item exists at that path."
+    return 8
+  fi
+
+  # Rebuild so the resolved token reaches the launch environment.
+  build_env
+  return 0
 }
 
 # ---------------------------------------------------------------- preflight
@@ -333,7 +400,6 @@ ROUTE_PROVIDER="${CLAUDE_ROUTE_PROVIDER:-$ROUTE_PROVIDER}"
 ROUTE_MODEL="${CLAUDE_ROUTE_MODEL:-$ROUTE_MODEL}"
 ROUTE_CONTEXT="${CLAUDE_ROUTE_CONTEXT:-$ROUTE_CONTEXT}"
 
-ROUTE_AUTH_PENDING="no"
 if ! resolve_provider "$ROUTE_PROVIDER"; then
   err "Unknown provider: ${ROUTE_PROVIDER}"
   printf '\nKnown providers: ollama openrouter\n\n' >&2
@@ -354,35 +420,23 @@ fi
 
 # ---------------------------------------------------------------- preflight
 
-if [ "$ROUTE_PROVIDER" = "ollama" ]; then
-  ollama_preflight || exit $?
-fi
+# Per-provider readiness. Both run before the PREFLIGHT_ONLY exit so that
+# "is this route ready?" means the same thing on either backend: for ollama
+# that the server is up with the right model and window, for openrouter that
+# the key actually resolves.
+case "$ROUTE_PROVIDER" in
+  ollama)     ollama_preflight            || exit $? ;;
+  openrouter) resolve_openrouter_secret   || exit $? ;;
+esac
 
-# Health check without launching. Useful on its own ("is my Ollama ready?")
-# and it is how the selftest exercises the preflight against a live server
-# without starting a session.
+# Health check without launching. Useful on its own, and it is how the selftest
+# exercises the preflight against a live backend without starting a session.
 if [ -n "${CLAUDE_ROUTE_PREFLIGHT_ONLY:-}" ]; then
   info "Preflight passed. Not launching (CLAUDE_ROUTE_PREFLIGHT_ONLY is set)."
   exit 0
 fi
 
 # ---------------------------------------------------------------- launch
-
-if [ "$ROUTE_AUTH_PENDING" = "yes" ]; then
-  err "The openrouter provider cannot launch yet."
-  info "Secret resolution lands in Step 6 of docs/plans/claude-route-launchers.md."
-  info "Dry-run inspection works now: CLAUDE_ROUTE_DRYRUN=1 claude-run ${ROUTE_ALIAS}"
-  exit 3
-fi
-
-# D11: the 1Password CLI is how secrets are resolved. Check before launching so
-# the failure is one clear message rather than an auth error from the backend.
-if [ "$ROUTE_PROVIDER" = "openrouter" ] && ! command -v op >/dev/null 2>&1; then
-  err "1Password CLI ('op') not found; the openrouter route needs it to resolve the API key."
-  info "Install:  brew install 1password-cli"
-  info "Then enable 1Password > Settings > Developer > 'Integrate with 1Password CLI'."
-  exit 4
-fi
 
 CLAUDE_BIN="$(command -v claude 2>/dev/null)"
 if [ -z "$CLAUDE_BIN" ]; then

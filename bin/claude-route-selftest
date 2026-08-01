@@ -222,6 +222,94 @@ else
   skip "missing model suggests ollama pull"           "ollama not running"
 fi
 
+# ---------------------------------------------------------------- secrets
+#
+# D11: the OpenRouter key is resolved at launch from 1Password with TouchID
+# gating. It is never written to disk, never committed, and must never reach
+# dry-run output or a log.
+
+section "OpenRouter secret handling (D11)"
+
+# Dry run must not resolve the secret at all: no TouchID prompt, no network,
+# nothing to leak. It should say where the value comes from, not what it is.
+gpt_dry="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" gpt 2>&1)"
+
+assert_not_contains "dry run leaks no sk-or- token"   "$gpt_dry" "sk-or-"
+assert_not_contains "dry run leaks no sk-ant- token"  "$gpt_dry" "sk-ant-"
+assert_contains     "dry run names 1Password as the source" "$gpt_dry" "1Password"
+
+# The redaction must survive a token actually being present, which is the case
+# that matters. An override stands in for the real secret so this assertion
+# never needs the vault.
+leak_out="$(CLAUDE_ROUTE_DRYRUN=1 ANTHROPIC_AUTH_TOKEN="sk-or-v1-DEADBEEFdeadbeefDEADBEEFdeadbeef" \
+  "$CLAUDE_RUN" gpt 2>&1)"
+assert_not_contains "a present token is redacted, not printed" "$leak_out" "DEADBEEF"
+assert_contains     "redaction leaves a visible marker"        "$leak_out" "redacted"
+
+# Redaction must be a denylist, not a prefix allowlist.
+#
+# This assertion exists because mutation testing found the gap: narrowing the
+# match from ANTHROPIC_AUTH_TOKEN=* to ANTHROPIC_AUTH_TOKEN=sk-or-* passed the
+# whole suite, because every other token here happens to start with sk-or-. A
+# key in any other shape would have printed in full. Anything not explicitly
+# known-safe must be redacted, so the token below deliberately looks nothing
+# like an OpenRouter key.
+oddshape_out="$(CLAUDE_ROUTE_DRYRUN=1 ANTHROPIC_AUTH_TOKEN="totally-unexpected-CREDENTIALSHAPE-9999" \
+  "$CLAUDE_RUN" gpt 2>&1)"
+assert_not_contains "an unrecognized token shape is still redacted" \
+  "$oddshape_out" "CREDENTIALSHAPE"
+assert_contains     "unrecognized shape gets the redaction marker" \
+  "$oddshape_out" "redacted"
+
+# The one exemption must stay exactly one. Ollama's literal is not a secret.
+ollama_tok="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" glm 2>&1)"
+assert_contains "the ollama literal is exempt, not redacted" \
+  "$ollama_tok" "ANTHROPIC_AUTH_TOKEN=ollama"
+
+# The op:// reference is a path, not a secret, and belongs in the source per
+# the global convention: hardcoded readonly consts, no .env file.
+assert_contains "op:// reference is hardcoded in the source" \
+  "$(cat "$CLAUDE_RUN")" "op://"
+assert_contains "1Password account is hardcoded in the source" \
+  "$(cat "$CLAUDE_RUN")" "facetdigital.1password.com"
+
+# An override must satisfy the launch path without consulting the vault, which
+# is what lets this run unattended and in CI.
+ovr_out="$(CLAUDE_ROUTE_PREFLIGHT_ONLY=1 ANTHROPIC_AUTH_TOKEN="sk-or-v1-OVERRIDE-NOT-REAL" \
+  "$CLAUDE_RUN" gpt 2>&1)"
+ovr_rc=$?
+assert_exit         "preflight accepts a token override"  "0" "$ovr_rc"
+assert_not_contains "override token is never echoed"      "$ovr_out" "OVERRIDE-NOT-REAL"
+
+# The op guard must name the fix, not just fail. Simulated with a PATH that
+# still has an interpreter and coreutils but no `op`, since 1Password installs
+# to /opt/homebrew/bin. Emptying PATH entirely would break the script's own
+# `#!/usr/bin/env bash` line and test nothing.
+if [ -x /usr/bin/op ] || [ -x /bin/op ]; then
+  skip "missing op exits non-zero"         "op is in /usr/bin or /bin"
+  skip "missing op gives install guidance" "op is in /usr/bin or /bin"
+  skip "missing op names the op:// ref"    "op is in /usr/bin or /bin"
+else
+  noop_out="$(PATH=/usr/bin:/bin ANTHROPIC_AUTH_TOKEN= "$CLAUDE_RUN" gpt 2>&1)"
+  noop_rc=$?
+  assert_exit     "missing op exits non-zero"         "4" "$noop_rc"
+  assert_contains "missing op gives install guidance" "$noop_out" "brew install 1password-cli"
+  assert_contains "missing op names the op:// ref"    "$noop_out" "op://Employee/OpenRouter"
+fi
+
+# No .env anywhere near this. The convention is op:// refs resolved at runtime,
+# never secrets on disk, and never the two blended together.
+#
+# Comments are stripped first: the source deliberately *mentions* .env to say it
+# is not used, and matching prose would fail on the very comment that documents
+# the rule. Only executable lines count.
+env_hits="$(sed 's/#.*//' "$CLAUDE_RUN" | grep -nE '(source|\.)[[:space:]]+[^[:space:]]*\.env|\.env["'"'"' ]*$' || true)"
+if [ -n "$env_hits" ]; then
+  bad "claude-run never reads a .env file" "$env_hits"
+else
+  ok "claude-run never reads a .env file"
+fi
+
 # ---------------------------------------------------------------- wrappers
 
 section "Thin wrappers (D9)"
@@ -251,6 +339,32 @@ for wrapper in claude-glm claude-ollama; do
 
   # Wrappers must forward arguments through to claude, or `claude-glm -p "..."`
   # silently drops the prompt.
+  fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
+  assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
+done
+
+for wrapper in claude-gpt claude-openrouter; do
+  W="$SCRIPT_DIR/$wrapper"
+  if [ ! -x "$W" ]; then
+    bad "[$wrapper] exists and is executable" "missing or not executable: $W"
+    continue
+  fi
+  ok "[$wrapper] exists and is executable"
+
+  w_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" 2>&1)"
+  w_rc=$?
+  assert_exit     "[$wrapper] dry run exits 0"        "0" "$w_rc"
+  assert_contains "[$wrapper] resolves to openrouter" "$w_out" "openrouter"
+  assert_contains "[$wrapper] resolves the model"     "$w_out" "openai/gpt-5.6-sol"
+  assert_contains "[$wrapper] carries the context"    "$w_out" "1050000"
+  assert_not_contains "[$wrapper] leaks no secret"    "$w_out" "sk-or-"
+
+  if grep -nE '^[[:space:]]*exec[[:space:]]' "$W" >/dev/null 2>&1; then
+    bad "[$wrapper] contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$W")"
+  else
+    ok "[$wrapper] contains no 'exec'"
+  fi
+
   fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
   assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
 done

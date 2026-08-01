@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# claude-openrouter - Launch Claude Code against OpenRouter on its default model.
+#
+# Thin wrapper over claude-run (D9). Provider-oriented rather than
+# model-oriented: this means "run hosted", and the default model is whatever
+# the OpenRouter backend currently leads with.
+#
+# Today that resolves to the same place as claude-gpt. They are kept separate
+# because they answer different questions: claude-gpt will always mean the GPT
+# entry, while claude-openrouter follows the default below. Mirrors the
+# claude-glm / claude-ollama split.
+#
+# Usage: claude-openrouter [claude args...]
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# The OpenRouter backend's default alias. Change this one line to move the default.
+readonly OPENROUTER_DEFAULT_ALIAS="gpt"
+
+# NO `exec` (D6). See the note in claude-run's launch section.
+"$SCRIPT_DIR/claude-run" "$OPENROUTER_DEFAULT_ALIAS" "$@"

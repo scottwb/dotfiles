@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# claude-gpt - Launch Claude Code on openai/gpt-5.6-sol via OpenRouter.
+#
+# Thin wrapper over claude-run (D9). All logic lives there.
+#
+# Fast and roomy, but metered: roughly $0.06 to $0.10 per turn against a 1M
+# window, with the first token arriving in about four seconds. Use claude-glm
+# when cost matters more than responsiveness.
+#
+# The API key is read from 1Password at launch and TouchID may prompt. Nothing
+# is stored on disk.
+#
+# Once inside a session, /model reaches OpenRouter's whole catalog, so there is
+# no need for a wrapper per model. Note the catalog is filtered by the account's
+# Zero Data Retention settings, so it is not the full public list.
+#
+# Usage: claude-gpt [claude args...]
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# NO `exec` (D6). what-claude reports each session's route by walking process
+# ancestry; exec would replace this shell and erase the ancestor it matches on.
+"$SCRIPT_DIR/claude-run" gpt "$@"

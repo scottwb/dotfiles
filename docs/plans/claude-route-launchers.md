@@ -400,23 +400,23 @@ bin/claude-glm --version; echo "exit=$?"
 
 ### Step 6: Add the OpenRouter provider path with 1Password secret resolution
 
-- [ ] Write the failing test first: extend `claude-route-selftest` to assert the
+- [x] Write the failing test first: extend `claude-route-selftest` to assert the
       dry-run output for `gpt` shows the OpenRouter base URL, an empty
       `ANTHROPIC_API_KEY`, and a **redacted** auth token (never the real value).
       Fails because the OpenRouter path does not exist.
-- [ ] Implement secret resolution per D11 and the global convention:
+- [x] Implement secret resolution per D11 and the global convention:
       ```bash
       readonly OP_ACCOUNT="facetdigital.1password.com"
       readonly OP_REF="op://Employee/OpenRouter/API Key"
       ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-$(op read --account "$OP_ACCOUNT" "$OP_REF")}"
       ```
-- [ ] Implement `command -v op` guard with install and setup guidance on failure
-- [ ] Implement `ANTHROPIC_API_KEY=""` explicitly, empty string not unset, because
+- [x] Implement `command -v op` guard with install and setup guidance on failure
+- [x] Implement `ANTHROPIC_API_KEY=""` explicitly, empty string not unset, because
       OpenRouter documents that leaving it unset makes Claude Code fall back to
       authenticating against Anthropic directly
-- [ ] Implement redaction so the token never appears in dry-run output or logs
-- [ ] Implement `bin/claude-openrouter` and `bin/claude-gpt` thin wrappers
-- [ ] Verify green: selftest passes, and dry-run output contains no `sk-or-` string
+- [x] Implement redaction so the token never appears in dry-run output or logs
+- [x] Implement `bin/claude-openrouter` and `bin/claude-gpt` thin wrappers
+- [x] Verify green: selftest passes, and dry-run output contains no `sk-or-` string
 
 **Satisfies:** D4, D9, D11.
 
