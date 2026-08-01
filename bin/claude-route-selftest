@@ -369,6 +369,77 @@ for wrapper in claude-gpt claude-openrouter; do
   assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
 done
 
+# ---------------------------------------------------------------- route detection
+#
+# D6: what-claude reads each session's route back out of process ancestry. This
+# is the assertion that makes the no-exec rule enforceable rather than merely
+# documented, because an exec anywhere in the chain breaks detection silently
+# and every routed session would quietly report as plain Anthropic.
+#
+# A stub `claude` stands in for a real session: it creates the exact ancestry
+# without minutes of model loading or a single token of spend.
+
+section "what-claude route detection (D6)"
+
+WHAT_CLAUDE="$SCRIPT_DIR/what-claude"
+
+if [ ! -x "$WHAT_CLAUDE" ]; then
+  bad "what-claude exists and is executable" "missing: $WHAT_CLAUDE"
+else
+  STUB_DIR="$(mktemp -d)"
+  cat > "$STUB_DIR/claude" <<'STUB'
+#!/usr/bin/env bash
+# Stands in for a real Claude Code session so route detection can be tested
+# without loading a model or spending a token.
+sleep 25
+STUB
+  chmod +x "$STUB_DIR/claude"
+
+  PATH="$STUB_DIR:$PATH" "$SCRIPT_DIR/claude-glm" >/dev/null 2>&1 &
+  STUB_LAUNCHER_PID=$!
+
+  # Give the chain time to establish: wrapper -> claude-run -> stub.
+  sleep 2
+
+  wc_out="$("$WHAT_CLAUDE" 2>&1)"
+
+  assert_contains "table has a ROUTE column"        "$wc_out" "ROUTE"
+  assert_contains "routed session shows its provider" "$wc_out" "ollama"
+  assert_contains "routed session shows its model"    "$wc_out" "glm-4.7-flash"
+
+  # The launcher processes must not be listed as sessions.
+  #
+  # claude-run and every wrapper have "claude" in their command line, so the
+  # process filter picks them up and one launch reports as three or four rows.
+  # Introduced by this launcher family: before it existed, nothing in bin/
+  # matched. Caught by the ROUTE column making the duplicates obvious.
+  routed_rows="$(printf '%s' "$wc_out" | grep -c 'glm-4.7-flash' || true)"
+  if [ "$routed_rows" -eq 1 ]; then
+    ok "one launch produces exactly one row"
+  else
+    bad "one launch produces exactly one row" \
+      "got $routed_rows rows; launcher processes are being counted as sessions"
+  fi
+  assert_not_contains "claude-run is not listed as a session" "$wc_out" "claude-run "
+  assert_not_contains "wrappers are not listed as sessions"   "$wc_out" "claude-glm "
+
+  # The fallback must be labelled as inferred. A session with no launcher
+  # ancestor is *presumed* to be on Anthropic because nothing says otherwise;
+  # that is not the same as having observed it, and the table should not
+  # pretend it is.
+  assert_contains "unrouted sessions are labelled as inferred" "$wc_out" "inferred"
+
+  kill "$STUB_LAUNCHER_PID" 2>/dev/null
+  pkill -f "$STUB_DIR/claude" 2>/dev/null
+  wait "$STUB_LAUNCHER_PID" 2>/dev/null
+  rm -rf "$STUB_DIR"
+
+  # Detection must not wrongly claim a route for an unrouted session.
+  wc_plain="$("$WHAT_CLAUDE" 2>&1)"
+  assert_not_contains "no phantom ollama route once the stub is gone" \
+    "$wc_plain" "glm-4.7-flash"
+fi
+
 # ---------------------------------------------------------------- summary
 
 TOTAL=$((PASS + FAIL))

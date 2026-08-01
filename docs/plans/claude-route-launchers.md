@@ -435,17 +435,17 @@ CLAUDE_ROUTE_DRYRUN=1 bin/claude-gpt | grep -q 'openrouter.ai/api' && echo "PASS
 
 ### Step 7: Teach what-claude to report the route
 
-- [ ] Write the failing test first: start a dry-run-free launcher in the background
+- [x] Write the failing test first: start a dry-run-free launcher in the background
       against Ollama, run `what-claude`, and assert a ROUTE column showing provider
       and model. Fails because the column does not exist.
-- [ ] Implement the ancestry walk: for each claude PID, walk `ps -o ppid=` up to
+- [x] Implement the ancestry walk: for each claude PID, walk `ps -o ppid=` up to
       three levels and match ancestors against `claude-run` and the thin wrappers,
       extracting provider and model from the resolved command line
-- [ ] Implement the fallback: a session with no launcher ancestor reports
+- [x] Implement the fallback: a session with no launcher ancestor reports
       `anthropic (default)`, labelled as inferred rather than observed
-- [ ] Preserve the existing `claude-code-router` detection
-- [ ] Handle the width of the new column so the table still aligns
-- [ ] Verify green: the assertion passes with one routed and one plain session running
+- [x] Preserve the existing `claude-code-router` detection
+- [x] Handle the width of the new column so the table still aligns
+- [x] Verify green: the assertion passes with one routed and one plain session running
 
 **Satisfies:** D6.
 

@@ -33,7 +33,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [claude-route-launchers.md](claude-route-launchers.md)
 
-**Status:** In progress, 6 of 10 steps done as of 2026-07-31. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/claude-route-selftest` covers the family with 97 passing assertions. Next: Step 7, teaching `what-claude` to report each session's route.
+**Status:** In progress, 7 of 10 steps done as of 2026-07-31. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/what-claude` now reports each session's backend in a ROUTE column read from process ancestry. `bin/claude-route-selftest` covers the family with 105 passing assertions. Next: Step 8, retiring the parked Ollama profile from `settings.json`.
 
 **The gates are done; they cost $0.48.** Steps 1 and 2 were free; Step 3 spent $0.481415 of a $10 per-key OpenRouter cap. What they established:
 
