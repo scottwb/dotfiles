@@ -44,7 +44,8 @@ Installation:
         git clone git@github.com:scottwb/dotfiles.git
         cd ~
         ln -s ~/src/scottwb/dotfiles/.* .
-        rm -rf .git
+        ls -ld .git          # confirm it is a LINK (starts with "l"), not a dir
+        unlink .git
         ln -s ~/src/scottwb/dotfiles/bin bin
 
   Note that this installs the dot-prefixed entries plus `bin`, and
@@ -52,6 +53,28 @@ Installation:
   `themes/`) are repo-only by design and deliberately never linked
   into `$HOME`: `docs/` in particular holds this repo's own roadmap
   and development plans, which have no business in a home directory.
+
+  **Why `unlink .git`, and why not `rm -rf`.** The glob above links
+  *every* dot-entry, `.git` included, so `~/.git` ends up pointing at
+  the dotfiles repo and makes your whole home directory look like a
+  checkout. That one bad symlink is what this removes. `unlink` is
+  used rather than `rm -rf` because it fails safe in both directions
+  that matter, verified 2026-08-01 with each case against a fresh
+  target:
+
+  | Command | The symlink | The real repo |
+  |---|---|---|
+  | `rm -rf .git` | removed | intact |
+  | **`rm -rf .git/`** | still there | **destroyed** |
+  | `rm .git` | removed | intact |
+  | `unlink .git` | removed | intact |
+
+  One trailing slash inverts the outcome: macOS resolves through the
+  link, recursively deletes the target's contents, and leaves the
+  dangling symlink behind. And `rm -rf .git` run from the repo by
+  mistake destroys it silently, where `unlink .git` refuses with
+  "is a directory". Check the `ls -ld` output before deleting: if it
+  shows `d` instead of `l`, you are in the wrong directory.
 
 * Install the private companion repo,
   [dotfiles-private](https://github.com/scottwb/dotfiles-private),

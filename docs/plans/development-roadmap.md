@@ -25,26 +25,11 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Fix the install instructions' `rm -rf .git` hazard
+### Acceptance-test the Servanda kit
 
-**Thread:** Machine setup
+**Thread:** Servanda
 
-**Goal:** Change the README's install step from `rm -rf .git` to `unlink .git`, and add a `ls -ld .git` look-before-you-delete line above it.
-
-**Status:** Ready, about five minutes. Promoted 2026-08-01 on completing the route launchers. It sits ahead of the larger Servanda work not because it outranks it but because it is a latent data-loss hazard in the one document a new machine follows, and the fix is trivial.
-
-**Why it matters.** The install symlinks every dot-entry from the repo into `$HOME`, `.git` included, so `~/.git` ends up pointing at the dotfiles repo and makes the whole home directory look like a checkout. The `rm -rf .git` that follows exists to undo exactly that one bad symlink. Verified empirically on 2026-08-01, each case against a fresh target:
-
-| Command | The symlink | The real repo |
-|---|---|---|
-| `rm -rf .git` | removed | intact |
-| **`rm -rf .git/`** | still there | **destroyed** |
-| `rm .git` | removed | intact |
-| `unlink .git` | removed | intact |
-
-One trailing slash inverts the outcome: macOS resolves through the link, recursively deletes the target's contents, and leaves the dangling link behind. Separately, `rm -rf .git` run in the repo by mistake destroys it silently, while `unlink .git` and `rm .git` both refuse with "is a directory". `unlink` cannot recurse, cannot follow a symlink, and fails safe in both directions.
-
-The instruction as written is correct. This is about removing the ways to get it wrong.
+Promoted 2026-08-01. Full detail in Upcoming below, kept there so this section stays short; the route-launcher plan that just completed was itself the Tier 1 through 3 opportunity this item was waiting for.
 
 ---
 
@@ -193,6 +178,25 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 ---
 
 ## Completed
+
+### Fix the install instructions' `rm -rf .git` hazard (2026-08-01)
+
+**Thread:** Machine setup
+
+The install glob links *every* dot-entry into `$HOME`, `.git` included, so `~/.git` ends up pointing at the dotfiles repo and makes the whole home directory look like a checkout. The deletion that follows exists to undo that one bad symlink. Changed `rm -rf .git` to `unlink .git`, with a `ls -ld .git` look-before-you-delete line above it and a note explaining both.
+
+The old instruction was correct as written. What it lacked was any margin for getting it wrong, verified with each case against a fresh target:
+
+| Command | The symlink | The real repo |
+|---|---|---|
+| `rm -rf .git` | removed | intact |
+| **`rm -rf .git/`** | still there | **destroyed** |
+| `rm .git` | removed | intact |
+| `unlink .git` | removed | intact |
+
+One trailing slash inverts the outcome: macOS resolves through the link, recursively deletes the target's contents, and leaves the dangling symlink behind. Separately, `rm -rf .git` run from inside the repo by mistake destroys it silently, where `unlink .git` refuses with "is a directory". `unlink` cannot recurse and cannot follow a symlink, so both failure modes become harmless errors.
+
+Surfaced while writing a safe recipe for testing the README against a throwaway `$HOME`, not from any plan. The corrected instructions were then run verbatim in that throwaway home and verified end to end.
 
 ### Claude Code route launchers (OpenRouter + Ollama) (2026-08-01)
 
