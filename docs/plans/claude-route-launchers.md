@@ -533,8 +533,8 @@ grep -q "claude-run" README.md && echo "PASS: documented"
 
 ### Step 10: Queue the follow-on roadmap items
 
-- [ ] Test-first: n/a, roadmap only.
-- [ ] Add: remaining OpenRouter models (`kimi`, `deepseek`, `qwen`, and a decision
+- [x] Test-first: n/a, roadmap only.
+- [x] Add: remaining OpenRouter models (`kimi`, `deepseek`, `qwen`, and a decision
       on the `glm` alias collision, since GLM exists on both backends and the alias
       currently resolves to Ollama). **Verify ZDR availability for each first.**
       Zero Data Retention is enabled on the account, which filters the reachable
@@ -542,17 +542,17 @@ grep -q "claude-run" README.md && echo "PASS: documented"
       account's. Gate B Check 5 also showed this makes wrappers-per-model
       unnecessary, since gateway discovery reaches the whole filtered catalog
       in-session, so this item is convenience rather than access.
-- [ ] Add: `ollama-tools` scope reduction, deleting `claude-install` and demoting
+- [x] Add: `ollama-tools` scope reduction, deleting `claude-install` and demoting
       its README's harness support to a mention
-- [ ] Add: launchers for aider, codex, opencode, and pi following this pattern,
+- [x] Add: launchers for aider, codex, opencode, and pi following this pattern,
       with `aider-run` migrating out of `ollama-tools`
-- [ ] Add: a local model evaluation pass, noting that `gemma4` has an open
+- [x] Add: a local model evaluation pass, noting that `gemma4` has an open
       tool-parser issue and `qwen3-coder` has the worst Claude-Code-specific bug
       reports, so `glm-4.7-flash`, `qwen3.5-27b`, and a possible `qwen3.6:27b` pull
       are the live candidates
-- [ ] Add: a periodic model-slug refresh, since OpenRouter's catalog churns and
+- [x] Add: a periodic model-slug refresh, since OpenRouter's catalog churns and
       several 2025-era slugs already carry expiration dates
-- [ ] Add: `bin/claude-route-doctor`, a preflight checker for the setup the
+- [x] Add: `bin/claude-route-doctor`, a preflight checker for the setup the
       README describes in prose. Verifies `op` is installed and its shell
       integration is on, the `op://` item resolves, a **per-key** OpenRouter
       credit limit is set (account-level is not enough, and the key endpoint
@@ -562,7 +562,7 @@ grep -q "claude-run" README.md && echo "PASS: documented"
       real new machine rather than documentation that has to be trusted, which is
       the gap noted on 2026-08-01: nothing short of fresh hardware exercises the
       Homebrew and 1Password-toggle steps.
-- [ ] Fix the README's `rm -rf .git` install step to `unlink .git`, and add a
+- [x] Fix the README's `rm -rf .git` install step to `unlink .git`, and add a
       `ls -ld .git` look-before-you-delete line. Verified 2026-08-01: `rm -rf
       .git` is safe on the symlink, but `rm -rf .git/` with a trailing slash
       follows through and recursively destroys the real repo while leaving the
@@ -570,14 +570,14 @@ grep -q "claude-run" README.md && echo "PASS: documented"
       silently. `unlink` cannot recurse, cannot follow a symlink, and refuses on
       a real directory, so both failure modes become harmless errors. Thread:
       Machine setup.
-- [ ] Add: bake `num_ctx` into `Modelfile.glm-4.7-flash` properly, fixing both the
+- [x] Add: bake `num_ctx` into `Modelfile.glm-4.7-flash` properly, fixing both the
       `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`,
       since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K
       window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which
       is silent when absent. A baked-in parameter survives any server start
       method. Demoted from a Gate A blocker on 2026-07-30; see
       `docs/assessments/route-gates.md`.
-- [ ] Verify green: each item has a Thread tag and a Status
+- [x] Verify green: each item has a Thread tag and a Status
 
 **Satisfies:** D4, D8.
 

@@ -25,27 +25,26 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Claude Code route launchers (OpenRouter + Ollama)
+### Fix the install instructions' `rm -rf .git` hazard
 
-**Thread:** Shell + Tools
+**Thread:** Machine setup
 
-**Goal:** Add a family of `bin/` launchers that run Claude Code against OpenRouter and local Ollama on a per-process basis, leaving plain `claude` and `claudedsp` untouched on the Max subscription. Workhorse plus thin wrappers: `bin/claude-run` owns the model and provider tables, `claude-gpt` / `claude-glm` / `claude-openrouter` / `claude-ollama` are three-line entry points. `bin/what-claude` grows a ROUTE column that reads the backend back out of process ancestry.
+**Goal:** Change the README's install step from `rm -rf .git` to `unlink .git`, and add a `ls -ld .git` look-before-you-delete line above it.
 
-**Plan:** [claude-route-launchers.md](claude-route-launchers.md)
+**Status:** Ready, about five minutes. Promoted 2026-08-01 on completing the route launchers. It sits ahead of the larger Servanda work not because it outranks it but because it is a latent data-loss hazard in the one document a new machine follows, and the fix is trivial.
 
-**Status:** In progress, 9 of 10 steps done as of 2026-08-01. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/what-claude` reports each session's backend in a ROUTE column read from process ancestry. The parked `x-env` Ollama profile is retired, and the `DECIDE-ME` audit-tier marker it carried is answered in `bin/claude-run`. `bin/claude-route-selftest` covers the family with 105 passing assertions. The README documents the family end to end, including one-time setup on a fresh machine. Remaining: Step 10, queueing the roadmap follow-ons.
+**Why it matters.** The install symlinks every dot-entry from the repo into `$HOME`, `.git` included, so `~/.git` ends up pointing at the dotfiles repo and makes the whole home directory look like a checkout. The `rm -rf .git` that follows exists to undo exactly that one bad symlink. Verified empirically on 2026-08-01, each case against a fresh target:
 
-**The gates are done; they cost $0.48.** Steps 1 and 2 were free; Step 3 spent $0.481415 of a $10 per-key OpenRouter cap. What they established:
+| Command | The symlink | The real repo |
+|---|---|---|
+| `rm -rf .git` | removed | intact |
+| **`rm -rf .git/`** | still there | **destroyed** |
+| `rm .git` | removed | intact |
+| `unlink .git` | removed | intact |
 
-- **Per-process routing works and leaves the Max login untouched**, so the launcher family stays per-process rather than becoming a global mode flip.
-- **D12 is confirmed by observed behavior**, not assumed. An unmapped audit tier resolves to the literal `claude-fable-5`, which routed backends reject with exit 1 rather than falling through to the Opus or Sonnet mapping.
-- **MCP tool calling works on both backends**, measured with the same probe against the same independently verifiable value.
-- **Ollama needs MCP trimming, OpenRouter does not.** New scope for Steps 4 and 5, but Ollama-specific rather than a shared feature of the workhorse.
-- **The backends differ sharply**: ~220s vs ~4s to first token, 202752 vs 1M context, free vs ~$0.06-0.10/turn. Neither dominates, which is why the plan wants both.
+One trailing slash inverts the outcome: macOS resolves through the link, recursively deletes the target's contents, and leaves the dangling link behind. Separately, `rm -rf .git` run in the repo by mistake destroys it silently, while `unlink .git` and `rm .git` both refuse with "is a directory". `unlink` cannot recurse, cannot follow a symlink, and fails safe in both directions.
 
-Full records in [mcp-schema-budget.md](../assessments/mcp-schema-budget.md) and [route-gates.md](../assessments/route-gates.md).
-
-Two things this plan settles that the Servanda thread was carrying: it answers the `x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME` marker planted by [servanda-review-fixes.md](servanda-review-fixes.md) step 2 (decision: routed profiles leave the audit tier deliberately unmapped so gates halt loudly), and its Gate A proves whether `ANTHROPIC_DEFAULT_FABLE_MODEL` is actually honored rather than merely present in the binary.
+The instruction as written is correct. This is about removing the ways to get it wrong.
 
 ---
 
@@ -150,6 +149,37 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Status:** Deferred until open-sourcing is on the table
 
+### Route launcher follow-ons
+
+**Thread:** Shell + Tools
+
+**Goal:** The deferred pieces of [claude-route-launchers.md](claude-route-launchers.md), none of which blocked shipping it.
+
+**Status:** Queued 2026-08-01, none urgent. The launchers work; these make them easier to set up and keep current.
+
+- **`bin/claude-route-doctor`**, a preflight checker for the setup the README currently describes in prose: `op` installed with shell integration on, the `op://` item resolving, a **per-key** OpenRouter credit limit set, Ollama up, the model installed, and the loaded window matching the route. Prints what is missing plus the fix. This is the answer to a real gap: nothing short of fresh hardware exercises the Homebrew and 1Password-toggle steps, so setup correctness is currently documentation you have to trust. The per-key check earns its place on its own, since an account-level limit leaves the key endpoint reporting `limit: null` and that mistake was made live during Gate B.
+- **More OpenRouter models** (`kimi`, `deepseek`, `qwen`), plus a decision on the `glm` alias collision, since GLM exists on both backends and the alias currently resolves to Ollama. **Verify ZDR availability for each first:** Zero Data Retention is on for the account and filters the reachable catalog, so a model in OpenRouter's public list is not necessarily in this one's. Lower value than it looks: Gate B Check 5 showed gateway discovery already reaches the whole filtered catalog in-session, making these a convenience rather than the way to access a model.
+- **A periodic model-slug refresh.** OpenRouter's catalog churns and several 2025-era slugs already carry expiration dates.
+- **Bake `num_ctx` into `Modelfile.glm-4.7-flash`.** Fixes both the `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`, since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which is silent when absent; a baked-in parameter survives any start method. Demoted from a Gate A blocker on 2026-07-30 once `/api/ps` showed the effective window was already correct.
+
+### Extend the launcher pattern to the other harnesses
+
+**Thread:** Tools
+
+**Goal:** Launchers for aider, codex, opencode, and pi following the `claude-run` shape, with `aider-run` migrating out of `ollama-tools` into `bin/`. Includes the `ollama-tools` scope reduction: delete `claude-install` and demote its README's harness support to a mention.
+
+**Status:** Queued. This is the payoff D8 was aiming at, and the reason the transport logic lives in one workhorse rather than being copy-pasted per model. Worth doing only when a second harness is actually in regular use; building it speculatively would be inventing requirements.
+
+### Local model evaluation pass
+
+**Thread:** Tools
+
+**Goal:** Work out which local models are genuinely usable for agentic coding, rather than assuming.
+
+**Status:** Queued. Live candidates are `glm-4.7-flash`, `qwen3.5-27b`, and a possible `qwen3.6:27b` pull. `gemma4` has an open tool-parser issue and `qwen3-coder` has the worst Claude-Code-specific bug reports, so both start behind.
+
+One measurement already exists and should shape the rest: Gate A found `glm-4.7-flash` cold-starts in minutes, dominated by fixed cost rather than prompt size, against OpenRouter's roughly four seconds. Any evaluation that only scores output quality will miss the property that actually decides whether a local model gets used.
+
 ### Extract kit to its own repo (someday)
 
 **Thread:** Servanda (and the thread's exit condition: this item ends Servanda as a dotfiles thread)
@@ -163,6 +193,26 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 ---
 
 ## Completed
+
+### Claude Code route launchers (OpenRouter + Ollama) (2026-08-01)
+
+**Thread:** Shell + Tools
+
+**Plan:** [claude-route-launchers.md](claude-route-launchers.md)
+
+Ten steps, three of them gates, all passed. `bin/claude-run` owns the provider and model tables; `claude-glm`, `claude-ollama`, `claude-gpt`, and `claude-openrouter` are thin wrappers over it. Routing is per process, so a routed session and a plain Max session run side by side and `settings.json` never needs editing to switch. `bin/what-claude` reports each session's backend in a ROUTE column read from process ancestry, and `bin/claude-route-selftest` holds the family to 105 assertions without launching a session or spending a token.
+
+**The gates cost $0.48** and were worth more than that. What they settled:
+
+- **Per-process routing leaves the Max login untouched**, which is what kept the design per-process instead of a global mode flip.
+- **D12 is confirmed by observed behavior, not assumed.** An unmapped audit tier resolves to the literal `claude-fable-5`, which routed backends reject with exit 1 rather than falling through to the Opus or Sonnet mapping. That was the dangerous case: a phase gate quietly auditing on a local 30b while reporting success.
+- **MCP tool calling works on both backends**, measured with the same probe against the same independently verifiable value rather than trusting either model's prose.
+- **Ollama needs MCP trimming, OpenRouter does not**, which made the allowlist Ollama-specific and the workhorse simpler than Gate 0 feared.
+- **The backends differ sharply**: ~220s vs ~4s to first token, 202752 vs 1M context, free vs ~$0.06-0.10/turn. Neither dominates, which is why both exist.
+
+It also closed two things the Servanda thread was carrying: the `x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME` marker from [servanda-review-fixes.md](servanda-review-fixes.md) step 2 is answered (routed profiles leave the audit tier unmapped on purpose, and gates therefore halt under routing), and `ANTHROPIC_DEFAULT_FABLE_MODEL` is proven honored rather than merely present in the binary.
+
+Full records in [mcp-schema-budget.md](../assessments/mcp-schema-budget.md) and [route-gates.md](../assessments/route-gates.md). Follow-ons are queued in Upcoming under "Route launcher follow-ons".
 
 ### Apply the Servanda review fixes (2026-07-30)
 
