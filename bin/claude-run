@@ -184,6 +184,18 @@ build_env() {
   #
   # If you are ever tempted to map it: decide explicitly, and say so here.
   # Do not let it fall through unnoticed.
+  #
+  # THIS COMMENT IS THE SURVIVING RECORD OF THAT DECISION. It previously lived
+  # in .claude/settings.json as the x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME
+  # marker planted by docs/plans/servanda-review-fixes.md step 2. That marker
+  # asked for an explicit answer rather than a silent deletion, and this is the
+  # answer: routed profiles leave the audit tier unmapped ON PURPOSE. The
+  # settings.json block was retired on 2026-08-01 once these launchers replaced
+  # it, so if this comment goes, the rationale goes with it.
+  #
+  # Practical consequence, also recorded in .claude/COMMANDS.md: run Servanda
+  # phase gates and security passes on a plain Anthropic session. Under any
+  # routed profile they halt.
 
   # --- context ceiling
   add "CLAUDE_CODE_MAX_CONTEXT_TOKENS=${ROUTE_CONTEXT}"

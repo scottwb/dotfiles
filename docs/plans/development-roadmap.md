@@ -33,7 +33,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [claude-route-launchers.md](claude-route-launchers.md)
 
-**Status:** In progress, 7 of 10 steps done as of 2026-07-31. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/what-claude` now reports each session's backend in a ROUTE column read from process ancestry. `bin/claude-route-selftest` covers the family with 105 passing assertions. Next: Step 8, retiring the parked Ollama profile from `settings.json`.
+**Status:** In progress, 8 of 10 steps done as of 2026-08-01. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/what-claude` reports each session's backend in a ROUTE column read from process ancestry. The parked `x-env` Ollama profile is retired, and the `DECIDE-ME` audit-tier marker it carried is answered in `bin/claude-run`. `bin/claude-route-selftest` covers the family with 105 passing assertions. Remaining: Steps 9 and 10, documentation and roadmap follow-ons.
 
 **The gates are done; they cost $0.48.** Steps 1 and 2 were free; Step 3 spent $0.481415 of a $10 per-key OpenRouter cap. What they established:
 
@@ -81,6 +81,33 @@ Deliberately opportunistic. Tier 0 is about five minutes and needs no project; r
 **Plan:** [command-suite-rename.md](command-suite-rename.md)
 
 **Status:** Ready to implement. AWAITING SCOTT'S EXPLICIT GO. Do not auto-start. Blocked on the batch landing above (the plan header's pre-step); acceptance testing should also come first per the ordering decision above.
+
+### Upstream doc-lifecycle skill suite (incubating in timecue)
+
+**Thread:** Servanda
+
+**Goal:** Extend the kit upstream of `/roadmap` with a briefing-to-roadmap document
+lifecycle: an idea dump becomes `00-PRODUCT-REQUIREMENTS.md` (interrogate-until-frozen
+PRD), then `01-TECHNICAL-FEASIBILITY.md` (spike plan with agent-run and human-run
+steps, verdicts feeding a DECISION-LOG and `docs/adr/` ADRs), then `02-UX-DESIGN.md`
+(semantic "markdown design": surfaces, states, affordances, copy; no pixels), then
+`03-ARCHITECTURE.md` (system + technical design, state-transition test matrix), then
+`/roadmap` synthesizes `development-roadmap.md` from 00-03 risk-first (kill-risks
+early, walking-skeleton proof of life, phases ending in PHASE GATE markers). Candidate
+skills: PRD, feasibility, UX design, architecture, plus an ADR writer; final names
+deferred but should follow the rename plan's verb-scope grammar. Also deferred to this
+item: renaming `development-roadmap.md` to a numbered `04-` form, which touches every
+command that reads the roadmap path, so it must land as one suite-wide change.
+
+**Status:** Incubating. The lifecycle is being hand-executed first in
+`~/src/facetdigital/timecue` (the TimeCue app, formerly harvest-activity-guard) (doc structure landed 2026-08-01; skill
+notes accumulate in that repo's `docs/notes/skill-lab.md`). Draft skills will be
+built and tested in that repo's `.claude/` against the real build of Harvest Activity
+Guard, then extracted and elevated into Servanda after real-world use. No dotfiles
+work yet; do not start here until the incubation run produces stable skill drafts.
+Decision context: spec-kit, superpowers, and SDD-style frameworks were evaluated
+2026-08-01 and rejected wholesale; steal patterns only (constitution, clarify
+discipline, spec-per-feature granularity stays with /gameplan).
 
 ### Split the acceptance checklist into record plus regression suite
 

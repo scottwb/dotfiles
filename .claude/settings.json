@@ -33,27 +33,6 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "agentPushNotifEnabled": false,
-  "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. TO SWITCH TO LOCAL OLLAMA: rename x-env to env, swap the values of model and x-model, then restart Claude Code. TO SWITCH BACK: reverse both renames. If small local models ramble, add a terse-output prompt via 'claude --append-system-prompt' (no settings.json key exists for that). Keep this file secret-free; it lives in the PUBLIC dotfiles repo.",
-  "x-env": {
-    "ANTHROPIC_BASE_URL": "http://localhost:11434",
-    "ANTHROPIC_AUTH_TOKEN": "ollama",
-    "ANTHROPIC_API_KEY": "",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3:30b-a3b",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3:30b-a3b",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3:30b-a3b",
-    "x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME": "The audit tier is deliberately UNMAPPED in this profile. Servanda spawns phase gates and security passes with model 'fable', which resolves through ANTHROPIC_DEFAULT_FABLE_MODEL. Pointing that at a local 30b would silently degrade an adversarial audit, which the STOP-not-degrade rule exists to prevent, so leaving it unmapped is the intended behavior: gates halt loudly under this profile rather than running weak. If you are replacing this profile, DECIDE explicitly. Either map the audit tier to something genuinely strong, or keep it unmapped on purpose and say so. Do not let it fall through unnoticed. See docs/plans/servanda-review-fixes.md step 2.",
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
-    "X-CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
-    "DISABLE_TELEMETRY": "1",
-    "DO_NOT_TRACK": "1",
-    "DISABLE_AUTOUPDATER": "1",
-    "DISABLE_ERROR_REPORTING": "1",
-    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
-    "OTEL_SDK_DISABLED": "true",
-    "OTEL_TRACES_EXPORTER": "none",
-    "OTEL_METRICS_EXPORTER": "none",
-    "OTEL_LOGS_EXPORTER": "none"
-  },
-  "x-model": "qwen3:30b-a3b",
+  "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. Keep this file secret-free; it lives in the PUBLIC dotfiles repo. NON-ANTHROPIC BACKENDS: the parked x-env Ollama profile that used to live here was retired on 2026-08-01, replaced by the per-process launchers in bin/ (claude-glm, claude-gpt, claude-ollama, claude-openrouter, all thin wrappers over bin/claude-run). Routing is now per process rather than a global settings flip, so a routed session and a plain Max session run side by side and this file never needs editing to switch. The audit tier decision that lived in the x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME marker is ANSWERED and now recorded in bin/claude-run: routed profiles leave the fable tier deliberately unmapped so Servanda gates halt loudly rather than running a weak adversarial audit. See docs/plans/claude-route-launchers.md and docs/assessments/route-gates.md.",
   "gitAttribution": false
 }

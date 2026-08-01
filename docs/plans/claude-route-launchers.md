@@ -466,20 +466,20 @@ bin/what-claude
 Deliberately last among the code steps. Per D3, the parked block is a working
 fallback and does not come out until its replacement is proven.
 
-- [ ] Test-first: n/a. This step removes configuration; the proof that it is safe
+- [x] Test-first: n/a. This step removes configuration; the proof that it is safe
       is that Steps 5 and 7 pass and `claude-glm` has been used for real work.
-- [ ] Precondition check: confirm `claude-glm` has actually been used for a real
+- [x] Precondition check: confirm `claude-glm` has actually been used for a real
       session, not just a dry run
-- [ ] Remove `x-env`, `x-model`, and the Ollama-switching half of `x-instructions`
+- [x] Remove `x-env`, `x-model`, and the Ollama-switching half of `x-instructions`
       from `.claude/settings.json`
-- [ ] **Answer the `DECIDE-ME` marker explicitly** rather than deleting it silently.
+- [x] **Answer the `DECIDE-ME` marker explicitly** rather than deleting it silently.
       Per D12, the decision is: routed profiles leave the audit tier UNMAPPED on
       purpose, so Servanda gates halt loudly rather than running a weak adversarial
       audit. Record that decision as a comment in `bin/claude-run` where the tier
       vars are set, so it survives the settings.json deletion.
-- [ ] Update `.claude/COMMANDS.md` where it documents model pins as tier aliases,
+- [x] Update `.claude/COMMANDS.md` where it documents model pins as tier aliases,
       noting how routed profiles interact with the audit tier
-- [ ] Verify green: `jq . .claude/settings.json` parses, no `x-env` key remains,
+- [x] Verify green: `jq . .claude/settings.json` parses, no `x-env` key remains,
       and `grep` finds the audit-tier rationale in `bin/claude-run`
 
 **Satisfies:** D3, D12. Answers the marker planted by `servanda-review-fixes.md` step 2.
