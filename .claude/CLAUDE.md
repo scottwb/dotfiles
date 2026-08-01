@@ -30,6 +30,8 @@ I have custom slash commands for a structured development workflow:
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
+**Under a routed session (`claude-glm`, `claude-gpt`, or anything else via `bin/claude-run`), phase gates and security passes HALT.** The audit tier is left unmapped on purpose so a gate stops rather than quietly auditing on a weak model. That is correct behavior, not a misconfiguration: run gates on a plain Anthropic session. Plain `claude` is unaffected by the launchers in every other respect.
+
 ### Workflow
 1. `/roadmap` → View what's next, pick something to work on
 2. `/gameplan` → Create detailed plan with checkboxes (if not already planned)

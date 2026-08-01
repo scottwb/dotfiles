@@ -469,7 +469,12 @@ fallback and does not come out until its replacement is proven.
 - [x] Test-first: n/a. This step removes configuration; the proof that it is safe
       is that Steps 5 and 7 pass and `claude-glm` has been used for real work.
 - [x] Precondition check: confirm `claude-glm` has actually been used for a real
-      session, not just a dry run
+      session, not just a dry run. **Met, and more convincingly after the fact.**
+      At the time of the Step 8 commit the only evidence was one weather question
+      at 2026-08-01T06:11Z, which was a thin reading of D3's "proven working" and
+      was flagged as such. Later the same day a real `claude-glm` session
+      (PID 76373, the actual `claude` binary via the wrapper chain) was found
+      running for genuine work, which is the bar D3 meant.
 - [x] Remove `x-env`, `x-model`, and the Ollama-switching half of `x-instructions`
       from `.claude/settings.json`
 - [x] **Answer the `DECIDE-ME` marker explicitly** rather than deleting it silently.
@@ -499,17 +504,17 @@ grep -q -i "audit tier" bin/claude-run && echo "PASS: rationale preserved"
 
 ### Step 9: Document the launcher family
 
-- [ ] Test-first: n/a, documentation only.
-- [ ] Add a section to `README.md` covering the launcher family, the one-time
+- [x] Test-first: n/a, documentation only.
+- [x] Add a section to `README.md` covering the launcher family, the one-time
       setup (1Password item, `op` CLI integration, OpenRouter credit limit), and
       the fact that plain `claude` is deliberately untouched
-- [ ] Document the model table and how to add a model, since that is the routine
+- [x] Document the model table and how to add a model, since that is the routine
       maintenance task as slugs churn
-- [ ] Note the `no exec` constraint prominently, since violating it silently breaks
+- [x] Note the `no exec` constraint prominently, since violating it silently breaks
       `what-claude` route detection
-- [ ] Update `.claude/CLAUDE.md` if the launchers change anything about how a
+- [x] Update `.claude/CLAUDE.md` if the launchers change anything about how a
       session should behave
-- [ ] Verify green: a reader can set this up from scratch on a new machine using
+- [x] Verify green: a reader can set this up from scratch on a new machine using
       only the README
 
 **Satisfies:** D8. Establishes the pattern the future aider, codex, opencode, and
@@ -547,6 +552,24 @@ grep -q "claude-run" README.md && echo "PASS: documented"
       are the live candidates
 - [ ] Add: a periodic model-slug refresh, since OpenRouter's catalog churns and
       several 2025-era slugs already carry expiration dates
+- [ ] Add: `bin/claude-route-doctor`, a preflight checker for the setup the
+      README describes in prose. Verifies `op` is installed and its shell
+      integration is on, the `op://` item resolves, a **per-key** OpenRouter
+      credit limit is set (account-level is not enough, and the key endpoint
+      reports `limit: null` when only the account is capped), Ollama is up, the
+      model is installed, and the loaded window matches the route. Prints what is
+      missing plus the fix. Turns setup verification into something runnable on a
+      real new machine rather than documentation that has to be trusted, which is
+      the gap noted on 2026-08-01: nothing short of fresh hardware exercises the
+      Homebrew and 1Password-toggle steps.
+- [ ] Fix the README's `rm -rf .git` install step to `unlink .git`, and add a
+      `ls -ld .git` look-before-you-delete line. Verified 2026-08-01: `rm -rf
+      .git` is safe on the symlink, but `rm -rf .git/` with a trailing slash
+      follows through and recursively destroys the real repo while leaving the
+      dangling link, and `rm -rf .git` run in the repo by mistake destroys it
+      silently. `unlink` cannot recurse, cannot follow a symlink, and refuses on
+      a real directory, so both failure modes become harmless errors. Thread:
+      Machine setup.
 - [ ] Add: bake `num_ctx` into `Modelfile.glm-4.7-flash` properly, fixing both the
       `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`,
       since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K

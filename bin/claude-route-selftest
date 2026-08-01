@@ -386,6 +386,19 @@ WHAT_CLAUDE="$SCRIPT_DIR/what-claude"
 if [ ! -x "$WHAT_CLAUDE" ]; then
   bad "what-claude exists and is executable" "missing: $WHAT_CLAUDE"
 else
+  # Count routed rows BEFORE launching anything.
+  #
+  # Assertions here are relative to this baseline, never absolute. Scott may
+  # legitimately have a real claude-glm session open while the suite runs, and
+  # an absolute count ("exactly one ollama row") fails in that case for no good
+  # reason. Learned the hard way on 2026-08-01, when a live routed session made
+  # two assertions fail against correct code.
+  route_rows() { "$WHAT_CLAUDE" 2>/dev/null | grep -c 'glm-4.7-flash' || true; }
+  baseline_rows="$(route_rows)"
+  [ "$baseline_rows" -gt 0 ] && \
+    printf '  \033[2m(%d routed session(s) already running; counting relative to that)\033[0m\n' \
+      "$baseline_rows"
+
   STUB_DIR="$(mktemp -d)"
   cat > "$STUB_DIR/claude" <<'STUB'
 #!/usr/bin/env bash
@@ -414,11 +427,12 @@ STUB
   # Introduced by this launcher family: before it existed, nothing in bin/
   # matched. Caught by the ROUTE column making the duplicates obvious.
   routed_rows="$(printf '%s' "$wc_out" | grep -c 'glm-4.7-flash' || true)"
-  if [ "$routed_rows" -eq 1 ]; then
-    ok "one launch produces exactly one row"
+  expected_rows=$((baseline_rows + 1))
+  if [ "$routed_rows" -eq "$expected_rows" ]; then
+    ok "one launch adds exactly one row"
   else
-    bad "one launch produces exactly one row" \
-      "got $routed_rows rows; launcher processes are being counted as sessions"
+    bad "one launch adds exactly one row" \
+      "expected $expected_rows (baseline $baseline_rows + 1), got $routed_rows; launcher processes may be counted as sessions"
   fi
   assert_not_contains "claude-run is not listed as a session" "$wc_out" "claude-run "
   assert_not_contains "wrappers are not listed as sessions"   "$wc_out" "claude-glm "
@@ -429,15 +443,23 @@ STUB
   # pretend it is.
   assert_contains "unrouted sessions are labelled as inferred" "$wc_out" "inferred"
 
+  # Cleanup is scoped to this suite's own temp dir so a real routed session
+  # running alongside is never touched.
   kill "$STUB_LAUNCHER_PID" 2>/dev/null
   pkill -f "$STUB_DIR/claude" 2>/dev/null
   wait "$STUB_LAUNCHER_PID" 2>/dev/null
   rm -rf "$STUB_DIR"
+  sleep 1
 
-  # Detection must not wrongly claim a route for an unrouted session.
-  wc_plain="$("$WHAT_CLAUDE" 2>&1)"
-  assert_not_contains "no phantom ollama route once the stub is gone" \
-    "$wc_plain" "glm-4.7-flash"
+  # Detection must not keep claiming a route for a session that has ended.
+  # Again relative: back to baseline, not to zero.
+  after_rows="$(route_rows)"
+  if [ "$after_rows" -eq "$baseline_rows" ]; then
+    ok "the route disappears when the session does"
+  else
+    bad "the route disappears when the session does" \
+      "expected $baseline_rows, got $after_rows"
+  fi
 fi
 
 # ---------------------------------------------------------------- summary

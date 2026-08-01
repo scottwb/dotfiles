@@ -33,7 +33,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [claude-route-launchers.md](claude-route-launchers.md)
 
-**Status:** In progress, 8 of 10 steps done as of 2026-08-01. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/what-claude` reports each session's backend in a ROUTE column read from process ancestry. The parked `x-env` Ollama profile is retired, and the `DECIDE-ME` audit-tier marker it carried is answered in `bin/claude-run`. `bin/claude-route-selftest` covers the family with 105 passing assertions. Remaining: Steps 9 and 10, documentation and roadmap follow-ons.
+**Status:** In progress, 9 of 10 steps done as of 2026-08-01. **All three gates passed**, so the design holds as written. All four launchers are live: `claude-glm` and `claude-ollama` on local Ollama, `claude-gpt` and `claude-openrouter` on OpenRouter with the key resolved from 1Password at launch. `bin/what-claude` reports each session's backend in a ROUTE column read from process ancestry. The parked `x-env` Ollama profile is retired, and the `DECIDE-ME` audit-tier marker it carried is answered in `bin/claude-run`. `bin/claude-route-selftest` covers the family with 105 passing assertions. The README documents the family end to end, including one-time setup on a fresh machine. Remaining: Step 10, queueing the roadmap follow-ons.
 
 **The gates are done; they cost $0.48.** Steps 1 and 2 were free; Step 3 spent $0.481415 of a $10 per-key OpenRouter cap. What they established:
 
@@ -82,7 +82,7 @@ Deliberately opportunistic. Tier 0 is about five minutes and needs no project; r
 
 **Status:** Ready to implement. AWAITING SCOTT'S EXPLICIT GO. Do not auto-start. Blocked on the batch landing above (the plan header's pre-step); acceptance testing should also come first per the ordering decision above.
 
-### Upstream doc-lifecycle skill suite (incubating in timecue)
+### Upstream doc-lifecycle skill suite (incubating in timercue)
 
 **Thread:** Servanda
 
@@ -100,7 +100,7 @@ item: renaming `development-roadmap.md` to a numbered `04-` form, which touches 
 command that reads the roadmap path, so it must land as one suite-wide change.
 
 **Status:** Incubating. The lifecycle is being hand-executed first in
-`~/src/facetdigital/timecue` (the TimeCue app, formerly harvest-activity-guard) (doc structure landed 2026-08-01; skill
+`~/src/facetdigital/timercue` (the TimerCue app, formerly harvest-activity-guard) (doc structure landed 2026-08-01; skill
 notes accumulate in that repo's `docs/notes/skill-lab.md`). Draft skills will be
 built and tested in that repo's `.claude/` against the real build of Harvest Activity
 Guard, then extracted and elevated into Servanda after real-world use. No dotfiles
