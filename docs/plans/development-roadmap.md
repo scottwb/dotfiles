@@ -147,13 +147,19 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 - **A periodic model-slug refresh.** OpenRouter's catalog churns and several 2025-era slugs already carry expiration dates.
 - **Bake `num_ctx` into `Modelfile.glm-4.7-flash`.** Fixes both the `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`, since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which is silent when absent; a baked-in parameter survives any start method. Demoted from a Gate A blocker on 2026-07-30 once `/api/ps` showed the effective window was already correct.
 
-### Extend the launcher pattern to the other harnesses
+### Patchbay v2: the `pbay` front door
 
 **Thread:** Tools
 
-**Goal:** Launchers for aider, codex, opencode, and pi following the `claude-run` shape, with `aider-run` migrating out of `ollama-tools` into `bin/`. Includes the `ollama-tools` scope reduction: delete `claude-install` and demote its README's harness support to a mention.
+**Goal:** Replace the wrapper-per-combination shape with a single subcommand CLI over the harness x model x provider matrix: `pbay run claude glm`, `pbay ps`, `pbay doctor`, `pbay models --refresh`, `pbay config`, `pbay providers`. State in `~/.pbay/`, cache kept separable from config. Absorbs three items that would otherwise be built separately: the doctor script, the model-slug refresh, and the harness expansion. Includes the `ollama-tools` scope reduction (delete `claude-install`, demote its README's harness support to a mention) and `aider-run` migrating into `bin/`.
 
-**Status:** Queued. This is the payoff D8 was aiming at, and the reason the transport logic lives in one workhorse rather than being copy-pasted per model. Worth doing only when a second harness is actually in regular use; building it speculatively would be inventing requirements.
+**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet.
+
+**The trigger:** the first time you want aider or codex against a routed backend for real work. That is when the matrix becomes real. Today there is one harness, two backends, four launchers, and nothing chafing, so building the general form would be inventing requirements.
+
+**An honest complication found on 2026-08-02**, which supersedes the earlier framing of this item as "extend the launcher pattern to other harnesses": **claude-code-router already supports Claude Code, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, and ZCode.** The multi-harness capability this item was going to build is not a gap in the market; it is a gap only in this repo. So the trigger event for v2 is also the moment ccr becomes the obvious answer instead.
+
+That makes the real question upstream of the build: **is the durable idea worth a competing tool at all?** ccr's ordered-fallback feature ("tries each backup model in order, returns on first success") is structurally the anti-pattern Servanda's capability floor exists to prevent, and no routing tool surveyed has any concept of refusing to substitute downward. A per-route `no_fallback: true` flag contributed upstream would be a small feature in ccr's existing config shape and would make the differentiator disappear in the best way. Not attempted, no issue filed, and the idea has been checked only against ccr's documentation rather than its code. See patchbay.md for the four options and their rough effort.
 
 ### Local model evaluation pass
 
