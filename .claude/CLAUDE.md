@@ -30,12 +30,9 @@ I have custom slash commands for a structured development workflow:
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
-**Under a routed session (`claude-glm`, `claude-gpt`, or anything else via `bin/claude-run`), phase gates and security passes HALT.** The audit tier is left unmapped on purpose so a gate stops rather than quietly auditing on a weak model. That is correct behavior, not a misconfiguration: run gates on a plain Anthropic session. Plain `claude` is unaffected by the launchers in every other respect.
+Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, Argus, and which skill lives where): `~/.claude/private/docs/org-chart.md`. Same rule; read it on demand, do not preload.
 
-### Workflow
-1. `/roadmap` → View what's next, pick something to work on
-2. `/gameplan` → Create detailed plan with checkboxes (if not already planned)
-3. `/booyah` → Execute plan step-by-step (implement → test → commit → repeat)
+**Under a routed session (`claude-glm`, `claude-gpt`, or anything else via `bin/claude-run`), phase gates and security passes HALT.** The audit tier is left unmapped on purpose so a gate stops rather than quietly auditing on a weak model. That is correct behavior, not a misconfiguration: run gates on a plain Anthropic session. Plain `claude` is unaffected by the launchers in every other respect.
 
 ### Proactive Suggestions
 - If I mention wanting to start something new → suggest `/roadmap`

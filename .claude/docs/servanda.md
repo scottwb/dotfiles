@@ -109,6 +109,23 @@ they stop, by design.
 - **Capped attempts, then stop.** Autonomous modes never build on a broken
   foundation.
 
+## The everyday path
+
+Most work runs through three commands. The rest of the ladder exists for when
+this is not enough.
+
+1. `/roadmap` for what is next, and to pick something
+2. `/gameplan` to turn it into a plan with checkboxes, if it does not have one
+3. `/booyah` to execute it step by step: implement, test, commit, repeat
+
+`/yolo` collapses step 3 into one unattended pass with the human as the
+acceptance gate at the end. `/beastmode` collapses all three across a whole
+roadmap. `/phasegate` audits a finished phase.
+
+Moved here from `CLAUDE.md` on 2026-08-03. That file is loaded into every
+session, so it keeps only the behavioral half (when to *suggest* a command);
+descriptions of what the commands do belong with the kit.
+
 ## Where things live
 
 | | |

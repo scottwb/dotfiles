@@ -10,6 +10,13 @@ of them.
 | Session settings and permissions | `settings.json` | inline `x-instructions` key |
 | Global agent instructions | `CLAUDE.md` | itself |
 | Skills | `skills/` | each skill's own `SKILL.md` |
+| **Private companion**, docs and skills that name clients or internals | `private/` (symlink, excluded) | [scottwb/dotfiles-private](https://github.com/scottwb/dotfiles-private) |
+
+The `private/` link comes from `dotfiles-private` and is excluded from this
+repo, so it is present on Scott's machine and absent from the public tree. The
+org chart of the agent constellation lives there, at
+`~/.claude/private/docs/org-chart.md`, because it names client-facing repos and
+what each agent can see.
 
 Related but living elsewhere in this repo:
 
