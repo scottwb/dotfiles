@@ -25,11 +25,21 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Acceptance-test the Servanda kit
+### Patchbay team release
 
-**Thread:** Servanda
+**Thread:** Tools
 
-Promoted 2026-08-01. Full detail in Upcoming below, kept there so this section stays short; the route-launcher plan that just completed was itself the Tier 1 through 3 opportunity this item was waiting for.
+**Goal:** Ship Patchbay to the Facet dev team as an OpenRouter fallback for Claude outages, in its own repository. De-personalize the launchers so they work for someone who is not Scott, and give the team a documented install and setup path.
+
+**Plan:** [patchbay-team-release.md](patchbay-team-release.md)
+
+**Status:** Ready to implement. Eight steps. Repo owner settled 2026-08-08: **`facetdigital/patchbay`**, so licensing and any future public release are a company decision.
+
+**Why this jumped the queue (2026-08-08):** the extraction triggers written down on 2026-08-03 were "the ccr question resolves in favour of Patchbay standing alone, **or** someone other than you wants it." The second one fired. Scott's devs at Facet want a simple, low-dependency way to keep working through Claude outages, needing nothing beyond a credential in an environment variable.
+
+**What is already true, and reduces the work considerably:** the env-var credential path already functions with no `op` on `PATH`, runtime dependencies are already just `bash`, `curl`, `sed`, `grep`, `ps` and `claude`, and the `ollama` binary is not a runtime dependency at all. What blocks sharing is narrower than it looked: the 1Password vault path is hardcoded, the selftest enforces that hardcoding, and the missing-credential error tells the user to install 1Password, which is the wrong guidance for their most likely mistake.
+
+**This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. Step 8 corrects the doc.
 
 ---
 
@@ -140,9 +150,8 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Goal:** The deferred pieces of [claude-route-launchers.md](claude-route-launchers.md), none of which blocked shipping it.
 
-**Status:** Queued 2026-08-01, none urgent. The launchers work; these make them easier to set up and keep current.
+**Status:** Queued 2026-08-01, none urgent. The launchers work; these make them easier to set up and keep current. **The doctor script moved out of this item on 2026-08-08** and into [patchbay-team-release.md](patchbay-team-release.md) Step 6, where per-dev keys make it load-bearing rather than a nicety.
 
-- **`bin/claude-route-doctor`**, a preflight checker for the setup the README currently describes in prose: `op` installed with shell integration on, the `op://` item resolving, a **per-key** OpenRouter credit limit set, Ollama up, the model installed, and the loaded window matching the route. Prints what is missing plus the fix. This is the answer to a real gap: nothing short of fresh hardware exercises the Homebrew and 1Password-toggle steps, so setup correctness is currently documentation you have to trust. The per-key check earns its place on its own, since an account-level limit leaves the key endpoint reporting `limit: null` and that mistake was made live during Gate B.
 - **More OpenRouter models** (`kimi`, `deepseek`, `qwen`), plus a decision on the `glm` alias collision, since GLM exists on both backends and the alias currently resolves to Ollama. **Verify ZDR availability for each first:** Zero Data Retention is on for the account and filters the reachable catalog, so a model in OpenRouter's public list is not necessarily in this one's. Lower value than it looks: Gate B Check 5 showed gateway discovery already reaches the whole filtered catalog in-session, making these a convenience rather than the way to access a model.
 - **A periodic model-slug refresh.** OpenRouter's catalog churns and several 2025-era slugs already carry expiration dates.
 - **Bake `num_ctx` into `Modelfile.glm-4.7-flash`.** Fixes both the `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`, since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which is silent when absent; a baked-in parameter survives any start method. Demoted from a Gate A blocker on 2026-07-30 once `/api/ps` showed the effective window was already correct.
