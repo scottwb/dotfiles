@@ -87,6 +87,48 @@ keep it; `~/src/facetdigital/harvest-tools` is one. Follow the repo's own CLAUDE
 do not propose migrating it unasked. Never blend the two into "op:// refs stored in .env",
 which is not a real convention anywhere.
 
+### Headless runs: the runner holds the secret, not the repo
+
+The rule above governs secrets **at rest on disk**. It does not govern how a secret reaches a
+process that was started deliberately, unattended, by something that already authenticated.
+Those are different problems and conflating them is what makes the rule look like it forbids
+headless operation. It does not.
+
+**For unattended invocation, the runner passes the secret in as an environment variable:**
+
+```bash
+HUBSPOT_TOKEN=$(op read --account facetdigital.1password.com "op://...") \
+  claude --strict-mcp-config --mcp-config .mcp.headless.json \
+  --dangerously-skip-permissions -p "/some-headless-command"
+```
+
+The secret is never written down. It lives in the process environment for the life of the
+session and dies with it. This is the same shape Lambda, ECS, Heroku, and Doppler use: the
+thing being run is *given* the secret; it never goes and fetches one, and it never stores one.
+
+**This preserves every reason the rule exists.** A rogue session started without the env var
+has nothing: there is no file to read, so to get a token it must call `op read`, which prompts
+you. The tripwire still fires. The token still stays vaulted. Rotation still means updating
+1Password. Scott's fingerprint stays at the root of the trust chain, authenticating the runner
+once rather than every read. That is why this is preferred over a 1Password **service
+account**, which would be a standing credential that works whether or not he is present.
+
+Rules for this pattern:
+
+- **Resolve, do not paste.** Use `$(op read ...)` command substitution so shell history stores
+  the reference, not the value. Never type a literal token on a command line.
+- **Environment, never `argv`.** `VAR=x cmd` puts the value in the environment, which is
+  same-user readable. `cmd --token=x` puts it in `argv`, which any process can see via `ps`.
+  Never "improve" the former into the latter.
+- **Fall back to `op` interactively, fail fast headlessly.** `${VAR:-$(op read ...)}` is right
+  for a human at a terminal. Under an explicit headless flag, a missing variable must be a
+  clear error, never a silent `op read` that hangs on a prompt nobody will answer. A run that
+  could not authenticate must be distinguishable from a run that found nothing.
+- **Keep the surface small.** Pass the one or two variables a job actually needs. This is an
+  invocation convention, not a credential management system.
+- **Still no secret at rest.** This carve-out permits passing secrets in. It does not permit
+  writing them to a `.env`, a config file, or a repo, tracked or untracked.
+
 ## Error Handling
 - Provide helpful, explanatory error messages with context
 - Include usage messages when required args are missing
