@@ -88,10 +88,13 @@ behind.
 
 #### Do first: cheap, low risk, immediate inspection value
 
-1. **Provider and model in the stats strip.** Show what actually served the
+1. **Provider and model in the stats strip.** ~~Show what actually served the
    conversation, not just the model: `OpenRouter / gpt-5.6-sol`,
    `Ollama / glm-4.7-flash`, `Anthropic / claude-fable-5`. Today the page names
-   the model and leaves you to infer the rest.
+   the model and leaves you to infer the rest.~~ **Done 2026-08-16** in the
+   unattended batch: `provider_for()` in `cost.py`, driven by a `providers`
+   map in `pricing.json`, and the provenance strip's Model row now reads
+   `Anthropic / claude-opus-5`. Unknown models say `provider unknown`.
 
    **Measured 2026-08-16: transcripts record no provider, base URL, or
    endpoint at all.** Checked every top-level record field on real routed
