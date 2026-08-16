@@ -430,3 +430,363 @@ def find_opening_prompt(records):
                 break
 
     return OpeningPrompt(opening, _record_text(opening), expanded)
+
+
+# --------------------------------------------------------------- tool results
+
+def result_text(block):
+    """Flatten a `tool_result` block's content to text.
+
+    `content` is a string, or a list of `{"type": "text"}` blocks, or something
+    else entirely. All three shapes occur.
+    """
+    if block is None:
+        return None
+    content = block.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for inner in content:
+            if not isinstance(inner, dict):
+                continue
+            if inner.get("type") == "text":
+                parts.append(inner.get("text") or "")
+            else:
+                parts.append(json.dumps(inner, indent=2))
+        return "\n".join(parts)
+    if content is None:
+        return ""
+    return json.dumps(content, indent=2)
+
+
+def index_tool_results(records):
+    """Map `tool_use_id` to its result block."""
+    index = {}
+    for record in records:
+        for block in content_blocks(record):
+            if block.get("type") == "tool_result":
+                key = block.get("tool_use_id")
+                if key:
+                    index[key] = block
+    return index
+
+
+# --------------------------------------------------------------- side effects
+
+_GIT_COMMIT = re.compile(r"\bgit\s+(?:-[^\s]+\s+)*commit\b")
+_SHORT_SHA = re.compile(r"^([0-9a-f]{7,40})\b", re.M)
+
+#: Tools that write to disk.
+WRITE_TOOLS = ("Write", "Edit", "NotebookEdit", "MultiEdit")
+#: Tools that read from disk.
+READ_TOOLS = ("Read", "NotebookRead")
+#: Tools that reach outside the machine.
+EXTERNAL_TOOL_PREFIXES = ("mcp__",)
+EXTERNAL_TOOLS = ("WebFetch", "WebSearch")
+
+
+class SideEffects(object):
+    """What the session actually did to the world, counted from its tool calls.
+
+    Replaces the prototype's hand-written prose, which cited a specific commit
+    hash and therefore claimed, on every other transcript, a commit that never
+    happened. Wrong-but-plausible output is worse than none.
+    """
+
+    __slots__ = (
+        "commits", "commit_shas", "file_writes", "file_reads",
+        "external_calls", "shell_commands", "wrote_paths",
+    )
+
+    def __init__(self):
+        self.commits = 0
+        self.commit_shas = []
+        self.file_writes = 0
+        self.file_reads = 0
+        self.external_calls = 0
+        self.shell_commands = 0
+        self.wrote_paths = []
+
+    def summary_lines(self):
+        """Plain sentences for the "side effects" box.
+
+        Says zero out loud rather than omitting a category, because "no
+        commits" is information and a missing line is ambiguous.
+        """
+        lines = []
+
+        if self.commits:
+            shas = ", ".join(self.commit_shas)
+            lines.append(
+                "Wrote %d git commit%s%s."
+                % (self.commits, "" if self.commits == 1 else "s",
+                   " (%s)" % shas if shas else "")
+            )
+        else:
+            lines.append("Made no git commits.")
+
+        if self.file_writes:
+            lines.append(
+                "Wrote to %d file%s on disk."
+                % (self.file_writes, "" if self.file_writes == 1 else "s")
+            )
+        else:
+            lines.append("Wrote no files directly.")
+
+        lines.append(
+            "Read %d file%s."
+            % (self.file_reads, "" if self.file_reads == 1 else "s")
+        )
+
+        if self.external_calls:
+            lines.append(
+                "Made %d call%s to an outside service."
+                % (self.external_calls, "" if self.external_calls == 1 else "s")
+            )
+        else:
+            lines.append("Called no outside services.")
+
+        if self.shell_commands:
+            lines.append(
+                "Ran %d shell command%s."
+                % (self.shell_commands, "" if self.shell_commands == 1 else "s")
+            )
+
+        return lines
+
+
+def derive_side_effects(events):
+    """Count real-world effects from the session's tool calls."""
+    effects = SideEffects()
+
+    for event in events:
+        if event.kind != "tool":
+            continue
+        name = event.tool_name or ""
+        params = event.tool_input or {}
+
+        if name in WRITE_TOOLS:
+            effects.file_writes += 1
+            path = params.get("file_path") or params.get("notebook_path")
+            if path:
+                effects.wrote_paths.append(path)
+        elif name in READ_TOOLS:
+            effects.file_reads += 1
+        elif name in EXTERNAL_TOOLS or name.startswith(EXTERNAL_TOOL_PREFIXES):
+            effects.external_calls += 1
+        elif name == "Bash":
+            effects.shell_commands += 1
+            command = params.get("command") or ""
+            # The command may be a heredoc spanning many lines with the commit
+            # buried in the middle, so search the whole string, never a prefix.
+            if _GIT_COMMIT.search(command):
+                effects.commits += 1
+                # `git log --oneline -1` in the same call surfaces the sha.
+                if event.result:
+                    match = _SHORT_SHA.search(event.result.strip())
+                    if match:
+                        effects.commit_shas.append(match.group(1)[:7])
+
+    return effects
+
+
+# ------------------------------------------------------------------- events
+
+class Event(object):
+    """One thing that happened in the work log."""
+
+    __slots__ = (
+        "kind", "timestamp", "text", "tool_name", "tool_input", "tool_id",
+        "result", "is_error", "reasoning_tokens", "signature",
+    )
+
+    def __init__(self, kind, timestamp):
+        self.kind = kind
+        self.timestamp = timestamp
+        self.text = None
+        self.tool_name = None
+        self.tool_input = None
+        self.tool_id = None
+        self.result = None
+        self.is_error = False
+        self.reasoning_tokens = 0
+        self.signature = ""
+
+
+# ------------------------------------------------------------------ session
+
+class Session(object):
+    """A parsed transcript, ready to render. Knows no HTML."""
+
+    __slots__ = (
+        "path", "session_id", "records", "skipped_lines", "usage", "opening",
+        "events", "reply", "cwd", "git_branch", "cli_version", "effort",
+        "permission_mode", "entrypoint", "agent_name", "agent_color", "title",
+        "started_at", "ended_at", "side_effects", "model",
+    )
+
+    @property
+    def tool_count(self):
+        return sum(1 for e in self.events if e.kind == "tool")
+
+    @property
+    def reasoning_steps(self):
+        return sum(1 for e in self.events if e.kind == "thinking")
+
+    @property
+    def duration(self):
+        if self.started_at and self.ended_at:
+            return self.ended_at - self.started_at
+        return None
+
+    def _local(self, moment):
+        if moment is None:
+            return None
+        return moment.astimezone(local_timezone())
+
+    @property
+    def started_at_local(self):
+        return self._local(self.started_at)
+
+    @property
+    def ended_at_local(self):
+        return self._local(self.ended_at)
+
+
+def local_timezone():
+    """The timezone audit log pages are stamped in.
+
+    `zoneinfo` rather than the prototype's hardcoded `-7`, which silently
+    mislabels every session outside daylight saving time by an hour.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo("America/Los_Angeles")
+    except Exception:
+        # No tzdata on this machine. Fall back to whatever local time is,
+        # which is right on Scott's laptop and honest everywhere else.
+        return datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+
+
+def _first_field(records, record_type, *fields):
+    for record in records:
+        if record.get("type") != record_type:
+            continue
+        for field in fields:
+            if record.get(field):
+                return record[field]
+    return None
+
+
+def load_session(path, records=None):
+    """Parse a transcript into a `Session`.
+
+    Does NOT enforce supported-case checks; call `check_supported` for that.
+    Keeping them separate lets a caller inspect a session it will not render.
+    """
+    skipped = 0
+    if records is None:
+        records, skipped = load_records(path)
+
+    session = Session()
+    session.path = path
+    session.records = records
+    session.skipped_lines = skipped
+    session.session_id = _first_field(records, "user", "sessionId") or \
+        _first_field(records, "assistant", "sessionId")
+
+    session.usage = accumulate_usage(records)
+    session.model = session.usage.model
+    session.opening = find_opening_prompt(records)
+
+    session.agent_name = _first_field(records, "agent-name", "agentName")
+    session.agent_color = _first_field(records, "agent-color", "agentColor")
+
+    # F4: the daily briefs carry neither custom-title nor ai-title, so the
+    # chain has to keep going past both.
+    session.title = (
+        _first_field(records, "custom-title", "customTitle", "title")
+        or _first_field(records, "ai-title", "aiTitle", "title")
+        or (session.opening.text if session.opening and session.opening.is_slash_command
+            else None)
+        or (session.opening.text.strip().split("\n")[0][:80]
+            if session.opening and session.opening.text.strip() else None)
+    )
+
+    opening_record = session.opening.record if session.opening else {}
+    session.cwd = opening_record.get("cwd") or _first_field(records, "assistant", "cwd")
+    session.git_branch = opening_record.get("gitBranch") or \
+        _first_field(records, "assistant", "gitBranch")
+    session.cli_version = opening_record.get("version") or \
+        _first_field(records, "assistant", "version")
+    session.entrypoint = opening_record.get("entrypoint") or \
+        _first_field(records, "assistant", "entrypoint")
+    session.effort = _first_field(records, "assistant", "effort")
+    session.permission_mode = (
+        opening_record.get("permissionMode")
+        or _first_field(records, "assistant", "permissionMode")
+        or _first_field(records, "user", "permissionMode")
+    )
+
+    results = index_tool_results(records)
+    events = []
+    assistant_records = [r for r in records if r.get("type") == "assistant"]
+    last_assistant = assistant_records[-1] if assistant_records else None
+
+    reply = None
+    started = session.opening.timestamp if session.opening else None
+    ended = None
+
+    for record in assistant_records:
+        stamp = parse_timestamp(record.get("timestamp"))
+        if stamp:
+            ended = stamp
+        usage = (record.get("message") or {}).get("usage") or {}
+        details = usage.get("output_tokens_details") or {}
+
+        for block in content_blocks(record):
+            kind = block.get("type")
+
+            if kind == "thinking":
+                event = Event("thinking", stamp)
+                event.reasoning_tokens = details.get("thinking_tokens", 0) or 0
+                event.signature = block.get("signature") or ""
+                events.append(event)
+
+            elif kind == "text":
+                text = block.get("text") or ""
+                if record is last_assistant:
+                    # The final assistant text block is the reply returned to
+                    # the caller, not a step in the work log.
+                    reply = text
+                else:
+                    event = Event("say", stamp)
+                    event.text = text
+                    events.append(event)
+
+            elif kind == "tool_use":
+                event = Event("tool", stamp)
+                event.tool_name = block.get("name")
+                event.tool_input = block.get("input") or {}
+                event.tool_id = block.get("id")
+                result_block = results.get(event.tool_id)
+                event.result = result_text(result_block)
+                if event.result is None:
+                    event.result = "(no result recorded)"
+                event.is_error = bool(result_block and result_block.get("is_error"))
+                events.append(event)
+
+    if reply is None and last_assistant is not None:
+        texts = [b.get("text") or "" for b in content_blocks(last_assistant)
+                 if b.get("type") == "text"]
+        reply = texts[-1] if texts else ""
+
+    session.events = events
+    session.reply = reply or ""
+    session.started_at = started
+    session.ended_at = ended
+    session.side_effects = derive_side_effects(events)
+
+    return session
