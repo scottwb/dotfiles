@@ -250,6 +250,11 @@ def main(argv=None):
         sys.stderr.write("error: %s\n" % exc)
         return 2
 
+    # Before anything that can fail. If the session this picked turns out to be
+    # unsupported, knowing WHICH one it picked is exactly what you need.
+    for remark in notes:
+        sys.stderr.write("note: %s\n" % remark)
+
     records, skipped = parse.load_records(path)
     if not records:
         sys.stderr.write("error: %s contains no parseable records\n" % path)
@@ -316,9 +321,6 @@ def main(argv=None):
         if os.path.exists(staging):
             os.unlink(staging)
         raise
-
-    for remark in notes:
-        sys.stderr.write("note: %s\n" % remark)
 
     if not args.quiet:
         note = " (%d unparseable lines skipped)" % skipped if skipped else ""
