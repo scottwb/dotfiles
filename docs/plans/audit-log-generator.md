@@ -490,16 +490,16 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 ### Step 10: Self-containment guarantee
 
-- [ ] Write the failing test first: `tests/test_self_contained.py` renders a
+- [x] Write the failing test first: `tests/test_self_contained.py` renders a
       session and asserts the HTML contains no `http://`, no `https://`, no
       `//cdn`, no `<link rel="stylesheet"`, no `<script src=`, and no
       `@import`. Excludes hrefs appearing inside verbatim transcript content,
       which are data rather than page dependencies, by checking only the page
       chrome.
-- [ ] Implement: whatever inlining the assertion exposes as missing
-- [ ] Implement: an explicit note in `render.py` that no network access may
+- [x] Implement: whatever inlining the assertion exposes as missing
+- [x] Implement: an explicit note in `render.py` that no network access may
       enter the render path (A9)
-- [ ] Verify green: run the test command below, then confirm by loading a
+- [x] Verify green: run the test command below, then confirm by loading a
       rendered page with the network disabled
 
 **Satisfies:** A9, Requirement "zero external requests", acceptance criterion 8
