@@ -76,6 +76,9 @@ new items for it go here with a **Thread:** tag like everything else.
 **Goal:** Everything v1 deliberately refuses or leaves out.
 
 **Status:** Queued behind the item above; v1 is useful without any of them.
+The first tier is planned as an unattended batch in
+[audit-log-followons-batch.md](audit-log-followons-batch.md), which also records
+why each remaining item is NOT in it.
 
 Ordered for value, not for size: cheap changes that improve **inspecting
 agent-to-agent conversations** come first, then work that makes more sessions
