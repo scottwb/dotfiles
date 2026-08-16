@@ -18,6 +18,9 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 | **Tools** | `bin/` (~90 scripts) |
 | **Terminal & editors** | `.tmux.conf`, `.tmux/`, `.vimrc`, `.vim/`, `.emacs.d/`, `themes/` |
 | **Machine setup** | `.gitconfig`, install story in `README.md`, `linux/`, ignore hygiene |
+| **AI Staff** | Tooling *about* the agent fleet: observability, audit, and provenance for Donna, Greenthumb, Lumbergh, TimerCue, Smykowski, Argus |
+
+**AI Staff** is new as of 2026-08-15. The other threads are all about Scott's own working environment; this one is about the fleet of named agents that now runs inside it. The distinction that earned it a thread: Servanda is the kit the agents are *governed by*, and `bin/` is full of tools the agents *use*, but nothing until now was a tool for looking *at* what the agents did. Its first item is the conversation audit log below. Runtime lives in the usual dotfile locations (`.claude/skills/`, `bin/`); generated output deliberately does not live in this repo at all.
 
 **Servanda** is Scott's workflow command kit for Claude Code (from "pacta sunt servanda": agreements must be kept; the kit is the enforcement half). Code lives in this repo at `.claude/` (commands in `.claude/commands/`, contracts in `.claude/COMMANDS.md`), symlinked from `~/.claude`. Plans live here in `docs/plans/`. The kit is internal (not shared, not a product); it may get its own repo someday. It is the dominant thread at the moment, so most items below are tagged Servanda; that is a snapshot of current attention, not the repo's permanent shape.
 
@@ -47,6 +50,37 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 Ordered by priority. The Terminal & editors thread has nothing queued;
 new items for it go here with a **Thread:** tag like everything else.
+
+### Inter-agent conversation audit log generator
+
+**Thread:** AI Staff
+
+**Goal:** From any Claude Code session, run a skill and get a self-contained HTML audit log page for a given session transcript, written to `~/.ai-staff-audit-log/`. Renders the opening prompt, the work log, the reply, derived side effects, and a real cost breakdown, with the work log hidden by default and a raw/preview toggle on markdown-bearing tool results.
+
+**Plan:** [audit-log-generator.md](audit-log-generator.md)
+
+**Status:** In progress on `feature/audit-log` (worktree `../dotfiles-audit-log`), started 2026-08-15. Grew out of a one-off HTML log built by hand for a single Donna to Greenthumb exchange, which worked well enough to deserve being a real tool.
+
+**Why it is not a Tools item:** it is the first thing in this repo that is *about* the agent fleet rather than part of it, which is what opened the AI Staff thread. It is also a skill plus a Python CLI, so it straddles `.claude/` and `bin/` and would sit awkwardly in either existing thread.
+
+**The finding that shaped the whole design:** Claude Code writes one transcript record per content block, and every record repeats the entire message's `usage` object. Summing per record overcounted the reference session's output tokens by 2.5x. Deduplicating on `message.id` is load-bearing, and the golden test exists to keep it that way.
+
+**v1 is deliberately small.** Single-turn SDK sessions only, which is exactly what every Donna-to-agent brief is, and there is a ready-made 13-session corpus of them. Multi-turn rendering, image blocks, and the 46 MB scale case are all deferred; v1 detects them and refuses cleanly with a non-zero exit rather than emitting a half-correct page.
+
+### Audit log generator follow-ons
+
+**Thread:** AI Staff
+
+**Goal:** The pieces v1 deliberately refuses rather than implements.
+
+**Status:** Queued behind the item above; none urgent, and v1 is useful without any of them.
+
+- **Multi-turn rendering.** Sessions run up to 70 user turns. The one-prompt-one-reply framing collapses and needs repeating turn groups. The single biggest structural change, and the one most likely to be wanted first.
+- **Image blocks.** Present in 3 of the 28 surveyed transcripts. Needs thumbnailing or a placeholder chip; base64 inline would balloon the page.
+- **Scale and an output size budget.** The largest transcript is 46 MB. Embedding every tool result verbatim yields an unopenable page, so this needs a per-result truncation threshold and an overall budget.
+- **An index page** across `~/.ai-staff-audit-log/`, which becomes worth having once there are more than a handful of logs.
+- **The `--annotate` pass.** Optional model-assisted enrichment (tool-call one-liners, side-effect prose, participant names when `agent-name` is absent), quarantined to a sidecar JSON file so rebuilds stay instant, free, and byte-reproducible. Deliberately never in the render path.
+- **A retention policy** for the output directory, which nothing currently prunes.
 
 ### Acceptance-test the Servanda kit
 
