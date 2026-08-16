@@ -20,6 +20,9 @@ import tempfile
 
 from . import parse, render, resolve
 
+#: Informational prefix, per the repo convention: info "i" for informational.
+INFO = "\u2139\ufe0f "
+
 #: Where rendered pages land. Decision A6, settled and not reopened.
 DEFAULT_OUTPUT_DIR = os.path.expanduser("~/.ai-staff-audit-log")
 
@@ -140,6 +143,84 @@ def resolve_participants(session, from_name, to_name):
     return sender, receiver
 
 
+# --------------------------------------------------- finding a session to render
+
+#: Cap on how far back the walk goes before giving up. A project with hundreds
+#: of interactive sessions and no agent conversations should say so rather than
+#: read every transcript in it.
+MAX_SKIPS = 200
+
+
+def skip_line(description, reasons):
+    """One line explaining why a session was passed over.
+
+    `SKIPPED <id> | <when it started> | <why> | <what it was about>`, so a run
+    that walks back through a dozen interactive sessions reads as a list rather
+    than a wall.
+    """
+    when = (
+        description.started.astimezone(parse.local_timezone()).strftime(
+            "%Y-%m-%d %H:%M"
+        )
+        if description.started else "date unknown"
+    )
+
+    why = ", ".join(r.short for r in reasons) or "not renderable"
+    # "interactive" is the human-meaningful half: the turn count says WHAT
+    # tripped the check, this says what kind of session it was.
+    if description.is_interactive:
+        why = "interactive, " + why
+
+    title = (description.title or "").strip().replace("\n", " ")
+    words = title.split()
+    if len(words) > 10:
+        title = " ".join(words[:10]) + "..."
+
+    return "SKIPPED %s | %s | %s | %s" % (
+        description.short_id, when, why, title or "(untitled)"
+    )
+
+
+def latest_renderable(project_path):
+    """The newest session v1 can actually render, plus what it walked past.
+
+    `--latest` used to mean "the newest transcript", which in any project you
+    also work in by hand is usually an interactive multi-turn session, so the
+    common case was a refusal for a session the user never chose. It now means
+    "the newest one that qualifies", and every session passed over is reported.
+
+    Announcing each skip is what makes this honest rather than magic: the tool
+    never quietly decides a session did not count.
+
+    Returns `(path_or_None, skip_lines)`.
+    """
+    skips = []
+    for candidate in reversed(resolve.sessions_in(project_path)):
+        if len(skips) >= MAX_SKIPS:
+            skips.append(
+                "stopped after %d skipped sessions; name one explicitly or "
+                "pass --date" % MAX_SKIPS
+            )
+            return None, skips
+
+        size = os.path.getsize(candidate)
+        if size > parse.MAX_TRANSCRIPT_BYTES:
+            # Refuse on size without parsing 44 MB just to print one line.
+            reasons = [parse.Unsupported(
+                "oversized", "", short="%.0f MB" % (size / 1048576.0)
+            )]
+            skips.append(skip_line(parse.describe_head(candidate), reasons))
+            continue
+
+        records, _ = parse.load_records(candidate)
+        report = parse.check_supported(records, candidate, size_bytes=size)
+        if report.ok:
+            return candidate, skips
+        skips.append(skip_line(parse.describe(records, candidate), report.reasons))
+
+    return None, skips
+
+
 # ------------------------------------------------------------ write safety
 
 class UnsafeDestination(Exception):
@@ -238,14 +319,41 @@ def main(argv=None):
         return 2
 
     notes = []
+    walking = not args.session and not args.date
+
     try:
-        path = resolve.resolve(
-            session=args.session,
-            project=args.project,
-            latest=args.latest,
-            date=args.date,
-            notes=notes,
-        )
+        if walking:
+            # "Latest" means the latest one that can actually be rendered. Every
+            # session passed over on the way is named on stderr.
+            project_path = (
+                resolve.find_project(args.project) if args.project
+                else resolve.project_for_cwd()
+            )
+            if project_path is None:
+                raise resolve.ResolutionError(
+                    "no project given and no transcripts for the current "
+                    "directory (%s). Pass --project NAME, or a path to a "
+                    ".jsonl file." % os.getcwd()
+                )
+            path, skips = latest_renderable(project_path)
+            for line in skips:
+                sys.stderr.write("%s %s\n" % (INFO, line))
+            if path is None:
+                sys.stderr.write(
+                    "error: no renderable session in %s. %s\n"
+                    % (os.path.basename(project_path),
+                       "Everything there is multi-turn, image-bearing, or too "
+                       "large for v1.")
+                )
+                return 2
+        else:
+            path = resolve.resolve(
+                session=args.session,
+                project=args.project,
+                latest=args.latest,
+                date=args.date,
+                notes=notes,
+            )
     except resolve.ResolutionError as exc:
         sys.stderr.write("error: %s\n" % exc)
         return 2
