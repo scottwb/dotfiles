@@ -724,6 +724,7 @@ def page(session, from_name="scott", to_name=None, channel=None):
         where = " · ran in <code>%s</code>" % html.escape(session.cwd)
 
     document = """<!doctype html>
+<!-- audit-agent-conversation session:%(session_id)s -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -811,6 +812,7 @@ def page(session, from_name="scott", to_name=None, channel=None):
 </body>
 </html>
 """ % {
+        "session_id": html.escape(session.session_id or ""),
         "title": html.escape(title_text),
         "css": CSS,
         "js": JS,

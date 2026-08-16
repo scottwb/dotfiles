@@ -248,8 +248,10 @@ class Report(object):
     def __init__(self, stream, show_header=True):
         self.stream = stream
         self.pending = show_header
+        self.last = None
 
     def row(self, *args):
+        self.last = args[0]
         if self.pending:
             self.stream.write(table_header() + "\n")
             self.pending = False
@@ -257,6 +259,7 @@ class Report(object):
 
     def emit(self, prebuilt_row):
         """A row already formatted by `skip_row`."""
+        self.last = "SKIPPED"
         if self.pending:
             self.stream.write(table_header() + "\n")
             self.pending = False
@@ -344,44 +347,95 @@ def skip_row(description, reasons):
                      description.title or "(untitled)")
 
 
-def latest_renderable(project_path):
-    """The newest session v1 can actually render, plus what it walked past.
+def classify(candidate):
+    """`(report, description)` for one transcript, parsing as little as possible.
 
-    `--latest` used to mean "the newest transcript", which in any project you
-    also work in by hand is usually an interactive multi-turn session, so the
-    common case was a refusal for a session the user never chose. It now means
-    "the newest one that qualifies", and every session passed over is reported.
+    An oversized transcript is refused on file size alone: reading 44 MB to
+    print one line about not using it is not a trade worth making.
+    """
+    size = os.path.getsize(candidate)
+    if size > parse.MAX_TRANSCRIPT_BYTES:
+        reasons = [parse.Unsupported(
+            "oversized", "", short="%.0f MB" % (size / 1048576.0)
+        )]
+        return parse.SupportReport(candidate, reasons), parse.describe_head(candidate)
+    records, _ = parse.load_records(candidate)
+    return (parse.check_supported(records, candidate, size_bytes=size),
+            parse.describe(records, candidate))
 
-    Announcing each skip is what makes this honest rather than magic: the tool
-    never quietly decides a session did not count.
 
-    Returns `(path_or_None, skip_lines)`.
+def first_renderable(candidates):
+    """The first session in `candidates` that v1 can render, and the skips.
+
+    `candidates` is newest first. Taking `--latest` literally meant the common
+    case was a refusal for a session nobody chose, since in any project you also
+    work in by hand the newest transcript is an interactive multi-turn session.
+
+    Announcing each skip is what makes walking honest rather than magic: the
+    tool never quietly decides a session did not count.
+
+    Returns `(path_or_None, skip_rows)`.
     """
     skips = []
-    for candidate in reversed(resolve.sessions_in(project_path)):
+    for candidate in candidates:
         if len(skips) >= MAX_SKIPS:
             skips.append(
                 "stopped after %d skipped sessions; name one explicitly or "
                 "pass --date" % MAX_SKIPS
             )
             return None, skips
-
-        size = os.path.getsize(candidate)
-        if size > parse.MAX_TRANSCRIPT_BYTES:
-            # Refuse on size without parsing 44 MB just to print one line.
-            reasons = [parse.Unsupported(
-                "oversized", "", short="%.0f MB" % (size / 1048576.0)
-            )]
-            skips.append(skip_row(parse.describe_head(candidate), reasons))
-            continue
-
-        records, _ = parse.load_records(candidate)
-        report = parse.check_supported(records, candidate, size_bytes=size)
+        report, description = classify(candidate)
         if report.ok:
             return candidate, skips
-        skips.append(skip_row(parse.describe(records, candidate), report.reasons))
-
+        skips.append(skip_row(description, report.reasons))
     return None, skips
+
+
+def latest_renderable(project_path):
+    """The newest renderable session in a project."""
+    return first_renderable(list(reversed(resolve.sessions_in(project_path))))
+
+
+# ------------------------------------------------------------- name clashes
+
+_PAGE_SESSION = re.compile(r"audit-agent-conversation session:([0-9a-fA-F-]+)")
+
+#: Enough of a page to find the marker it declares itself with.
+PAGE_HEAD_BYTES = 300
+
+
+def page_session_id(path):
+    """Which session produced the page at `path`, or None if it does not say."""
+    try:
+        with open(path, "r", errors="replace") as handle:
+            match = _PAGE_SESSION.search(handle.read(PAGE_HEAD_BYTES))
+    except OSError:
+        return None
+    return match.group(1) if match else None
+
+
+def disambiguate(target, session_id):
+    """A free filename for `session_id`, appending its short id on a clash.
+
+    Filenames are `<when>-<sender>-to-<receiver>-<slug>.html` with no session
+    id, which reads well and sorts right (decision A2). It is not unique,
+    though: two sessions started in the same minute between the same pair with
+    the same opening prompt produce the same name, and a sweep of the real
+    corpus turns up two such names covering five sessions.
+
+    Left alone, the second session is reported "already there" and silently
+    never rendered, which is the worst outcome available: a conversation
+    missing from an audit log, labelled as if it were present. So a name that
+    belongs to a DIFFERENT session gets the short id appended, and one that
+    belongs to this session is left exactly as it was.
+    """
+    if not os.path.exists(target) or not session_id:
+        return target
+    owner = page_session_id(target)
+    if owner is None or owner == session_id:
+        return target
+    stem = target[:-5] if target.endswith(".html") else target
+    return "%s-%s.html" % (stem, session_id[:8])
 
 
 # ------------------------------------------------------------ write safety
@@ -436,6 +490,70 @@ def output_filename(session, from_name, to_name):
                                     slugify(to_name, "agent"), slug)
 
 
+# -------------------------------------------------------------------- sweep
+
+def sweep_candidates(args):
+    """Every transcript in scope, newest first.
+
+    Scope is the project when one is named, and otherwise EVERY project: a bare
+    `--all` is the "what have my agents been doing" sweep, so narrowing it to
+    the current directory would answer a smaller question than the one asked.
+    A date filters within whatever that scope turned out to be.
+    """
+    if args.project:
+        projects = [resolve.find_project(args.project)]
+    else:
+        projects = resolve.list_projects()
+        if not projects:
+            raise resolve.ResolutionError(
+                "no project directories under %s" % resolve.PROJECTS_ROOT
+            )
+
+    candidates = []
+    for project in projects:
+        try:
+            found = (resolve.sessions_on_date(project, args.date) if args.date
+                     else list(reversed(resolve.sessions_in(project))))
+        except resolve.ResolutionError:
+            continue  # an empty project is not an error during a sweep
+        candidates.extend(found)
+
+    candidates.sort(key=os.path.getmtime, reverse=True)
+    return candidates
+
+
+def run_sweep(args, report_out):
+    """Render every renderable session in scope, reporting each outcome."""
+    try:
+        candidates = sweep_candidates(args)
+    except resolve.ResolutionError as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return 2
+
+    if not candidates:
+        sys.stderr.write("error: no transcripts in scope\n")
+        return 2
+
+    tally = {"WROTE": 0, "EXISTS": 0, "SKIPPED": 0, "FAILED": 0}
+    for candidate in candidates:
+        code = render_one(candidate, args, report_out)
+        if code == 0:
+            # render_one reported WROTE or EXISTS itself; count by what landed.
+            tally["EXISTS" if report_out.last == "EXISTS" else "WROTE"] += 1
+        elif code == 3:
+            tally["SKIPPED"] += 1
+        else:
+            tally["FAILED"] += 1
+
+    report_out.raw(
+        "%d written, %d already there, %d skipped%s, out of %d sessions"
+        % (tally["WROTE"], tally["EXISTS"], tally["SKIPPED"],
+           ", %d failed" % tally["FAILED"] if tally["FAILED"] else "",
+           len(candidates))
+    )
+    return 4 if tally["FAILED"] else 0
+
+
 # --------------------------------------------------------------------- main
 
 def build_parser():
@@ -472,6 +590,9 @@ def build_parser():
                         help="suppress the row for a page that was written")
     parser.add_argument("--no-header", action="store_true",
                         help="omit the column header and rule")
+    parser.add_argument("--all", action="store_true",
+                        help="render every session in scope, not just one. "
+                             "With no --project, the scope is every project.")
     return parser
 
 
@@ -485,8 +606,25 @@ def main(argv=None):
         return 2
 
     report_out = Report(sys.stderr, show_header=not args.no_header)
+
+    if args.all:
+        if args.session:
+            sys.stderr.write(
+                "error: --all renders every session in scope; naming one "
+                "contradicts it.\n")
+            return 2
+        if args.stdout or args.output:
+            sys.stderr.write(
+                "error: --all writes many pages, so --stdout and -o do not "
+                "apply. Use --output-dir.\n")
+            return 2
+        return run_sweep(args, report_out)
+
     notes = []
-    walking = not args.session and not args.date
+    # Naming a session means that session. Naming a DAY means a session from
+    # that day, so walking within it is the same courtesy `--latest` gets: it
+    # never wanders to another date.
+    walking = not args.session
 
     try:
         if walking:
@@ -502,15 +640,25 @@ def main(argv=None):
                     "directory (%s). Pass --project NAME, or a path to a "
                     ".jsonl file." % os.getcwd()
                 )
-            path, skips = latest_renderable(project_path)
+            if args.date:
+                candidates = resolve.sessions_on_date(project_path, args.date)
+                if not candidates:
+                    raise resolve.ResolutionError(
+                        "no session in %s is dated %s"
+                        % (os.path.basename(project_path), args.date)
+                    )
+                scope = "dated %s" % args.date
+            else:
+                candidates = list(reversed(resolve.sessions_in(project_path)))
+                scope = "in %s" % os.path.basename(project_path)
+
+            path, skips = first_renderable(candidates)
             for line in skips:
                 report_out.emit(line)
             if path is None:
                 sys.stderr.write(
-                    "error: no renderable session in %s. %s\n"
-                    % (os.path.basename(project_path),
-                       "Everything there is multi-turn, image-bearing, or too "
-                       "large for v1.")
+                    "error: no renderable session %s. Everything there is "
+                    "multi-turn, image-bearing, or too large for v1.\n" % scope
                 )
                 return 2
         else:
@@ -530,13 +678,32 @@ def main(argv=None):
     for remark in notes:
         sys.stderr.write("note: %s\n" % remark)
 
-    records, skipped = parse.load_records(path)
+    return render_one(path, args, report_out)
+
+
+def render_one(path, args, report_out, records=None):
+    """Render one transcript and place its page. Returns an exit code.
+
+    Shared by the single-session path and the `--all` sweep so both report the
+    same way and neither can drift from the other's safety checks.
+    """
+    if records is None:
+        records, skipped = parse.load_records(path)
+    else:
+        skipped = 0
     if not records:
         sys.stderr.write("error: %s contains no parseable records\n" % path)
         return 2
 
     report = parse.check_supported(records, path)
     if not report.ok:
+        description = parse.describe(records, path)
+        if args.all:
+            # In a sweep a refusal is just another row; the long prose belongs
+            # to someone who asked for this session by name.
+            sender, receiver = participants_of(description)
+            report_out.emit(skip_row(description, report.reasons))
+            return 3
         sys.stderr.write("%s\n%s\n" % (os.path.basename(path), report.message()))
         return 3
 
@@ -576,11 +743,16 @@ def main(argv=None):
             sys.stderr.write("error: could not create %s: %s\n" % (directory, exc))
             return 5
 
+    description = parse.describe(records, path)
+    if not args.output:
+        # Only for names we generated. `-o` is the user naming the file, and
+        # renaming it under them would be worse than the clash.
+        target = disambiguate(target, session.session_id)
+
     if os.path.exists(target) and not args.force:
         # Not an error: the page you asked for is already there. Report it the
         # same way as any other session passed over, and exit 0 so re-running a
         # batch is a cheap no-op rather than a failure.
-        description = parse.describe(records, path)
         report_out.row("EXISTS", description.short_id, when_of(description),
                        "use --force to replace", sender, receiver,
                        description.title or "(untitled)")
@@ -602,7 +774,6 @@ def main(argv=None):
         raise
 
     if not args.quiet:
-        description = parse.describe(records, path)
         report_out.row("WROTE", description.short_id, when_of(description),
                        wrote_detail(
                            page_label(os.path.basename(target), sender,
