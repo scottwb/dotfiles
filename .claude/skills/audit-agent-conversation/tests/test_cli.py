@@ -138,15 +138,39 @@ class TestWriting(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(os.path.isdir(nested))
 
-    def test_second_run_refuses_to_overwrite(self):
+    def test_second_run_does_not_overwrite(self):
+        """The page is left alone. That is the invariant; the exit code is not.
+
+        Re-running is a no-op, not a failure: it exits 0 and reports the skip,
+        so running the tool over a batch of sessions does not fail the batch
+        just because some pages already exist.
+        """
+        import io
+        import sys
+
         self._run(fixtures.path(fixtures.BRIEF_AUG13))
         written = os.listdir(self.outdir)
-        before = os.path.getsize(os.path.join(self.outdir, written[0]))
+        target = os.path.join(self.outdir, written[0])
+        with open(target, "rb") as handle:
+            before = handle.read()
 
-        code = self._run(fixtures.path(fixtures.BRIEF_AUG13))
-        self.assertNotEqual(code, 0, "overwrote without --force")
-        after = os.path.getsize(os.path.join(self.outdir, written[0]))
-        self.assertEqual(before, after)
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = self._run(fixtures.path(fixtures.BRIEF_AUG13))
+        finally:
+            sys.stderr = stderr
+
+        with open(target, "rb") as handle:
+            self.assertEqual(handle.read(), before, "the page was modified")
+        self.assertEqual(code, 0)
+        self.assertEqual(os.listdir(self.outdir), written, "wrote an extra file")
+
+        message = buffer.getvalue()
+        self.assertIn("SKIPPED", message)
+        self.assertIn("already exists", message)
+        self.assertIn("--force", message)
+        self.assertNotIn("error", message.lower())
 
     def test_force_overwrites(self):
         self._run(fixtures.path(fixtures.BRIEF_AUG13))
@@ -246,3 +270,52 @@ def _fake_session(agent_name=None, cwd="/tmp/x", entrypoint="sdk-cli"):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOutputFormatting(unittest.TestCase):
+    """Every line the tool prints starts with a status marker, so a run reads
+    as a column of outcomes rather than a paragraph."""
+
+    def test_home_is_shortened_to_a_tilde(self):
+        home = os.path.expanduser("~")
+        self.assertEqual(cli.tilde(os.path.join(home, "x", "y.html")), "~/x/y.html")
+        self.assertEqual(cli.tilde(home), "~")
+
+    def test_paths_outside_home_are_left_alone(self):
+        self.assertEqual(cli.tilde("/tmp/x.html"), "/tmp/x.html")
+
+    def test_a_lookalike_prefix_is_not_shortened(self):
+        """`/Users/scottwbXX` must not become `~XX`."""
+        home = os.path.expanduser("~")
+        self.assertEqual(cli.tilde(home + "-other/x"), home + "-other/x")
+
+    def test_sizes_read_like_ls_h(self):
+        self.assertEqual(cli.human_size(512), "512 bytes")
+        self.assertEqual(cli.human_size(410 * 1024), "410 KB")
+        self.assertEqual(cli.human_size(int(4.3 * 1024 * 1024)), "4.3 MB")
+        self.assertEqual(cli.human_size(int(1.5 * 1024)), "1.5 KB")
+
+    def test_success_line_is_one_line_with_a_check(self):
+        import io
+        import shutil
+        import sys
+        import tempfile
+
+        fixtures.require_corpus(self)
+        outdir = tempfile.mkdtemp(prefix="auditlog-fmt-")
+        buffer = io.StringIO()
+        stdout, sys.stdout = sys.stdout, buffer
+        try:
+            code = cli.main([fixtures.path(fixtures.BRIEF_AUG13),
+                             "--output-dir", outdir, "--force"])
+        finally:
+            sys.stdout = stdout
+            shutil.rmtree(outdir, ignore_errors=True)
+
+        self.assertEqual(code, 0)
+        line = buffer.getvalue().strip()
+        self.assertEqual(len(line.splitlines()), 1, line)
+        self.assertTrue(line.startswith(cli.OK.strip()), line)
+        self.assertIn("wrote", line)
+        self.assertIn("from session", line)
+        self.assertNotIn(" bytes)", line)  # human-readable, not a raw count
