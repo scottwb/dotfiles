@@ -594,14 +594,14 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 ### Step 13: The `bin/audit-agent-conversation` wrapper
 
-- [ ] Write the failing test first: `tests/test_wrapper.py` asserts
+- [x] Write the failing test first: `tests/test_wrapper.py` asserts
       `bin/audit-agent-conversation --help` exits 0 and that the wrapper is executable
       (`os.access(path, os.X_OK)`), per the "make executables actually
       executable" rule.
-- [ ] Implement: `bin/audit-agent-conversation`, a short shell script resolving its own
+- [x] Implement: `bin/audit-agent-conversation`, a short shell script resolving its own
       location (not cwd) and exec'ing the CLI module
-- [ ] Implement: `chmod +x`, committed as mode 100755
-- [ ] Verify green: run the test command below
+- [x] Implement: `chmod +x`, committed as mode 100755
+- [x] Verify green: run the test command below
 
 **Satisfies:** A1, "Prefer scripts that work relative to script location, not
 cwd", acceptance criterion 10
