@@ -988,6 +988,12 @@ def render_one(path, args, report_out, records=None):
     else:
         skipped = 0
     if not records:
+        if args.all:
+            # Nothing parsed, so there is no description to name it by; the
+            # filename is the session id and is all there is to show.
+            report_out.row("ERROR", os.path.basename(path)[:8], "unknown",
+                           "no parseable records", "?", "?", "(unreadable)")
+            return 2
         sys.stderr.write("error: %s contains no parseable records\n" % path)
         return 2
 
@@ -1009,6 +1015,17 @@ def render_one(path, args, report_out, records=None):
     try:
         html = render.page(session, from_name=sender, to_name=receiver)
     except Exception as exc:  # noqa: BLE001 - fail loudly, never half-write
+        if args.all:
+            # In a sweep a failure is a row like any other outcome, so it is
+            # visible in the same column a reader is already scanning rather
+            # than only in the tally at the end. The exception itself would
+            # not fit a 38-character cell, so it follows on its own line.
+            description = parse.describe(records, path)
+            report_out.row("ERROR", description.short_id, when_of(description),
+                           "render failed", sender, receiver,
+                           description.title or "(untitled)")
+            report_out.raw("   could not render %s: %s" % (os.path.basename(path), exc))
+            return 4
         sys.stderr.write("error: could not render %s: %s\n" % (path, exc))
         return 4
 
