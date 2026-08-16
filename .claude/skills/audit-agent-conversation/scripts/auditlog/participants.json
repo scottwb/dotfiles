@@ -22,7 +22,8 @@
     "scottwb-kate": "kate",
     "facetdigital-facet-admin-workspace": "FAW",
     "facetdigital-harvest-tools": "harvest-tools",
-    "lesandleslie-pe-rails": "pe-rails"
+    "lesandleslie-pe-rails": "pe-rails",
+    "facetdigital-facet-delivery-workspace": "FDW"
   },
   "senders": {
     "scottwb-greenthumb": "donna"

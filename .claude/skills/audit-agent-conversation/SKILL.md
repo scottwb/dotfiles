@@ -91,7 +91,7 @@ neighbour. `--latest` and `--date` contradict each other and are rejected as a
 pair. When a day holds several sessions, the latest is rendered and a note names
 the ones passed over.
 
-Output is an aligned table, 120 characters wide, one row per session:
+Output is an aligned table, 140 characters wide, one row per session:
 
 ```
    STATUS  | SESSION  | WHEN        | DETAIL                       | SENDER | RECEIVER   | SUBJECT
