@@ -490,6 +490,54 @@ def output_filename(session, from_name, to_name):
                                     slugify(to_name, "agent"), slug)
 
 
+# ------------------------------------------------------------- time windows
+
+#: How many days "the past week" covers, counting today.
+WEEK_DAYS = 7
+
+
+def date_window(args):
+    """`(predicate, label)` for the requested time window, or `(None, None)`.
+
+    Deliberately three fixed windows rather than a date-range grammar. The
+    questions actually worth asking are "the last one", "today", and "this
+    week"; arbitrary ranges are a parser and a pile of edge cases in exchange
+    for a question nobody asks.
+    """
+    import datetime
+
+    if args.date:
+        wanted = args.date
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", wanted):
+            raise resolve.ResolutionError(
+                "date %r is not in YYYY-MM-DD form" % wanted
+            )
+        return (lambda day: day == wanted), "dated %s" % wanted
+
+    today = datetime.datetime.now(parse.local_timezone()).date()
+
+    if args.today:
+        wanted = today.isoformat()
+        return (lambda day: day == wanted), "from today (%s)" % wanted
+
+    if args.week:
+        first = (today - datetime.timedelta(days=WEEK_DAYS - 1)).isoformat()
+        last = today.isoformat()
+        return ((lambda day: day is not None and first <= day <= last),
+                "from the past %d days (%s to %s)" % (WEEK_DAYS, first, last))
+
+    return None, None
+
+
+def scoped_candidates(project_path, args):
+    """Every transcript in a project inside the requested window, newest first."""
+    paths = list(reversed(resolve.sessions_in(project_path)))
+    predicate, _ = date_window(args)
+    if predicate:
+        paths = [p for p in paths if predicate(resolve.local_date_of(p))]
+    return paths
+
+
 # -------------------------------------------------------------------- sweep
 
 def sweep_candidates(args):
@@ -512,11 +560,9 @@ def sweep_candidates(args):
     candidates = []
     for project in projects:
         try:
-            found = (resolve.sessions_on_date(project, args.date) if args.date
-                     else list(reversed(resolve.sessions_in(project))))
+            candidates.extend(scoped_candidates(project, args))
         except resolve.ResolutionError:
             continue  # an empty project is not an error during a sweep
-        candidates.extend(found)
 
     candidates.sort(key=os.path.getmtime, reverse=True)
     return candidates
@@ -556,17 +602,79 @@ def run_sweep(args, report_out):
 
 # --------------------------------------------------------------------- main
 
+DESCRIPTION = """\
+Render Claude Code session transcripts into self-contained HTML audit log
+pages: the prompt that started a conversation, everything the agent did, the
+reply that came back, what changed in the world, and what it cost.
+
+Reads transcripts from ~/.claude/projects/ and never writes there.
+Writes pages to ~/.ai-staff-audit-log/ unless told otherwise.
+"""
+
+EPILOG = """\
+choosing what to render
+  With nothing to go on, renders the latest session that CAN be rendered for
+  the current directory's project, naming each session it passes over. Naming
+  a session or a day narrows that; --all widens it.
+
+examples
+  audit-agent-conversation
+      the latest renderable session for this directory's project
+
+  audit-agent-conversation --project greenthumb
+      the latest renderable session in that project
+
+  audit-agent-conversation 9608087e --project greenthumb
+      that session, by id or id prefix. Named sessions are never swapped for
+      a neighbour: an unsupported one is refused, not skipped past.
+
+  audit-agent-conversation --all --week
+      every renderable session from every project in the past 7 days. This is
+      the "what have my agents been doing" sweep.
+
+  audit-agent-conversation --all --project greenthumb --force
+      re-render everything in one project
+
+output
+  One aligned row per session on stderr. WROTE produced a page, EXISTS found
+  one already there, SKIPPED passed a session over and says why. stdout is
+  reserved for --stdout, which emits the page itself.
+
+what v1 will not render
+  Multi-turn sessions, sessions containing images, and transcripts over 8 MB.
+  These are refused, never half-rendered: a page that looks complete but is
+  not is worse than no page. Refusals name every condition they found.
+
+exit codes
+  0  a page was written, or was already there, or a sweep finished
+  2  could not work out which session you meant, or contradictory options
+  3  that session is one v1 cannot render yet
+  4  a page failed to render
+  5  the output directory could not be created
+  7  the destination is inside the transcript store, which is read-only
+"""
+
+
+class Parser(argparse.ArgumentParser):
+    """Prints the whole help on a bad invocation, not just a usage line.
+
+    A one-line usage message is enough for someone who already knows the tool.
+    Anyone else, human or agent, has to go and ask for help separately, so just
+    give it to them at the moment they got it wrong.
+    """
+
+    def error(self, message):
+        sys.stderr.write("error: %s\n\n" % message)
+        self.print_help(sys.stderr)
+        sys.exit(2)
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(
+    parser = Parser(
         prog="audit-agent-conversation",
-        description=(
-            "Render a Claude Code session transcript into a single "
-            "self-contained HTML audit log page."
-        ),
-        epilog=(
-            "Pages are written to ~/.ai-staff-audit-log/ by default. "
-            "Transcripts are only ever read, never modified."
-        ),
+        description=DESCRIPTION,
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "session", nargs="?",
@@ -575,7 +683,13 @@ def build_parser():
     parser.add_argument("--project", help="resolve within ~/.claude/projects/*NAME*")
     parser.add_argument("--latest", action="store_true",
                         help="most recent session in the project (the default)")
-    parser.add_argument("--date", help="session on this date, YYYY-MM-DD")
+    parser.add_argument("--date", metavar="YYYY-MM-DD",
+                        help="only sessions started on this date")
+    parser.add_argument("--today", action="store_true",
+                        help="only sessions started today")
+    parser.add_argument("--week", action="store_true",
+                        help="only sessions started in the past %d days"
+                             % WEEK_DAYS)
     parser.add_argument("--from", dest="from_name",
                         help="who initiated the exchange")
     parser.add_argument("--to", dest="to_name", help="which agent did the work")
@@ -599,10 +713,18 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
 
-    if args.latest and args.date:
+    windows = [name for name, on in
+               (("--date", args.date), ("--today", args.today),
+                ("--week", args.week)) if on]
+    if len(windows) > 1:
         sys.stderr.write(
-            "error: --latest and --date ask for different sessions; pass one.\n"
-        )
+            "error: %s each pick a different span of time; pass one.\n"
+            % " and ".join(windows))
+        return 2
+    if args.latest and windows:
+        sys.stderr.write(
+            "error: --latest and %s ask for different sessions; pass one.\n"
+            % windows[0])
         return 2
 
     report_out = Report(sys.stderr, show_header=not args.no_header)
@@ -640,17 +762,14 @@ def main(argv=None):
                     "directory (%s). Pass --project NAME, or a path to a "
                     ".jsonl file." % os.getcwd()
                 )
-            if args.date:
-                candidates = resolve.sessions_on_date(project_path, args.date)
-                if not candidates:
-                    raise resolve.ResolutionError(
-                        "no session in %s is dated %s"
-                        % (os.path.basename(project_path), args.date)
-                    )
-                scope = "dated %s" % args.date
-            else:
-                candidates = list(reversed(resolve.sessions_in(project_path)))
-                scope = "in %s" % os.path.basename(project_path)
+            candidates = scoped_candidates(project_path, args)
+            _, window = date_window(args)
+            scope = window or ("in %s" % os.path.basename(project_path))
+            if not candidates:
+                raise resolve.ResolutionError(
+                    "no session in %s is %s"
+                    % (os.path.basename(project_path), scope)
+                )
 
             path, skips = first_renderable(candidates)
             for line in skips:

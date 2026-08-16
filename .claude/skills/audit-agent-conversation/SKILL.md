@@ -30,13 +30,30 @@ bin/audit-agent-conversation [SESSION] [options]
 Once the dotfiles are linked into `$HOME`, it is just
 `audit-agent-conversation` on `PATH`.
 
+`--help` prints full usage, worked examples, what v1 refuses, and every exit
+code. A bad flag prints the same thing rather than a bare usage line, so an
+agent that guesses wrong gets told how to guess right.
+
 | Invocation | What it does |
 |---|---|
 | `audit-agent-conversation` | Latest renderable session for the current directory's project |
 | `audit-agent-conversation --project greenthumb` | Latest renderable session in that project |
 | `audit-agent-conversation 9608087e --project greenthumb` | That session, by UUID prefix |
 | `audit-agent-conversation --project greenthumb --date 2026-08-13` | That day's session |
+| `audit-agent-conversation --all --week` | **Every** renderable session, every project, past 7 days |
+| `audit-agent-conversation --all --project greenthumb` | Every renderable session in one project |
 | `audit-agent-conversation path/to/session.jsonl` | An explicit transcript |
+
+**`--all` is the sweep.** With `--project` it covers that project; with neither
+a project nor a session it covers *every* project, because the question a bare
+`--all` asks is what the agents have been doing, not what this directory has
+been doing. It ends with a tally. The whole corpus is 345 sessions across 42
+projects and sweeps in under three seconds, and re-running is cheap because
+pages already present are a no-op.
+
+**Time windows: `--date`, `--today`, `--week`.** Three fixed spans rather than a
+date-range grammar, because the questions worth asking are "the last one",
+"today", and "this week". They are mutually exclusive, and contradict `--latest`.
 
 Options:
 
