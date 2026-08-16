@@ -23,17 +23,24 @@ from . import parse, render, resolve
 #: Line prefixes, per the repo convention: green check for success, info "i"
 #: for informational. Every line the tool prints starts with one, so a run reads
 #: as a column of outcomes rather than a paragraph.
-#: Markers carry their own single trailing space, uniformly. Terminals differ
-#: on how wide a variation-selector emoji is, so there is no padding that is
-#: right everywhere; one space after each is at least predictable, and it is
-#: what the source says on every row.
-INFO = "\u2139\ufe0f "      # information, for a session passed over
-OK = "\u2705 "              # a page was written
-EXISTS = "\u2611\ufe0f "    # a page was already there
+#: Every marker is a SINGLE codepoint with East Asian Width "W" and no
+#: variation selector. That is the whole selection criterion, and it is not
+#: decoration: a variation-selector emoji is Neutral width, so terminals
+#: disagree about whether it occupies one cell or two, and a column of mixed
+#: widths cannot be padded correctly for everyone at once. Two attempts to
+#: pad around that failed in opposite directions before this rule replaced
+#: them. `test_markers_cannot_break_alignment` enforces it.
+#:
+#: They are also all the same shape, so colour alone carries the outcome and
+#: a long sweep can be scanned down the left edge.
+OK = "\U0001F7E2 "          # green: a page was written
+EXISTS = "\U0001F535 "      # blue: a page was already there
+INFO = "\u26AA "            # white: a session was passed over
+ERROR = "\U0001F534 "       # red: something failed
 
 #: Row markers by outcome. WROTE produced a page, EXISTS found one already
-#: there, SKIPPED passed a session over.
-MARKERS = {"WROTE": OK, "EXISTS": EXISTS, "SKIPPED": INFO}
+#: there, SKIPPED passed a session over, ERROR failed.
+MARKERS = {"WROTE": OK, "EXISTS": EXISTS, "SKIPPED": INFO, "ERROR": ERROR}
 
 #: Output is laid out as fixed columns so the pipes line up and a run can be
 #: scanned rather than read. Not a real table: no borders, no padding games,
