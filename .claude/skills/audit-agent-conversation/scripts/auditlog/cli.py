@@ -20,8 +20,11 @@ import tempfile
 
 from . import parse, render, resolve
 
-#: Informational prefix, per the repo convention: info "i" for informational.
+#: Line prefixes, per the repo convention: green check for success, info "i"
+#: for informational. Every line the tool prints starts with one, so a run reads
+#: as a column of outcomes rather than a paragraph.
 INFO = "\u2139\ufe0f "
+OK = "\u2705 "
 
 #: Where rendered pages land. Decision A6, settled and not reopened.
 DEFAULT_OUTPUT_DIR = os.path.expanduser("~/.ai-staff-audit-log")
@@ -141,6 +144,31 @@ def resolve_participants(session, from_name, to_name):
                 or UNKNOWN_SENDER
 
     return sender, receiver
+
+
+# ------------------------------------------------------------------ display
+
+def tilde(path):
+    """`/Users/scottwb/x` as `~/x`, when it really is under home."""
+    home = os.path.expanduser("~")
+    if path == home:
+        return "~"
+    if path.startswith(home + os.sep):
+        return "~" + path[len(home):]
+    return path
+
+
+def human_size(count):
+    """A size the way `ls -h` writes it: 410 KB, 4.3 MB."""
+    step = 1024.0
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if count < step or unit == "GB":
+            if unit == "bytes":
+                return "%d bytes" % count
+            # One decimal only where it says something: 4.3 MB, but 410 KB.
+            return ("%.0f %s" if count >= 100 else "%.1f %s") % (count, unit)
+        count /= step
+    return "%d bytes" % count
 
 
 # --------------------------------------------------- finding a session to render
@@ -337,7 +365,7 @@ def main(argv=None):
                 )
             path, skips = latest_renderable(project_path)
             for line in skips:
-                sys.stderr.write("%s %s\n" % (INFO, line))
+                sys.stderr.write("%s%s\n" % (INFO, line))
             if path is None:
                 sys.stderr.write(
                     "error: no renderable session in %s. %s\n"
@@ -410,10 +438,16 @@ def main(argv=None):
             return 5
 
     if os.path.exists(target) and not args.force:
-        sys.stderr.write(
-            "error: %s already exists. Pass --force to overwrite it.\n" % target
-        )
-        return 6
+        # Not an error: the page you asked for is already there. Report it the
+        # same way as any other session passed over, and exit 0 so re-running a
+        # batch is a cheap no-op rather than a failure.
+        sys.stderr.write("%s%s\n" % (INFO, skip_line(
+            parse.describe(records, path),
+            [parse.Unsupported(
+                "exists", "", short="already exists; use --force to overwrite"
+            )],
+        )))
+        return 0
 
     # Write to a sibling temp file and rename into place, so an interrupted run
     # cannot leave a half-written page where a good one used to be. The rename
@@ -433,8 +467,8 @@ def main(argv=None):
     if not args.quiet:
         note = " (%d unparseable lines skipped)" % skipped if skipped else ""
         sys.stdout.write(
-            "wrote %s (%s bytes)\n  from session %s%s\n"
-            % (target, "{:,}".format(os.path.getsize(target)),
+            "%swrote %s (%s) from session %s%s\n"
+            % (OK, tilde(target), human_size(os.path.getsize(target)),
                session.session_id or os.path.basename(path), note)
         )
     return 0
