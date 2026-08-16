@@ -43,6 +43,8 @@ agent that guesses wrong gets told how to guess right.
 | `audit-agent-conversation --all --week` | **Every** renderable session, every project, past 7 days |
 | `audit-agent-conversation --all --project greenthumb` | Every renderable session in one project |
 | `audit-agent-conversation path/to/session.jsonl` | An explicit transcript |
+| `audit-agent-conversation --index` | Write `index.html` beside the pages: every session there is to render, rendered or not |
+| `audit-agent-conversation --all --index` | Sweep, then rebuild the index |
 
 **`--all` is the sweep.** With `--project` it covers that project; with neither
 a project nor a session it covers *every* project, because the question a bare
@@ -50,6 +52,27 @@ a project nor a session it covers *every* project, because the question a bare
 been doing. It ends with a tally. The whole corpus is 345 sessions across 42
 projects and sweeps in under three seconds, and re-running is cheap because
 pages already present are a no-op.
+
+**`--index` is the map.** It writes `~/.ai-staff-audit-log/index.html`: every
+session across every project (or the `--project` and time-window scope), newest
+start first, grouped by day. Rows with a page are marked `PAGE` and link to it.
+Renderable rows without one are marked `TO DO` and expand to the exact command
+that would produce the page, with a copy button; paste it into a terminal or a
+Claude session, run `--index` again, and the row becomes a link. Sessions v1
+cannot render are listed too, marked `V1 CAN'T` with the reason, because an
+index of what exists that omitted half the corpus would be answering a smaller
+question. A filter box and a "hide the ones v1 cannot render" toggle narrow the
+list client-side.
+
+It is deliberately not a web app. Nothing on the page executes anything: the
+copy button is a clipboard write, the rendering happens in a session you
+drive, and the page has no path back to the transcript store. It is a static
+file with the same rules as every other page: one file, zero external
+requests, byte-reproducible from the same inputs, so no clock on it. The index
+is derived and refreshing it is the point, so it is replaced on every run
+without `--force`; the one file it will not replace is an `index.html` it did
+not write itself (no marker on the first line), which is exit code 6 until
+you pass `--force`.
 
 **Time windows: `--date`, `--today`, `--week`.** Three fixed spans rather than a
 date-range grammar, because the questions worth asking are "the last one",
@@ -139,7 +162,9 @@ failure. The existing page is never touched without `--force`.
 
 Exit codes: `0` success, or nothing to do; `2` could not resolve a session (or
 contradictory flags); `3` unsupported session; `4` render failure; `5` could not
-create the output directory; `7` destination is inside the transcript store.
+create the output directory; `6` `--index` found an `index.html` this tool did
+not write and `--force` was not given; `7` destination is inside the transcript
+store.
 
 From Donna, or any session with no repo context, `--project` is the usual way in.
 
