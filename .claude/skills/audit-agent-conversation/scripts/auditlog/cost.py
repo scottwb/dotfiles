@@ -77,6 +77,41 @@ def unpriced_reason(model):
     return _load().get("unpriced", {}).get(_resolve(model))
 
 
+#: Anthropic's own model ids all start with this. Every priced model in the
+#: table does too, so the table is the primary source and this is the fallback
+#: for an Anthropic model newer than the table.
+_ANTHROPIC_PREFIX = "claude-"
+
+
+def provider_for(model):
+    """Who served `model`: "Anthropic", "Ollama", "OpenRouter", "Claude Code".
+
+    Transcripts record no provider, base URL, or endpoint (measured 2026-08-16
+    on real routed sessions), so this is inferred from the model id and from
+    the rate table, which already knows which models are unpriced and why.
+
+    Returns None for a model the table has never seen and whose id gives
+    nothing away. That is deliberate: naming a provider that did not serve the
+    session would be a false statement in an audit log, and "unknown" is the
+    honest answer. Which Ollama HOST served a session is likewise not
+    recoverable and is never guessed; the provider is as far as this goes.
+    """
+    if not model:
+        return None
+    table = _load()
+    resolved = _resolve(model)
+    named = table.get("providers", {}).get(resolved)
+    if named:
+        return named
+    if resolved in table["models"] or resolved.startswith(_ANTHROPIC_PREFIX):
+        return "Anthropic"
+    # An `org/model` slug is how OpenRouter names everything it routes to, and
+    # no other backend in the fleet uses that shape.
+    if "/" in resolved:
+        return "OpenRouter"
+    return None
+
+
 def rates_for(model):
     """Return the per-million-token rates for `model`.
 

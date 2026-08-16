@@ -185,8 +185,13 @@ page that looks complete is worse than no page.
 ## What the page contains
 
 - Masthead naming both participants, with the date and time in Pacific.
-- Provenance: channel, repo and branch, session UUID, model, effort, CLI
-  version, permission mode.
+- Provenance: channel, repo and branch, session UUID, provider and model
+  (`Anthropic / claude-fable-5`, `Ollama / glm-4.7-flash`,
+  `OpenRouter / openai/gpt-5.6-sol`), effort, CLI version, permission mode.
+  Transcripts record no provider, so it is inferred from the model id by the
+  same table that knows which models are unpriced; a model the table has never
+  seen reads `provider unknown` rather than a guess. Which Ollama host served
+  a session is not recorded anywhere and is never shown.
 - Eight stat tiles: wall clock, tool calls, input tokens, output tokens,
   reasoning tokens, total cost, git commits, external API calls. **Every one is
   counted from the transcript.**
@@ -237,7 +242,8 @@ with its own name rather than described with a guess.
 
 Rates go stale. They live in `scripts/auditlog/pricing.json`, keyed by model id,
 with the date they were last checked. An unknown model is a loud error rather
-than a silent zero.
+than a silent zero. The same file's `providers` map names who served each
+unpriced model; priced models are Anthropic's own and need no entry.
 
 Agent names live in `scripts/auditlog/participants.json`, mapping project
 directory to agent. Add an entry there when a new agent joins the fleet.

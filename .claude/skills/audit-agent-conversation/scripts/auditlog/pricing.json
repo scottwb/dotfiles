@@ -13,7 +13,13 @@
     "routed backend, and the harness's own synthetic messages. A session on one",
     "of these renders with the cost figures suppressed and a note saying why.",
     "That is different from an UNKNOWN model, which is a loud error, because a",
-    "missing entry usually means the table needs updating."
+    "missing entry usually means the table needs updating.",
+    "",
+    "`providers` names who served each model. Transcripts record no provider,",
+    "base URL, or endpoint, so this is inferred from the model id and nothing",
+    "else. Every model under `models` is Anthropic without needing an entry;",
+    "unpriced models are listed explicitly. Which Ollama HOST served a session",
+    "is not recoverable and is never guessed: the provider is as far as it goes."
   ],
   "verified": "2026-08-15",
   "source": "claude-api skill, published list rates",
@@ -93,5 +99,11 @@
     "glm-4.7-flash": "runs locally through Ollama, so no per-token price applies",
     "qwen3:30b-a3b": "runs locally through Ollama, so no per-token price applies",
     "openai/gpt-5.6-sol": "reached through a routed non-Anthropic backend"
+  },
+  "providers": {
+    "<synthetic>": "Claude Code",
+    "glm-4.7-flash": "Ollama",
+    "qwen3:30b-a3b": "Ollama",
+    "openai/gpt-5.6-sol": "OpenRouter"
   }
 }
