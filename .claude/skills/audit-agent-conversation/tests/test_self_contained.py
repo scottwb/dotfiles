@@ -98,6 +98,62 @@ class TestSelfContained(unittest.TestCase):
         self.assertIn("<!doctype html>", self.html)
 
 
+class TestWholeDocumentOnBenignContent(unittest.TestCase):
+    """The strongest form of the check: no stripping, so no vacuity risk.
+
+    `chrome_of()` above strips nested HTML with regexes, which is inherently
+    approximate. This test sidesteps that entirely by rendering a session whose
+    transcript content contains no URLs at all, then asserting against the WHOLE
+    document. Anything dependency-shaped here was authored by the renderer.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        import os
+        import tempfile
+
+        lines = [
+            {"type": "user", "parentUuid": None,
+             "message": {"content": "Do a benign thing with no links in it."},
+             "timestamp": "2026-08-15T12:00:00.000Z", "cwd": "/tmp/x",
+             "version": "1.0.0"},
+            {"type": "assistant", "timestamp": "2026-08-15T12:00:05.000Z",
+             "message": {"id": "m", "model": "claude-opus-5",
+                         "content": [{"type": "text",
+                                      "text": "# Done\n\n- one\n- two\n"}],
+                         "usage": {"input_tokens": 10, "output_tokens": 5}}},
+        ]
+        handle, path = tempfile.mkstemp(suffix=".jsonl")
+        os.close(handle)
+        with open(path, "w") as fh:
+            fh.write("\n".join(json.dumps(x) for x in lines))
+        try:
+            cls.html = render.page(
+                parse.load_session(path), from_name="scott", to_name="agent"
+            )
+        finally:
+            os.unlink(path)
+
+    def test_whole_document_has_no_external_dependencies(self):
+        found = []
+        for pattern, label in DEPENDENCY_PATTERNS:
+            if re.search(pattern, self.html, re.I):
+                found.append(label)
+        self.assertEqual(found, [])
+
+    def test_no_scheme_bearing_urls_anywhere_in_the_document(self):
+        """No http(s):// at all, since the content contributed none."""
+        self.assertNotIn("http://", self.html)
+        self.assertNotIn("https://", self.html)
+
+    def test_the_document_is_still_a_real_page(self):
+        self.assertGreater(len(self.html), 5000)
+        self.assertIn("Conversation Audit Log", self.html)
+        self.assertIn("<style>", self.html)
+        self.assertIn("<script>", self.html)
+
+
 class TestNoNetworkInTheRenderPath(unittest.TestCase):
     """Decision A9: rendering is deterministic and offline."""
 
