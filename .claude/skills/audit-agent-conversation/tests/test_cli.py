@@ -364,30 +364,55 @@ class TestOutputFormatting(unittest.TestCase):
 
 
 class TestWroteDetail(unittest.TestCase):
-    """The DETAIL cell on a WROTE row: which file, and how big."""
+    """The DETAIL cell on a WROTE row: what the page is, and how big."""
 
-    NAME = "20260813-0917-caller-to-donna-clarify-push-authority-and-write-ladder.html"
+    NAME = ("20260813-0917-caller-to-donna-"
+            "clarify-push-authority-and-write-ladder.html")
 
-    def test_short_names_are_shown_whole(self):
-        self.assertEqual(cli.wrote_detail("a.html", "12 KB", 30), "a.html (12 KB)")
+    def _started(self):
+        import datetime
+
+        return datetime.datetime(2026, 8, 13, 9, 17)
+
+    def test_the_redundant_prefix_is_stripped(self):
+        """Timestamp and participants are already in the columns beside it."""
+        label = cli.page_label(self.NAME, "caller", "donna", self._started())
+        self.assertEqual(label, "clarify-push-authority-and-write-ladder")
+
+    def test_the_label_globs(self):
+        """`ls ~/.ai-staff-audit-log/*clarify-push*` has to find the file."""
+        label = cli.page_label(self.NAME, "caller", "donna", self._started())
+        self.assertIn(label, self.NAME)
+
+    def test_a_name_that_is_not_ours_is_left_alone(self):
+        """`-o custom.html` does not follow the pattern."""
+        self.assertEqual(
+            cli.page_label("custom.html", "caller", "donna", self._started()),
+            "custom",
+        )
+
+    def test_a_mismatched_prefix_is_left_alone(self):
+        self.assertEqual(
+            cli.page_label(self.NAME, "someone", "else", self._started()),
+            self.NAME[:-5],
+        )
+
+    def test_short_labels_are_shown_whole(self):
+        self.assertEqual(cli.wrote_detail("a-page", "12 KB", 30), "a-page (12 KB)")
 
     def test_the_size_is_never_truncated(self):
-        detail = cli.wrote_detail(self.NAME, "104 KB", 28)
+        detail = cli.wrote_detail("clarify-push-authority-and-write-ladder",
+                                  "104 KB", 28)
         self.assertTrue(detail.endswith("(104 KB)"), detail)
 
     def test_the_cell_respects_its_width(self):
         for width in (20, 28, 40):
-            self.assertLessEqual(len(cli.wrote_detail(self.NAME, "104 KB", width)),
-                                 width)
+            detail = cli.wrote_detail(
+                "clarify-push-authority-and-write-ladder", "104 KB", width)
+            self.assertLessEqual(len(detail), width, detail)
 
-    def test_the_tail_survives_not_the_head(self):
-        """The head is `<when>-<sender>-to-<receiver>-`, all of which is already
-        in the columns beside this one. The tail is the only new information."""
-        detail = cli.wrote_detail(self.NAME, "104 KB", 28)
-        self.assertIn("ladder.html", detail)
-        self.assertNotIn("20260813", detail)
-        self.assertTrue(detail.startswith("..."), detail)
-
-    def test_fit_tail_keeps_the_end(self):
-        self.assertEqual(cli.fit_tail("abcdefghij", 6), "...hij")
-        self.assertEqual(cli.fit_tail("abc", 6), "abc")
+    def test_the_front_of_the_label_survives(self):
+        detail = cli.wrote_detail("clarify-push-authority-and-write-ladder",
+                                  "104 KB", 28)
+        self.assertTrue(detail.startswith("clarify-push"), detail)
+        self.assertIn("...", detail)

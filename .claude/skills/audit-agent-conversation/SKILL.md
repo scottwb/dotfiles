@@ -77,16 +77,19 @@ the ones passed over.
 Output is an aligned table, 120 characters wide, one row per session:
 
 ```
-   STATUS  | SESSION  | WHEN        | DETAIL             | SENDER  | RECEIVER   | SUBJECT
-----------------------------------------------------------------------------------------
-i  SKIPPED | 7e4fd501 | 08-16 00:07 | Human (3 turns)    | scott   | greenthumb | Greenthumb
-#  EXISTS  | 01ee0390 | 08-16 05:57 | use --force        | donna   | greenthumb | /exec-brief full
-*  WROTE   | e9de9126 | 08-13 09:17 | 104 KB             | caller  | donna      | Clarify push author...
+   STATUS  | SESSION  | WHEN        | DETAIL                       | SENDER | RECEIVER   | SUBJECT
+------------------------------------------------------------------------------------------------
+i  SKIPPED | 7e4fd501 | 08-16 00:07 | Human (3 turns)              | scott  | greenthumb | Greenthumb
+#  EXISTS  | 01ee0390 | 08-16 05:57 | use --force to replace       | donna  | greenthumb | /exec-brief full
+*  WROTE   | e9de9126 | 08-13 09:17 | clarify-push-aut... (104 KB) | caller | donna      | Clarify push author...
 ```
 
 `WROTE` produced a page, `EXISTS` found one already there, `SKIPPED` passed a
-session over. `DETAIL` says why, and says who drove it: `Human (12 turns)` is
-the answer you usually want, not a bare turn count. Anything too long for its
+session over. On a skip, `DETAIL` says why, and says who drove it:
+`Human (12 turns)` is the answer you usually want, not a bare turn count. On a
+write, it names the page by its slug and size. The slug is the filename minus
+the `<when>-<sender>-to-<receiver>-` part, since all of that is already in the
+columns beside it, and it globs: `ls ~/.ai-staff-audit-log/*clarify-push*`. Anything too long for its
 column is truncated with an ellipsis. Column widths are constants that add up,
 so rebalancing them is a one-line change. `--no-header` omits the header and
 rule.

@@ -177,26 +177,38 @@ def fit(text, width):
     return text.ljust(width)
 
 
-def fit_tail(text, width):
-    """Keep the END of `text`, dropping the front with a leading ellipsis."""
-    text = (text or "").strip().replace("\n", " ")
-    if len(text) > width:
-        text = "..." + text[-max(0, width - 3):]
-    return text
+def page_label(filename, sender, receiver, started):
+    """The distinctive part of an output filename: its slug.
+
+    Output is named `<when>-<sender>-to-<receiver>-<slug>.html`, and every part
+    of that except the slug is already in the columns beside this one. Showing
+    the whole thing spends the cell re-printing what is on screen; showing only
+    the tail (`...-with-scott.html`) is no better, because the tail is an
+    arbitrary cut through a phrase.
+
+    The slug is the part worth showing: it says what the page is about, and it
+    globs (`ls ~/.ai-staff-audit-log/*clarify-push*`). Falls back to the plain
+    filename when the name is not ours, which is what `-o` produces.
+    """
+    name = filename[:-5] if filename.endswith(".html") else filename
+    if started:
+        prefix = "%s-%s-to-%s-" % (
+            started.strftime("%Y%m%d-%H%M"),
+            slugify(sender, "unknown"), slugify(receiver, "agent"),
+        )
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
 
 
-def wrote_detail(filename, size_text, width=None):
-    """The DETAIL cell for a written page: which file, and how big.
+def wrote_detail(label, size_text, width=None):
+    """The DETAIL cell for a written page: what it is, and how big.
 
-    The size is short and always kept whole; the filename gets whatever is
-    left. It is truncated from the FRONT, because a filename is
-    `<when>-<sender>-to-<receiver>-<slug>.html` and every part of that head is
-    already in the columns beside this one. The tail is the only part carrying
-    information those columns do not.
+    The size is short and always kept whole; the label gets whatever is left.
     """
     width = COL_DETAIL if width is None else width
     suffix = " (%s)" % size_text
-    return fit_tail(filename, max(0, width - len(suffix))) + suffix
+    return fit(label, max(0, width - len(suffix))).rstrip() + suffix
 
 
 def _cells(status, ident, when, detail, sender, receiver, subject):
@@ -592,8 +604,10 @@ def main(argv=None):
     if not args.quiet:
         description = parse.describe(records, path)
         report_out.row("WROTE", description.short_id, when_of(description),
-                       wrote_detail(os.path.basename(target),
-                                    human_size(os.path.getsize(target))),
+                       wrote_detail(
+                           page_label(os.path.basename(target), sender,
+                                      receiver, session.started_at_local),
+                           human_size(os.path.getsize(target))),
                        sender, receiver, description.title or "(untitled)")
         if skipped:
             report_out.raw("   %d unparseable lines skipped" % skipped)
