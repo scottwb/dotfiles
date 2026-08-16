@@ -23,7 +23,7 @@ BRIEF_AUG15 = "d3a49460-b8fa-4b30-8dec-bc7364bf595b"
 
 # Unsupported-case representatives.
 MULTITURN_HUGE = "ac5e6a1e-230b-43b0-9c12-2cd0297a10a5"   # 44 MB, 76 turns
-IMAGES = "4e8aadff-509e-4200-b2cc-93ea42cc36be"           # 21 image blocks
+IMAGES = "4e8aadff-509e-4200-b2cc-93ea42cc36be"           # 27 images (21 top-level)
 MULTITURN_SMALL = "74dc7d90-5143-4771-ba5c-63312ba51d7f"  # 3 KB, 2 turns
 
 # Golden token figures for the reference session, under message.id dedupe.
