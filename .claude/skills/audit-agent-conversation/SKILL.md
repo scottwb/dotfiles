@@ -32,8 +32,8 @@ Once the dotfiles are linked into `$HOME`, it is just
 
 | Invocation | What it does |
 |---|---|
-| `audit-agent-conversation` | Latest session for the current directory's project |
-| `audit-agent-conversation --project greenthumb` | Latest session in that project |
+| `audit-agent-conversation` | Latest renderable session for the current directory's project |
+| `audit-agent-conversation --project greenthumb` | Latest renderable session in that project |
 | `audit-agent-conversation 9608087e --project greenthumb` | That session, by UUID prefix |
 | `audit-agent-conversation --project greenthumb --date 2026-08-13` | That day's session |
 | `audit-agent-conversation path/to/session.jsonl` | An explicit transcript |
@@ -50,9 +50,29 @@ Options:
 | `--force` | Allow overwriting an existing output file |
 | `--quiet` | Suppress the summary line |
 
-`--latest` and `--date` contradict each other and are rejected as a pair. When a
-day holds several sessions, the latest is rendered and a note names the ones
-passed over.
+`--latest` means the latest session that can **actually be rendered**. Taken
+literally it was near-useless in any project you also work in by hand, because
+the newest transcript there is usually an interactive multi-turn session, so the
+common result was a refusal for a session you never picked.
+
+The walk back is announced, one line per session passed over, so nothing is
+silently decided not to count:
+
+```
+ℹ️  SKIPPED 7e4fd501 | 2026-08-16 00:07 | interactive, 3 turns | Greenthumb
+wrote ~/.ai-staff-audit-log/20260816-0557-donna-to-greenthumb-exec-brief-full.html
+  from session 01ee0390-3bac-4bfd-8d56-c1b9b638c7a0
+```
+
+The fields are session id, when it started, why it was passed over, and its
+title. Oversized transcripts are skipped on file size alone, without parsing
+them, so walking past a 44 MB session costs nothing.
+
+**Naming a session opts out of the walk.** An explicit id or `--date` means that
+session, so an unsupported one is refused rather than quietly swapped for a
+neighbour. `--latest` and `--date` contradict each other and are rejected as a
+pair. When a day holds several sessions, the latest is rendered and a note names
+the ones passed over.
 
 Exit codes: `0` success, `2` could not resolve a session (or contradictory
 flags), `3` unsupported session, `4` render failure, `5` could not create the

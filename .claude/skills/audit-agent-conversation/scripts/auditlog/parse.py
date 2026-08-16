@@ -127,6 +127,30 @@ def usage_for(path):
     return accumulate_usage(records)
 
 
+#: How far into a transcript to read when all that is wanted is its identity.
+#: Titles, the opening prompt, and the entrypoint all appear in the first
+#: handful of records; reading further would mean parsing 44 MB to print one
+#: line about a session being skipped.
+PEEK_RECORDS = 400
+
+
+def load_head(path, limit=PEEK_RECORDS):
+    """Parse at most `limit` records from the front of a transcript."""
+    records = []
+    with open(path, "r", errors="replace") as handle:
+        for line in handle:
+            if len(records) >= limit:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except ValueError:
+                continue
+    return records
+
+
 def content_blocks(record):
     """Normalize `message.content` to a list of block dicts.
 
@@ -189,11 +213,15 @@ MAX_TRANSCRIPT_BYTES = 8 * 1024 * 1024
 class Unsupported(object):
     """One reason a session cannot be rendered, with its magnitude."""
 
-    __slots__ = ("kind", "detail")
+    __slots__ = ("kind", "detail", "short")
 
-    def __init__(self, kind, detail):
+    def __init__(self, kind, detail, short=None):
         self.kind = kind
         self.detail = detail
+        #: A few words, for a one-line skip notice. The long `detail` explains
+        #: itself to someone who asked for this session by name; `short` is for
+        #: a list of sessions being passed over.
+        self.short = short or kind.replace("_", " ")
 
     def __repr__(self):
         return "<Unsupported %s: %s>" % (self.kind, self.detail)
@@ -271,6 +299,7 @@ def check_supported(records, path=None, size_bytes=None):
             "multi_turn",
             "this session has %d user turns; multi-turn rendering is not "
             "implemented yet" % len(turns),
+            short="%d turns" % len(turns),
         ))
 
     images = count_images(records)
@@ -279,6 +308,7 @@ def check_supported(records, path=None, size_bytes=None):
             "images",
             "this session has %d image block%s; image rendering is not "
             "implemented yet" % (images, "" if images == 1 else "s"),
+            short="%d image%s" % (images, "" if images == 1 else "s"),
         ))
 
     if size_bytes is None and path is not None:
@@ -293,6 +323,7 @@ def check_supported(records, path=None, size_bytes=None):
             "every tool result verbatim would produce an unopenable page, and "
             "the size budget is not implemented yet"
             % (size_bytes / 1048576.0, MAX_TRANSCRIPT_BYTES / 1048576.0),
+            short="%.0f MB" % (size_bytes / 1048576.0),
         ))
 
     if not turns:
@@ -300,6 +331,7 @@ def check_supported(records, path=None, size_bytes=None):
             "no_prompt",
             "no caller turn could be found in this transcript, so there is "
             "nothing to render as the opening prompt",
+            short="no caller turn",
         ))
 
     if has_sidechain(records):
@@ -308,6 +340,7 @@ def check_supported(records, path=None, size_bytes=None):
             "this session contains subagent (sidechain) records; rendering "
             "them as though they were the main thread would misattribute the "
             "work, and subagent threads are not implemented yet",
+            short="subagent thread",
         ))
 
     return SupportReport(path, reasons)
@@ -430,6 +463,76 @@ def find_opening_prompt(records):
                 break
 
     return OpeningPrompt(opening, _record_text(opening), expanded)
+
+
+def title_for(records, opening=None):
+    """The best available name for a session.
+
+    F4: the daily briefs carry neither `custom-title` nor `ai-title`, so the
+    chain has to keep going past both, down to the slash command that started
+    the session and finally to the prompt's first line.
+    """
+    if opening is None:
+        opening = find_opening_prompt(records)
+    return (
+        _first_field(records, "custom-title", "customTitle", "title")
+        or _first_field(records, "ai-title", "aiTitle", "title")
+        or (opening.text if opening and opening.is_slash_command else None)
+        or (opening.text.strip().split("\n")[0][:80]
+            if opening and opening.text.strip() else None)
+    )
+
+
+class Description(object):
+    """Just enough about a session to name it in a one-line notice."""
+
+    __slots__ = ("path", "session_id", "started", "entrypoint", "title")
+
+    def __init__(self, path, session_id, started, entrypoint, title):
+        self.path = path
+        self.session_id = session_id
+        self.started = started
+        self.entrypoint = entrypoint
+        self.title = title
+
+    @property
+    def short_id(self):
+        return (self.session_id or "")[:8] or "????????"
+
+    @property
+    def is_interactive(self):
+        return self.entrypoint in ("cli", "vscode", "jetbrains", "web")
+
+
+def describe(records, path=None):
+    """Identity metadata from however many records the caller has parsed."""
+    opening = find_opening_prompt(records)
+    session_id = (
+        _first_field(records, "user", "sessionId")
+        or _first_field(records, "assistant", "sessionId")
+    )
+    if not session_id and path:
+        import os
+
+        session_id = os.path.basename(path).replace(".jsonl", "")
+    started = opening.timestamp if opening else None
+    if started is None:
+        for record in records:
+            started = parse_timestamp(record.get("timestamp"))
+            if started:
+                break
+    entrypoint = (
+        (opening.record.get("entrypoint") if opening else None)
+        or _first_field(records, "assistant", "entrypoint")
+        or _first_field(records, "attachment", "entrypoint")
+    )
+    return Description(path, session_id, started, entrypoint,
+                       title_for(records, opening))
+
+
+def describe_head(path, limit=PEEK_RECORDS):
+    """`describe` without parsing the whole file. See PEEK_RECORDS."""
+    return describe(load_head(path, limit), path)
 
 
 # --------------------------------------------------------------- tool results
@@ -703,17 +806,7 @@ def load_session(path, records=None):
 
     session.agent_name = _first_field(records, "agent-name", "agentName")
     session.agent_color = _first_field(records, "agent-color", "agentColor")
-
-    # F4: the daily briefs carry neither custom-title nor ai-title, so the
-    # chain has to keep going past both.
-    session.title = (
-        _first_field(records, "custom-title", "customTitle", "title")
-        or _first_field(records, "ai-title", "aiTitle", "title")
-        or (session.opening.text if session.opening and session.opening.is_slash_command
-            else None)
-        or (session.opening.text.strip().split("\n")[0][:80]
-            if session.opening and session.opening.text.strip() else None)
-    )
+    session.title = title_for(records, session.opening)
 
     opening_record = session.opening.record if session.opening else {}
     session.cwd = opening_record.get("cwd") or _first_field(records, "assistant", "cwd")
