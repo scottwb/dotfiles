@@ -45,7 +45,7 @@ MARKERS = {"WROTE": OK, "EXISTS": EXISTS, "SKIPPED": INFO, "ERROR": ERROR}
 #: Output is laid out as fixed columns so the pipes line up and a run can be
 #: scanned rather than read. Not a real table: no borders, no padding games,
 #: just widths that add up.
-LINE_WIDTH = 140
+LINE_WIDTH = 150
 SEP = " | "
 COL_STATUS = 7           # SKIPPED is the longest
 COL_ID = 8               # the short session id everything else refers to
@@ -193,8 +193,14 @@ def resolve_participants(session, from_name, to_name):
 # -------------------------------------------------------------- table output
 
 def fit(text, width):
-    """Left-justify to `width`, truncating with an ellipsis when too long."""
-    text = (text or "").strip().replace("\n", " ")
+    """Left-justify to `width`, truncating with an ellipsis when too long.
+
+    Collapses every run of whitespace to one space first. A tab in a cell is
+    not a character, it is a jump to the next tab stop, so one tab inside a
+    title shifts every column after it on that row: exactly the alignment this
+    table exists to provide. Titles come from transcripts and do contain them.
+    """
+    text = " ".join((text or "").split())
     if len(text) > width:
         text = text[: max(0, width - 3)] + "..."
     return text.ljust(width)
@@ -268,10 +274,15 @@ class Report(object):
     page itself, and a report interleaved with HTML would ruin both.
     """
 
-    def __init__(self, stream, show_header=True):
+    def __init__(self, stream, show_header=True, show_skips=True):
         self.stream = stream
         self.pending = show_header
+        self.show_skips = show_skips
         self.last = None
+        #: Skips withheld from the output. Counted rather than dropped, so the
+        #: run can still say how much it passed over: quiet is fine, silent
+        #: about work not done is not.
+        self.withheld = 0
 
     def row(self, *args):
         self.last = args[0]
@@ -280,9 +291,12 @@ class Report(object):
             self.pending = False
         self.stream.write(table_row(*args) + "\n")
 
-    def emit(self, prebuilt_row):
+    def emit(self, prebuilt_row, force=False):
         """A row already formatted by `skip_row`."""
         self.last = "SKIPPED"
+        if not self.show_skips and not force:
+            self.withheld += 1
+            return
         if self.pending:
             self.stream.write(table_header() + "\n")
             self.pending = False
@@ -290,6 +304,20 @@ class Report(object):
 
     def raw(self, line):
         self.stream.write(line + "\n")
+
+    def note_withheld(self):
+        """Say how many rows were withheld, then forget them.
+
+        Hiding the skips by default keeps a sweep readable, but a run that says
+        nothing about what it passed over would be hiding work rather than
+        tidying output. The count always shows; `-v` shows the rows.
+        """
+        if not self.withheld:
+            return
+        self.raw("   %d session%s passed over; -v to list %s"
+                 % (self.withheld, "" if self.withheld == 1 else "s",
+                    "it" if self.withheld == 1 else "them"))
+        self.withheld = 0
 
 
 def when_of(description):
@@ -615,10 +643,11 @@ def run_sweep(args, report_out):
             tally["FAILED"] += 1
 
     report_out.raw(
-        "%d written, %d already there, %d skipped%s, out of %d sessions"
+        "%d written, %d already there, %d skipped%s, out of %d sessions%s"
         % (tally["WROTE"], tally["EXISTS"], tally["SKIPPED"],
            ", %d failed" % tally["FAILED"] if tally["FAILED"] else "",
-           len(candidates))
+           len(candidates),
+           " (-v to list the skipped)" if report_out.withheld else "")
     )
     return 4 if tally["FAILED"] else 0
 
@@ -727,6 +756,10 @@ def build_parser():
                         help="suppress the row for a page that was written")
     parser.add_argument("--no-header", action="store_true",
                         help="omit the column header and rule")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="list every session passed over, not just the "
+                             "count. Skips are always listed when nothing "
+                             "could be rendered.")
     parser.add_argument("--all", action="store_true",
                         help="render every session in scope, not just one. "
                              "With no --project, the scope is every project.")
@@ -750,7 +783,8 @@ def main(argv=None):
             % windows[0])
         return 2
 
-    report_out = Report(sys.stderr, show_header=not args.no_header)
+    report_out = Report(sys.stderr, show_header=not args.no_header,
+                        show_skips=args.verbose)
 
     if args.all:
         if args.session:
@@ -795,8 +829,11 @@ def main(argv=None):
                 )
 
             path, skips = first_renderable(candidates)
+            # When nothing rendered, the skips ARE the answer, so they are
+            # shown whatever the verbosity.
             for line in skips:
-                report_out.emit(line)
+                report_out.emit(line, force=path is None)
+            report_out.note_withheld()
             if path is None:
                 sys.stderr.write(
                     "error: no renderable session %s. Everything there is "

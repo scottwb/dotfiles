@@ -501,3 +501,38 @@ class TestMarkers(unittest.TestCase):
     def test_every_outcome_has_its_own_marker(self):
         self.assertEqual(sorted(cli.MARKERS), ["ERROR", "EXISTS", "SKIPPED", "WROTE"])
         self.assertEqual(len(set(cli.MARKERS.values())), len(cli.MARKERS))
+
+
+class TestCellWhitespace(unittest.TestCase):
+    """A cell must never contain anything that moves the cursor unpredictably."""
+
+    def test_tabs_are_collapsed(self):
+        """A tab is a jump to the next tab stop, not a character.
+
+        Real titles contain them: one session is titled
+        "/facet-revops-brief --digest revops\\t/Users/...", and rendering that
+        raw shifts every column after it on that row.
+        """
+        self.assertEqual(cli.fit("a\tb", 10), "a b       ")
+
+    def test_newlines_are_collapsed(self):
+        self.assertEqual(cli.fit("a\nb", 10), "a b       ")
+
+    def test_runs_of_whitespace_become_one_space(self):
+        self.assertEqual(cli.fit("a  \t \n b", 10), "a b       ")
+
+    def test_no_cell_ever_contains_a_control_character(self):
+        for raw in ("a\tb", "a\nb", "  padded  ", "a\r\nb"):
+            cell = cli.fit(raw, 20)
+            self.assertNotIn("\t", cell)
+            self.assertNotIn("\n", cell)
+            self.assertNotIn("\r", cell)
+            self.assertEqual(len(cell), 20)
+
+    def test_a_row_with_a_tabbed_title_still_has_its_columns_aligned(self):
+        plain = cli.table_row("WROTE", "aaaa1111", "08-16 00:00", "1 KB",
+                              "scott", "donna", "plain title")
+        tabbed = cli.table_row("WROTE", "aaaa1111", "08-16 00:00", "1 KB",
+                               "scott", "donna", "tabbed\ttitle")
+        self.assertEqual([len(f) for f in plain.split(" | ")[:-1]],
+                         [len(f) for f in tabbed.split(" | ")[:-1]])

@@ -199,7 +199,8 @@ class TestWalkThroughTheCLI(unittest.TestCase):
         stderr, sys.stderr = sys.stderr, buffer
         try:
             code = cli.main(list(args) + ["--project", "thing",
-                                          "--output-dir", self.out, "--quiet"])
+                                          "--output-dir", self.out, "--quiet",
+                                          "--verbose"])
         finally:
             sys.stderr = stderr
         return code, buffer.getvalue()
@@ -265,3 +266,77 @@ class TestWalkThroughTheCLI(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSkipVerbosity(unittest.TestCase):
+    """Skips are noise on a good day and the answer on a bad one."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="auditlog-verb-")
+        self.projects = os.path.join(self.tmp, "projects")
+        self.project = os.path.join(self.projects, "-Users-someone-src-thing")
+        os.makedirs(self.project)
+        self.out = os.path.join(self.tmp, "out")
+        self._real_root = resolve.PROJECTS_ROOT
+        resolve.PROJECTS_ROOT = self.projects
+
+    def tearDown(self):
+        resolve.PROJECTS_ROOT = self._real_root
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _add(self, name, mtime, **kwargs):
+        path = _session(os.path.join(self.project, name + ".jsonl"), **kwargs)
+        os.utime(path, (mtime, mtime))
+        return path
+
+    def _run(self, *args):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main(list(args) + ["--project", "thing",
+                                          "--output-dir", self.out])
+        finally:
+            sys.stderr = stderr
+        return code, buffer.getvalue()
+
+    def test_skips_are_not_listed_by_default(self):
+        self._add("aaaa1111", 1000, turns=1)
+        self._add("bbbb2222", 2000, turns=5, entrypoint="cli")
+        code, err = self._run()
+        self.assertEqual(code, 0)
+        self.assertNotIn("bbbb2222", err)
+        self.assertIn("WROTE", err)
+
+    def test_but_the_count_always_shows(self):
+        """Quiet is fine. Silent about work not done is not."""
+        self._add("aaaa1111", 1000, turns=1)
+        self._add("bbbb2222", 2000, turns=5, entrypoint="cli")
+        _, err = self._run()
+        self.assertIn("1 session passed over", err)
+        self.assertIn("-v", err)
+
+    def test_verbose_lists_them(self):
+        self._add("aaaa1111", 1000, turns=1)
+        self._add("bbbb2222", 2000, turns=5, entrypoint="cli")
+        _, err = self._run("--verbose")
+        self.assertIn("bbbb2222", err)
+        self.assertNotIn("passed over", err)
+
+    def test_skips_are_listed_anyway_when_nothing_rendered(self):
+        """With no page to show, the skips are the entire answer."""
+        self._add("aaaa1111", 1000, turns=4, entrypoint="cli")
+        self._add("bbbb2222", 2000, turns=7, entrypoint="cli")
+        code, err = self._run()
+        self.assertEqual(code, 2)
+        self.assertIn("aaaa1111", err)
+        self.assertIn("bbbb2222", err)
+
+    def test_the_count_is_pluralised(self):
+        self._add("aaaa1111", 1000, turns=1)
+        self._add("bbbb2222", 2000, turns=5, entrypoint="cli")
+        self._add("cccc3333", 3000, turns=6, entrypoint="cli")
+        _, err = self._run()
+        self.assertIn("2 sessions passed over", err)
