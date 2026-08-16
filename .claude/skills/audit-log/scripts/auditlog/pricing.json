@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "Maintained rate table, dollars per MILLION tokens, keyed by model id.",
+    "Rates go stale. They live here rather than in code so updating them is a",
+    "data edit, and so a page can state which day its figures were checked.",
+    "Cache writes bill at a multiple of base input: 1.25x on the 5-minute TTL,",
+    "2x on the 1-hour TTL. Cache reads bill at 0.1x.",
+    "Reasoning tokens are a SUBSET of output tokens and bill at the output rate.",
+    "They are never a separate line item; see cost.REASONING_IS_SUBSET_OF_OUTPUT."
+  ],
+  "verified": "2026-08-15",
+  "source": "claude-api skill, published list rates",
+  "models": {
+    "claude-opus-5": {
+      "input": 5.00,
+      "output": 25.00,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.00,
+      "cache_read": 0.50
+    },
+    "claude-sonnet-5": {
+      "input": 3.00,
+      "output": 15.00,
+      "cache_write_5m": 3.75,
+      "cache_write_1h": 6.00,
+      "cache_read": 0.30
+    },
+    "claude-haiku-4-5-20251001": {
+      "input": 1.00,
+      "output": 5.00,
+      "cache_write_5m": 1.25,
+      "cache_write_1h": 2.00,
+      "cache_read": 0.10
+    }
+  },
+  "aliases": {
+    "claude-opus-5[1m]": "claude-opus-5",
+    "claude-sonnet-5[1m]": "claude-sonnet-5"
+  }
+}
