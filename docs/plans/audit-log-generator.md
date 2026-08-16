@@ -390,19 +390,19 @@ cd .claude/skills/audit-log && ./run-tests
 
 ### Step 7: Port the markdown renderer
 
-- [ ] Write the failing test first: `tests/test_markdown.py` covers headings,
+- [x] Write the failing test first: `tests/test_markdown.py` covers headings,
       fenced code, tables with a delimiter row, **headerless pipe-row runs**
       (the grep-fragment case), `\|` escapes inside cells, ordered and unordered
       lists, blockquotes, strikethrough, inline code, bold, italic, and the
       line-number stripping for both `   12\t` (Read) and `12:` (grep -n)
       prefixes. Also asserts Obsidian `[[path|alias]]` resolves to `alias` and
       `[[path]]` to its basename.
-- [ ] Implement: port `markdown()`, `_inline()`, `_cells()`, `_table()`,
+- [x] Implement: port `markdown()`, `_inline()`, `_cells()`, `_table()`,
       `dewiki()`, and `strip_line_numbers()` from the prototype into
       `markdown.py`, unchanged in behavior
-- [ ] Implement: escape HTML before any inline substitution, as the prototype
+- [x] Implement: escape HTML before any inline substitution, as the prototype
       does, so tool output cannot inject markup
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** Section 7 "Markdown renderer notes", Requirement "stdlib-only"
 
