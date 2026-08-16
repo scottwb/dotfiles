@@ -91,7 +91,7 @@ neighbour. `--latest` and `--date` contradict each other and are rejected as a
 pair. When a day holds several sessions, the latest is rendered and a note names
 the ones passed over.
 
-Output is an aligned table, 140 characters wide, one row per session:
+Output is an aligned table, 150 characters wide, one row per session:
 
 ```
    STATUS  | SESSION  | WHEN        | DETAIL                       | SENDER | RECEIVER   | SUBJECT
@@ -123,6 +123,13 @@ columns beside it, and it globs: `ls ~/.ai-staff-audit-log/*clarify-push*`. Anyt
 column is truncated with an ellipsis. Column widths are constants that add up,
 so rebalancing them is a one-line change. `--no-header` omits the header and
 rule.
+
+**Skipped sessions are counted, not listed, unless you pass `-v`.** A sweep of
+every project passes over roughly as many sessions as it renders, and that is
+mostly noise. The count always appears, because a run that said nothing about
+what it passed over would be hiding work rather than tidying output. When
+nothing could be rendered at all, the skips are listed regardless: they are the
+whole answer.
 
 Rows go to stderr. stdout belongs to `--stdout`, which emits the page itself.
 
