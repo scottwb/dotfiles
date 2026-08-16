@@ -292,7 +292,10 @@ def _truncate(text, cap):
 
 # ------------------------------------------------------------------- CSS/JS
 
-CSS = """
+#: The colour tokens, on their own so the index page shares them. Light on
+#: bare :root; dark under prefers-color-scheme (unless the viewer forced light)
+#: and again under an explicit data-theme="dark", so a toggle wins both ways.
+PALETTE_CSS = """
 :root{
   --bg:#f6f5f1; --panel:#fffefb; --ink:#1c1d1a; --muted:#6b6f66; --line:#e2e0d7;
   --caller:#6b4fbb; --caller-bg:#f1edfd; --caller-line:#d9cff5;
@@ -314,6 +317,9 @@ CSS = """
   --code-bg:#131519; --code-ink:#cfd2cb; --accent:#d8a45c;
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
 }
+"""
+
+CSS = PALETTE_CSS + """
 *{box-sizing:border-box}
 [hidden]{display:none !important}
 body{margin:0;background:var(--bg);color:var(--ink);

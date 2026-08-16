@@ -194,18 +194,18 @@ Most of the scan already exists: `cli.classify()` returns a support report and a
 `Description` for any transcript, cheaply, and `sweep_candidates()` already
 walks every project with an optional time window.
 
-- [ ] Write the failing test first: the index lists both renderable and
+- [x] Write the failing test first: the index lists both renderable and
       unsupported sessions, marks which have pages on disk, and links only
       those
-- [ ] Implement: `index.py` producing a single self-contained HTML page
-- [ ] Write the failing test first: the page makes zero external requests and
+- [x] Implement: `index.py` producing a single self-contained HTML page
+- [x] Write the failing test first: the page makes zero external requests and
       contains no `<script src>`, matching `test_self_contained.py`'s rules
-- [ ] Write the failing test first: an ungenerated row carries a copy-able
+- [x] Write the failing test first: an ungenerated row carries a copy-able
       command naming that session
-- [ ] Implement: the `--index` flag (or an `index` subcommand) writing to
+- [x] Implement: the `--index` flag (or an `index` subcommand) writing to
       `~/.ai-staff-audit-log/index.html`, subject to the same
       `check_destination` guard as every other write
-- [ ] Verify green, then open the index and click through to a page
+- [x] Verify green, then open the index and click through to a page
 
 **Satisfies:** roadmap follow-on 3 (tier "Do first")
 

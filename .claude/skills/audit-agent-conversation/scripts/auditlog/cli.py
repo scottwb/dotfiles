@@ -652,6 +652,94 @@ def run_sweep(args, report_out):
     return 4 if tally["FAILED"] else 0
 
 
+# -------------------------------------------------------------------- index
+
+def write_index(args, report_out):
+    """Build the index of every session in scope and place it. Exit code.
+
+    The index is derived and has to be current, so unlike a page it is
+    replaced on every run without `--force`. The one thing it will not
+    replace is an `index.html` it did not write itself (no marker on the
+    first line): that is someone else's file, and `--force` is required.
+    """
+    from . import index
+
+    try:
+        entries = index.scan(args, os.path.abspath(args.output_dir))
+    except resolve.ResolutionError as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return 2
+
+    if args.output:
+        target = os.path.abspath(args.output)
+    else:
+        target = os.path.join(os.path.abspath(args.output_dir), index.FILENAME)
+    directory = os.path.dirname(target) or "."
+
+    # Links are relative to the directory the index lands in, and the marker
+    # scan looks there for pages, so both use `directory` rather than
+    # `output_dir` when `-o` sends the index elsewhere.
+    if os.path.abspath(directory) != os.path.abspath(args.output_dir):
+        entries = index.scan(args, directory)
+    document = index.page(entries, directory)
+
+    if args.stdout:
+        sys.stdout.write(document)
+        return 0
+
+    try:
+        check_destination(directory)
+        check_destination(target)
+    except UnsafeDestination as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return 7
+
+    if os.path.exists(target) and not args.force:
+        try:
+            with open(target, "r", errors="replace") as handle:
+                head = handle.read(len(index.MARKER) + 64)
+        except OSError:
+            head = ""
+        if index.MARKER not in head:
+            sys.stderr.write(
+                "error: %s exists and was not written by this tool (no index "
+                "marker on its first lines). Refusing to replace it; pass "
+                "--force if it really is yours to overwrite.\n" % target
+            )
+            return 6
+
+    try:
+        os.makedirs(directory)
+    except OSError as exc:
+        if exc.errno != errno.EEXIST:
+            sys.stderr.write("error: could not create %s: %s\n" % (directory, exc))
+            return 5
+
+    handle, staging = tempfile.mkstemp(
+        dir=directory, prefix=".audit-agent-conversation-", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(handle, "w") as fh:
+            fh.write(document)
+        os.replace(staging, target)
+    except BaseException:
+        if os.path.exists(staging):
+            os.unlink(staging)
+        raise
+
+    if not args.quiet:
+        with_pages = sum(1 for e in entries if e.page)
+        todo = sum(1 for e in entries if e.renderable and not e.page)
+        cannot = sum(1 for e in entries if not e.renderable)
+        report_out.raw(
+            "%sINDEX   | %d sessions: %d with pages, %d renderable but not "
+            "yet, %d v1 cannot render | %s (%s)"
+            % (OK, len(entries), with_pages, todo, cannot, tilde(target),
+               human_size(os.path.getsize(target)))
+        )
+    return 0
+
+
 # --------------------------------------------------------------------- main
 
 DESCRIPTION = """\
@@ -687,6 +775,14 @@ examples
   audit-agent-conversation --all --project greenthumb --force
       re-render everything in one project
 
+  audit-agent-conversation --index
+      write index.html beside the pages: every session there is to render,
+      every project, newest first. Rows with a page link to it; renderable
+      rows without one show the command that would produce it, with a copy
+      button; the rest say why v1 cannot render them. --all --index sweeps
+      first and then rebuilds the index. The index is replaced on every run;
+      it is derived, and refreshing it is the point.
+
 output
   One aligned row per session on stderr. WROTE produced a page, EXISTS found
   one already there, SKIPPED passed a session over and says why. stdout is
@@ -703,6 +799,8 @@ exit codes
   3  that session is one v1 cannot render yet
   4  a page failed to render
   5  the output directory could not be created
+  6  --index found an index.html this tool did not write, and --force was
+     not given
   7  the destination is inside the transcript store, which is read-only
 """
 
@@ -763,6 +861,10 @@ def build_parser():
     parser.add_argument("--all", action="store_true",
                         help="render every session in scope, not just one. "
                              "With no --project, the scope is every project.")
+    parser.add_argument("--index", action="store_true",
+                        help="write index.html beside the pages, listing every "
+                             "session in scope, rendered or not. Alone it only "
+                             "indexes; with --all it sweeps first.")
     return parser
 
 
@@ -786,6 +888,12 @@ def main(argv=None):
     report_out = Report(sys.stderr, show_header=not args.no_header,
                         show_skips=args.verbose)
 
+    if args.index and args.session:
+        sys.stderr.write(
+            "error: --index lists every session in scope; naming one "
+            "contradicts it.\n")
+        return 2
+
     if args.all:
         if args.session:
             sys.stderr.write(
@@ -797,7 +905,16 @@ def main(argv=None):
                 "error: --all writes many pages, so --stdout and -o do not "
                 "apply. Use --output-dir.\n")
             return 2
-        return run_sweep(args, report_out)
+        code = run_sweep(args, report_out)
+        if args.index:
+            # A sweep's failures are its own exit code; the index still gets
+            # built, because it is exactly what tells you what did not land.
+            index_code = write_index(args, report_out)
+            return code or index_code
+        return code
+
+    if args.index:
+        return write_index(args, report_out)
 
     notes = []
     # Naming a session means that session. Naming a DAY means a session from
