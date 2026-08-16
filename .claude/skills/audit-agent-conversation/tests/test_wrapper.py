@@ -58,5 +58,62 @@ class TestWrapper(unittest.TestCase):
         self.assertIn(b"user turns", stderr)
 
 
+
+class TestWrapperThroughASymlink(unittest.TestCase):
+    """Its real-world shape. The dotfiles install links bin/ into $HOME, so in
+    normal use this script IS a symlink and must still find the skill package.
+    """
+
+    def _run_via(self, link, *args):
+        return subprocess.Popen(
+            [link] + list(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        ).communicate()
+
+    def test_absolute_symlink(self):
+        import os
+        import shutil
+        import tempfile
+
+        tmp = tempfile.mkdtemp(prefix="auditlog-link-")
+        try:
+            link = os.path.join(tmp, "audit-agent-conversation")
+            os.symlink(WRAPPER, link)
+            stdout, stderr = self._run_via(link, "--help")
+            self.assertIn(b"audit-agent-conversation", stdout, stderr.decode())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_chained_symlinks(self):
+        import os
+        import shutil
+        import tempfile
+
+        tmp = tempfile.mkdtemp(prefix="auditlog-chain-")
+        try:
+            first = os.path.join(tmp, "one")
+            second = os.path.join(tmp, "two")
+            os.symlink(WRAPPER, first)
+            os.symlink(first, second)
+            stdout, stderr = self._run_via(second, "--help")
+            self.assertIn(b"audit-agent-conversation", stdout, stderr.decode())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_relative_symlink(self):
+        import os
+        import shutil
+        import tempfile
+
+        # realpath, because macOS /var is itself a symlink to /private/var and
+        # a relpath computed from the logical path does not resolve.
+        tmp = os.path.realpath(tempfile.mkdtemp(prefix="auditlog-rel-"))
+        try:
+            link = os.path.join(tmp, "audit-agent-conversation")
+            os.symlink(os.path.relpath(os.path.realpath(WRAPPER), tmp), link)
+            stdout, stderr = self._run_via(link, "--help")
+            self.assertIn(b"audit-agent-conversation", stdout, stderr.decode())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 if __name__ == "__main__":
     unittest.main()
