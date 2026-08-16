@@ -213,3 +213,67 @@ class TestParticipantColors(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAgentColor(unittest.TestCase):
+    """`agent-color` is in the transcript; the page should honour it.
+
+    Present in only 4 of the 28 surveyed sessions, so this is a nicety rather
+    than a mechanism, but parsing a field and then ignoring it is worse than not
+    parsing it: it reads as a promise the page does not keep.
+    """
+
+    def _render(self, color):
+        import json
+        import os
+        import tempfile
+
+        lines = [
+            {"type": "agent-name", "agentName": "Greenthumb"},
+            {"type": "user", "parentUuid": None, "message": {"content": "hi"},
+             "timestamp": "2026-08-15T12:00:00.000Z", "cwd": "/tmp/x",
+             "version": "1.0.0"},
+            {"type": "assistant", "timestamp": "2026-08-15T12:00:01.000Z",
+             "message": {"id": "m", "model": "claude-opus-5",
+                         "content": [{"type": "text", "text": "ok"}],
+                         "usage": {"output_tokens": 1}}},
+        ]
+        if color is not None:
+            lines.insert(1, {"type": "agent-color", "agentColor": color})
+        handle, path = tempfile.mkstemp(suffix=".jsonl")
+        os.close(handle)
+        try:
+            with open(path, "w") as fh:
+                fh.write("\n".join(json.dumps(x) for x in lines))
+            return render.page(parse.load_session(path), from_name="donna",
+                               to_name="Greenthumb")
+        finally:
+            os.unlink(path)
+
+    def test_a_known_colour_reaches_the_agent_card(self):
+        html = self._render("blue")
+        self.assertIn("--agent:#2a5fa8", html)
+
+    def test_the_style_lands_on_the_agent_card_not_the_caller_card(self):
+        html = self._render("blue")
+        self.assertIn('<section class="turn agent" style="--agent:', html)
+        self.assertIn('<section class="turn caller">', html)
+
+    def test_no_colour_leaves_the_default_alone(self):
+        """Assert on the card, not on "--agent:#": the base CSS contains that."""
+        self.assertIn('<section class="turn agent">', self._render(None))
+
+    def test_an_unknown_colour_is_ignored_rather_than_injected(self):
+        """An unrecognized name must not reach the page as CSS."""
+        html = self._render("chartreuse; background:url(http://evil)")
+        self.assertNotIn("evil", html)
+        self.assertNotIn("chartreuse", html)
+        self.assertIn('<section class="turn agent">', html)
+
+    def test_every_palette_entry_is_a_valid_hex_triple(self):
+        import re
+
+        for name, entry in sorted(render.AGENT_COLORS.items()):
+            self.assertEqual(len(entry), 3, name)
+            for value in entry:
+                self.assertRegex(value, r"^#[0-9a-f]{6}$", name)

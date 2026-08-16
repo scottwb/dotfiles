@@ -181,6 +181,38 @@ def usd(amount):
     return "$%.2f" % amount if amount >= 0.005 else "&lt;$0.01"
 
 
+#: `agent-color` carries the colour Claude Code shows for an agent, so a page
+#: about Greenthumb comes out green without anyone configuring it. Each entry is
+#: (ink, background, border) for light mode; dark mode keeps the shared tokens,
+#: because a hand-picked dark variant per colour is more than this earns.
+AGENT_COLORS = {
+    "green": ("#2f7d46", "#edf6ef", "#c9e3d0"),
+    "blue": ("#2a5fa8", "#ecf2fb", "#cbdcf2"),
+    "cyan": ("#1f6f79", "#e9f5f6", "#c4e2e5"),
+    "purple": ("#6b4fbb", "#f1edfd", "#d9cff5"),
+    "violet": ("#6b4fbb", "#f1edfd", "#d9cff5"),
+    "magenta": ("#a4348a", "#fbecf6", "#f0cde5"),
+    "red": ("#b03a34", "#fbeeed", "#f1cfcc"),
+    "orange": ("#b0762a", "#fbf3e7", "#eeddc2"),
+    "yellow": ("#8f7420", "#f9f4e2", "#e8dcb6"),
+}
+
+
+def agent_color_style(color):
+    """An inline style overriding the agent card's palette, or "".
+
+    Returns a style attribute rather than injecting CSS, so an unrecognized
+    colour name simply produces nothing and the default green stands.
+    """
+    entry = AGENT_COLORS.get((color or "").strip().lower())
+    if not entry:
+        return ""
+    ink, background, line = entry
+    return (
+        ' style="--agent:%s;--agent-bg:%s;--agent-line:%s"' % (ink, background, line)
+    )
+
+
 def _clock(moment):
     return moment.strftime("%H:%M:%S") if moment else "--:--:--"
 
@@ -722,7 +754,7 @@ def page(session, from_name="scott", to_name=None, channel=None):
     <div class="turnbody prompt">%(prompt)s</div>
   </section>
 
-  <section class="turn agent">
+  <section class="turn agent"%(agentstyle)s>
     <div class="turnhead">
       <div class="av">%(to_initial)s</div>
       <div class="who">%(to_name)s<small>Did the work%(where)s</small></div>
@@ -805,5 +837,6 @@ def page(session, from_name="scott", to_name=None, channel=None):
         "effects": side_effects,
         "basename": html.escape(os.path.basename(session.path or "")),
         "where": where,
+        "agentstyle": agent_color_style(session.agent_color),
     }
     return document
