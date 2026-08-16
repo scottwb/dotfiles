@@ -2,24 +2,49 @@
 
 ## Execution Instructions
 
-When executing this plan:
+**RUN THIS UNATTENDED. Do not stop between steps to ask for approval.** Scott
+is away and wants the whole batch done before he looks at anything. Work
+straight through Steps 0 to 4, then report once.
 
-1. **Work step-by-step** - Complete each step fully before moving to the next
-2. **Test-first within each step** - Write the failing test/scenario before the implementation, then make it pass
-3. **Test after each step** - Run the test command below and check its EXIT CODE, not its output. An earlier session pushed a red suite because a `&&` chain keyed off `grep` matching the word FAILED.
-4. **Commit after each step** - Use the provided commit message, then push to `origin/feature/audit-log`
-5. **Update documentation continuously** - `SKILL.md` for anything user-facing, this plan's checkboxes, and `docs/plans/development-roadmap.md`
-6. **Mark completion** - Tick the matching roadmap follow-on when a step lands
+### Branch: this plan runs where it already is
 
-```bash
-cd .claude/skills/audit-agent-conversation && ./run-tests
-```
+This plan belongs to the **existing `feature/audit-log` branch**, in the
+worktree at `~/src/scottwb/dotfiles-audit-log`.
 
-**Do not merge, and do not run `/yolo`'s wrap-up.** Scott merges this himself
-after looking at it. The branch, the worktree, and PR #4 all stay in place.
+If you arrived via `/yolo`, this is **State 2 (resume)**: do NOT create a
+branch, and do not treat the branch name as a mismatch. `/yolo`'s state check
+matches a branch against a plan's filename stem, and `feature/audit-log` does
+not contain `audit-log-followons-batch`; that is expected and is not a reason to
+stop. The branch already carries 44 commits of the work this batch extends.
 
-**If a step turns out meatier than it reads, stop and leave it uncommitted.**
-Half-landed work is worse than a short batch. Say what you hit and why.
+### Per step
+
+1. **Test-first** - Write the failing test before the implementation, then make it pass
+2. **Check the EXIT CODE, not the output** - An earlier session pushed a red suite because a `&&` chain keyed off `grep` matching the word FAILED:
+   ```bash
+   cd .claude/skills/audit-agent-conversation && ./run-tests > /tmp/t.log 2>&1
+   echo "exit=$?"; grep -E "^(Ran|OK|FAILED)" /tmp/t.log
+   ```
+3. **Commit and push** - Use the provided commit message, then `git push origin feature/audit-log`
+4. **Tick as you go** - This plan's checkboxes, `SKILL.md` for anything user-facing, and the matching roadmap follow-on
+5. **Continue immediately** - No waiting, no confirmation
+
+### When to stop early
+
+Stop and report, leaving the work uncommitted, if:
+
+- A step's tests still fail after three root-cause attempts. Do not note it and
+  carry on; later steps built on a broken foundation compound the damage.
+- A step turns out to need a decision this plan does not already make. Half-
+  landed work is worse than a short batch. Say what you hit and why.
+
+Otherwise finish the batch.
+
+### Hard stops
+
+**Do not merge. Do not run `/yolo`'s wrap-up half. Do not delete the branch or
+the worktree. Do not close PR #4.** Scott reviews, tests, and merges himself.
+Everything stays exactly where it is.
 
 ---
 
@@ -247,8 +272,12 @@ fresh session that "helpfully" adds one is undoing a decision.
 
 ## When the batch is done
 
-Report back with: what landed, what Scott should look at with his own eyes
-(Steps 2 and 3 are visual and only he can say they look right), and anything
-that was stopped rather than finished.
+Report ONCE, at the end, with:
+
+- What landed, step by step, with commit hashes
+- **What Scott should look at with his own eyes.** Steps 2 and 3 are visual;
+  only he can say they look right. Give him the exact commands and file paths.
+- Anything stopped rather than finished, and why
+- The suite count and its exit status
 
 Then stop. The merge is Scott's.
