@@ -593,14 +593,18 @@ def page(session, from_name="scott", to_name=None, channel=None):
             ("Permissions", "<code>%s</code>" % html.escape(session.permission_mode))
         )
 
+    priced = breakdown.priced
     stats = [
         (_duration_words(session.duration), "wall clock", None),
         ("{:,}".format(session.tool_count), "tool calls", None),
-        ("{:,}".format(breakdown.input_tokens_total), "input tokens", usd(breakdown.input_side)),
-        ("{:,}".format(session.usage.tokens["output"]), "output tokens", usd(breakdown.output)),
+        ("{:,}".format(breakdown.input_tokens_total), "input tokens",
+         usd(breakdown.input_side) if priced else None),
+        ("{:,}".format(session.usage.tokens["output"]), "output tokens",
+         usd(breakdown.output) if priced else None),
         ("{:,}".format(session.usage.tokens["reasoning"]), "reasoning tokens",
-         usd(breakdown.reasoning) + ", of the output"),
-        (usd(breakdown.total), "total, list price", None),
+         usd(breakdown.reasoning) + ", of the output" if priced else "of the output"),
+        (usd(breakdown.total) if priced else "n/a",
+         "total, list price" if priced else "no list price", None),
         ("{:,}".format(effects.commits),
          "git commit" if effects.commits == 1 else "git commits", None),
         ("{:,}".format(effects.external_calls),
@@ -645,6 +649,26 @@ def page(session, from_name="scott", to_name=None, channel=None):
         "reasoning": usd(breakdown.reasoning),
         "output": usd(breakdown.output),
     }
+
+    if not priced:
+        # A local Ollama model, a routed non-Anthropic backend, or the harness's
+        # own synthetic messages. The token counts are real; there is simply no
+        # list price to convert them with, and inventing one would be worse than
+        # showing none.
+        cost_note = """
+<details class="costnote">
+  <summary>No cost figure for this session &mdash; why</summary>
+  <div class="costbody">
+    <p>This session ran on <code>%(model)s</code>, which %(reason)s. The token
+       counts in the tiles above were read from the transcript and are real.
+       There is no published per-token price to convert them with, so this page
+       shows no dollar figure rather than a made-up one.</p>
+  </div>
+</details>
+""" % {
+            "model": html.escape(session.model or "an unknown model"),
+            "reason": html.escape(breakdown.unpriced_reason or "has no list price"),
+        }
 
     prompt_body = md.render(session.opening.text if session.opening else "")
     if session.opening and session.opening.expanded_text:
