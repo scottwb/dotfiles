@@ -22,9 +22,69 @@ import os
 import re
 
 
+# ------------------------------------------------------------------- links
+
+#: The only URL schemes allowed to become a clickable `href`.
+#:
+#: Escaping the URL stops an attacker breaking out of the attribute, but it does
+#: NOT stop a `javascript:` URL: the browser decodes the entities back before
+#: navigating, so `href="javascript:alert(&#x27;x&#x27;)"` executes on click.
+#: Transcript content is untrusted (it came from web pages, file contents, and
+#: command output), and this page's whole value is being a trustworthy record,
+#: so a record that executes when opened is exactly the wrong failure.
+SAFE_URL_SCHEMES = frozenset(["http", "https", "mailto"])
+
+_HAS_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.\-]*):")
+
+
+def is_safe_url(url):
+    """Is `url` safe to put in an href?
+
+    Judges the URL as the BROWSER will see it, which means undoing the two
+    things an attacker can hide a scheme behind:
+
+    * HTML entities, because the renderer escapes before this runs and the
+      browser decodes after (`&#106;avascript:` is `javascript:`).
+    * Leading whitespace and control characters, which browsers strip
+      (`java\\tscript:` is `javascript:`).
+
+    A URL with no scheme at all is relative or an anchor, and is allowed.
+    """
+    if url is None:
+        return False
+
+    candidate = html.unescape(url)
+    # Strip everything a browser ignores, anywhere before the colon.
+    candidate = re.sub(r"[\x00-\x20\x7f]", "", candidate)
+
+    match = _HAS_SCHEME.match(candidate)
+    if not match:
+        return True  # relative path or fragment
+    return match.group(1).lower() in SAFE_URL_SCHEMES
+
+
 # ------------------------------------------------------------------ inline
 
+#: Sentinel used to park code spans while inline markup is substituted. NUL is
+#: stripped from the input first (see `_inline`), so this cannot collide with
+#: anything a transcript contains.
+_STASH = "\x00%d\x00"
+_STASH_RE = re.compile(r"\x00(\d+)\x00")
+
+
+def _link(match):
+    label, url = match.group(1), match.group(2)
+    if is_safe_url(url):
+        return '<a href="%s">%s</a>' % (url, label)
+    # Refuse the link, but keep both halves visible. An audit log must not
+    # silently delete evidence just because it declined to make it clickable.
+    return "%s (<code>%s</code>)" % (label, url)
+
+
 def _inline(text):
+    # NUL has no legitimate place in rendered text, and removing it here is what
+    # makes the code-span sentinel below uncollidable.
+    text = text.replace("\x00", "")
     text = html.escape(text)
 
     # Stash code spans first so their contents are not further parsed.
@@ -32,16 +92,20 @@ def _inline(text):
 
     def keep(match):
         stash.append(match.group(1))
-        return "\x00%d\x00" % (len(stash) - 1)
+        return _STASH % (len(stash) - 1)
+
+    def restore(match):
+        index = int(match.group(1))
+        if 0 <= index < len(stash):
+            return "<code>%s</code>" % stash[index]
+        return match.group(0)  # not ours; leave it alone
 
     text = re.sub(r"`([^`]+)`", keep, text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"~~(.+?)~~", r"<del>\1</del>", text)
     text = re.sub(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])", r"<em>\1</em>", text)
-    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
-    text = re.sub(
-        r"\x00(\d+)\x00", lambda m: "<code>%s</code>" % stash[int(m.group(1))], text
-    )
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _link, text)
+    text = _STASH_RE.sub(restore, text)
     return text
 
 
