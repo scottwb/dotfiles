@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 from . import parse, render, resolve
 
@@ -65,6 +66,19 @@ def slugify(text, fallback="session"):
 
 # ------------------------------------------------------------- participants
 
+def sender_for_project(project_dir_name):
+    """Who initiates sessions in this project, when that is known.
+
+    Nothing in a transcript records the caller, so this is pure configuration.
+    Returns None when unmapped, which is the honest answer.
+    """
+    senders = _participant_config().get("senders", {})
+    for key in sorted(senders, key=len, reverse=True):
+        if key in project_dir_name:
+            return senders[key]
+    return None
+
+
 def agent_for_project(project_dir_name):
     """Map a project directory to an agent name.
 
@@ -80,13 +94,33 @@ def agent_for_project(project_dir_name):
     return tail or "agent"
 
 
+#: Entrypoints that mean a human was sitting at a terminal.
+INTERACTIVE_ENTRYPOINTS = ("cli", "vscode", "jetbrains", "web")
+
+#: What to call a caller we genuinely cannot identify.
+UNKNOWN_SENDER = "caller"
+
+
 def resolve_participants(session, from_name, to_name):
     """Work out who was talking to whom.
 
-    Precedence for the receiver: an explicit `--to`, then `agent-name` from the
-    transcript, then the project map. Nothing records the SENDER anywhere in a
-    transcript, so it is `--from`, then the project map, then the configured
-    default (decision A5).
+    Receiver: an explicit `--to`, then `agent-name` from the transcript, then
+    the project map.
+
+    Sender: nothing in a transcript records it, so after `--from` this turns on
+    HOW the session was started, which the transcript does record.
+
+    * Interactive entrypoint: a human was at a terminal, so the configured human
+      is a fair default.
+    * Non-interactive (`sdk-cli`): a human was NOT. Consult the sender map for
+      whoever automates that project, and if it says nothing, say `caller`.
+      Naming the human anyway would put a false attribution in an audit log,
+      which is the same class of error as Defect 3: confidently wrong is worse
+      than plainly unknown.
+
+    The order matters. Greenthumb's automated briefs come from Donna, but an
+    interactive session in the same repo is Scott typing, so the map must not
+    apply to both.
     """
     config = _participant_config()
     project = resolve.project_dir_name(session.cwd) if session.cwd else ""
@@ -94,8 +128,53 @@ def resolve_participants(session, from_name, to_name):
     receiver = to_name or getattr(session, "agent_name", None) \
         or (agent_for_project(project) if project else "agent")
 
-    sender = from_name or config.get("default_sender", "scott")
+    sender = from_name
+    if not sender:
+        entrypoint = getattr(session, "entrypoint", None)
+        if entrypoint in INTERACTIVE_ENTRYPOINTS or entrypoint is None:
+            sender = config.get("default_sender", "scott")
+        else:
+            sender = (sender_for_project(project) if project else None) \
+                or UNKNOWN_SENDER
+
     return sender, receiver
+
+
+# ------------------------------------------------------------ write safety
+
+class UnsafeDestination(Exception):
+    """The requested output path would write into the transcript store."""
+
+
+def _within(path, root):
+    """Is `path` inside `root`, after resolving symlinks and `..`?
+
+    `os.path.realpath` on both sides is what makes a planted symlink or a
+    `../` climb fail the check rather than sneak through it.
+    """
+    path = os.path.realpath(path)
+    root = os.path.realpath(root)
+    return path == root or path.startswith(root + os.sep)
+
+
+def check_destination(path):
+    """Refuse any destination inside `~/.claude/projects/`.
+
+    Absolute, and deliberately not overridable by `--force`. The transcripts are
+    the only copy of every session and they are gitignored, so overwriting one
+    is unrecoverable. `--force` means "replace my own output", never "disable
+    the safety rail".
+    """
+    if _within(path, resolve.PROJECTS_ROOT):
+        real = os.path.realpath(path)
+        viaes = "" if real == os.path.abspath(path) else " (which resolves to %s)" % real
+        raise UnsafeDestination(
+            "refusing to write to %s%s: that is inside the Claude Code "
+            "transcript store (%s). Those files are the only copy of each "
+            "session and this tool only ever reads them. Choose a destination "
+            "outside that directory."
+            % (path, viaes, resolve.PROJECTS_ROOT)
+        )
 
 
 # ---------------------------------------------------------------- filenames
@@ -152,12 +231,20 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
 
+    if args.latest and args.date:
+        sys.stderr.write(
+            "error: --latest and --date ask for different sessions; pass one.\n"
+        )
+        return 2
+
+    notes = []
     try:
         path = resolve.resolve(
             session=args.session,
             project=args.project,
             latest=args.latest,
             date=args.date,
+            notes=notes,
         )
     except resolve.ResolutionError as exc:
         sys.stderr.write("error: %s\n" % exc)
@@ -193,6 +280,15 @@ def main(argv=None):
         directory = os.path.abspath(args.output_dir)
         target = os.path.join(directory, output_filename(session, sender, receiver))
 
+    # Before creating anything. A refused destination must leave no trace,
+    # including a directory that should never have existed.
+    try:
+        check_destination(directory)
+        check_destination(target)
+    except UnsafeDestination as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return 7
+
     try:
         os.makedirs(directory)
     except OSError as exc:
@@ -206,14 +302,30 @@ def main(argv=None):
         )
         return 6
 
-    with open(target, "w") as handle:
-        handle.write(html)
+    # Write to a sibling temp file and rename into place, so an interrupted run
+    # cannot leave a half-written page where a good one used to be. The rename
+    # also means the final write never follows a symlink at `target`.
+    handle, staging = tempfile.mkstemp(
+        dir=directory, prefix=".audit-agent-conversation-", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(handle, "w") as fh:
+            fh.write(html)
+        os.replace(staging, target)
+    except BaseException:
+        if os.path.exists(staging):
+            os.unlink(staging)
+        raise
+
+    for remark in notes:
+        sys.stderr.write("note: %s\n" % remark)
 
     if not args.quiet:
         note = " (%d unparseable lines skipped)" % skipped if skipped else ""
         sys.stdout.write(
-            "wrote %s (%s bytes)%s\n"
-            % (target, "{:,}".format(os.path.getsize(target)), note)
+            "wrote %s (%s bytes)\n  from session %s%s\n"
+            % (target, "{:,}".format(os.path.getsize(target)),
+               session.session_id or os.path.basename(path), note)
         )
     return 0
 
