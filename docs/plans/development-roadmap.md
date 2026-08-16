@@ -112,10 +112,26 @@ behind.
    parsing, no ambiguity. Pure presentation plus arithmetic, so it is cheap to
    build and cheap to verify.
 
-3. **An index page across `~/.ai-staff-audit-log/`.** One page listing what has
-   been generated, newest first, with participants, date, duration, and cost.
-   Worth having as soon as there are more than a handful, and it needs nothing
-   the renderer does not already produce.
+3. **An index page of every conversation there is to render**, not just the
+   ones already rendered. Scans the project directories, lists every
+   agent-to-agent conversation across the fleet newest first, and marks each row
+   as generated or not. Generated rows link to their page. **Ungenerated rows
+   expand to show the command that would produce them**, with a copy button that
+   puts just the prompt on the clipboard: paste it into a Claude session,
+   refresh the index, and the row becomes a link.
+
+   Deliberately not a web app. Nothing on the page executes anything; the copy
+   button is a clipboard write and the generating happens in a session the user
+   drives. That keeps it a static file like every other page this tool
+   produces, with no server, no auth, and no way for the index itself to touch
+   the transcript store. A row that generates itself on click is a different
+   product and is parked far below.
+
+   Most of the scanning already exists: the `--latest` walk classifies sessions
+   newest-first and produces exactly the per-session summary a row needs.
+   Scott's call 2026-08-16, chosen over the cheaper "index of what you happened
+   to render", because the question worth answering is what the agents did, not
+   what has been rendered so far.
 
 #### Next: makes more sessions renderable, or more honest
 
@@ -178,6 +194,16 @@ behind.
     participant names where nothing records them. Quarantined to a sidecar JSON
     file so rebuilds stay instant, free, and byte-reproducible. Deliberately
     never in the render path.
+
+#### Far out
+
+13. **A fleet dashboard.** The index above answers "what conversations exist and
+    which are rendered". A dashboard is the bigger thing: activity across every
+    agent over time, spend, failure rates, which agents talk to which. Likely
+    waits for the Smykowski integration and may belong there rather than here,
+    since by then the interesting questions are about the fleet rather than
+    about any one conversation. Recorded so it is not rediscovered as a new
+    idea. Scott's call 2026-08-16: far later, explicitly not now.
 
 #### Research, not scheduled
 
