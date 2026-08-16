@@ -62,6 +62,20 @@ class TestReferencePage(unittest.TestCase):
         self.assertEqual(self.html.count('data-pane="md"'), 8)
         self.assertEqual(self.html.count('data-pane="raw"'), self.session.tool_count)
 
+    def test_preview_is_the_default_pane_when_one_exists(self):
+        """The rendered form is what a reader can use; raw is one click away."""
+        self.assertEqual(self.html.count('data-view="md">Preview'), 8)
+        self.assertEqual(self.html.count("class='segbtn on' data-view=\"md\""), 8)
+        self.assertEqual(self.html.count("class='segbtn on' data-view=\"raw\""), 0)
+        self.assertEqual(self.html.count('data-pane="raw" hidden'), 8)
+        self.assertNotIn('data-pane="md" hidden', self.html)
+
+    def test_results_without_a_preview_still_show_their_raw_pane(self):
+        """Only the 8 markdown results get a hidden raw pane; the rest are visible."""
+        plain = self.session.tool_count - 8
+        visible_raw = self.html.count('<pre class="result" data-pane="raw"><code>')
+        self.assertEqual(visible_raw, plain)
+
     def test_provenance_strip(self):
         self.assertIn("/Users/scottwb/src/scottwb/greenthumb", self.html)
         self.assertIn("claude-opus-5", self.html)
