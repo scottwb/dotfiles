@@ -102,7 +102,12 @@ i  SKIPPED | 7e4fd501 | 08-16 00:07 | Human (3 turns)              | scott  | gr
 ```
 
 `WROTE` produced a page, `EXISTS` found one already there, `SKIPPED` passed a
-session over. On a skip, `DETAIL` says why, and says who drove it:
+session over. The receiver is the agent's own `agent-name` when the transcript
+carries one, then a configured name from `participants.json`, then the
+repository name taken from the session's `cwd`. Not from the project directory
+name: that is the working directory with every separator turned into a dash, and
+repository names contain dashes too, so splitting it is guesswork that collapsed
+`facet-admin-workspace` and `facet-delivery-workspace` into one name. On a skip, `DETAIL` says why, and says who drove it:
 `Human (12 turns)` is the answer you usually want, not a bare turn count. On a
 write, it names the page by its slug and size. The slug is the filename minus
 the `<when>-<sender>-to-<receiver>-` part, since all of that is already in the

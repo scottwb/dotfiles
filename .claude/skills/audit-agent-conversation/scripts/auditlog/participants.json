@@ -6,7 +6,8 @@
     "Keys are matched as substrings of the project directory name, longest",
     "first, so a more specific entry wins over a more general one.",
     "Override either end at the command line with --from / --to.",
-    "`senders` records who INITIATES sessions in a project, where that is known. Greenthumb's non-interactive briefs come from Donna. Unmapped non-interactive sessions are labelled 'caller' rather than attributed to a human who was not there."
+    "`senders` records who INITIATES sessions in a project, where that is known. Greenthumb's non-interactive briefs come from Donna. Unmapped non-interactive sessions are labelled 'caller' rather than attributed to a human who was not there.",
+    "An entry here is for a name the repo directory does not give you: FAW is the sanctioned short form of facet-admin-workspace, which would otherwise be indistinguishable from facet-delivery-workspace once a column truncates it."
   ],
   "default_sender": "scott",
   "agents": {
@@ -18,7 +19,10 @@
     "facetdigital-argus": "argus",
     "facetdigital-spartan": "spartan",
     "scottwb-brownie": "brownie",
-    "scottwb-kate": "kate"
+    "scottwb-kate": "kate",
+    "facetdigital-facet-admin-workspace": "FAW",
+    "facetdigital-harvest-tools": "harvest-tools",
+    "lesandleslie-pe-rails": "pe-rails"
   },
   "senders": {
     "scottwb-greenthumb": "donna"
