@@ -4,8 +4,13 @@ Acceptance criterion 5 as an executable test rather than a manual spot check:
 every supported session renders, and every unsupported one refuses cleanly with
 a non-zero exit and no file left behind.
 
-This is the slowest test in the suite by a wide margin, because it renders
-fifteen real sessions. That is the point.
+This is the slowest test in the suite by a wide margin, because it renders every
+renderable session in a live directory. That is the point.
+
+Note what it does NOT assert: absolute counts. The corpus is a working
+directory that grows whenever Greenthumb runs, so pinning a total makes the
+suite go red overnight for no reason. Coverage is expressed as "every session is
+classified and every renderable one renders", which stays true at any size.
 """
 
 import os
@@ -34,9 +39,13 @@ class TestFullCorpusSweep(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.outdir, ignore_errors=True)
 
-    def test_the_split_is_fifteen_and_thirteen(self):
-        self.assertEqual(len(self.rendered), 15)
-        self.assertEqual(len(self.refused), 13)
+    def test_every_session_is_classified(self):
+        """No absolute totals: this directory grows as Greenthumb runs."""
+        self.assertEqual(
+            len(self.rendered) + len(self.refused), len(fixtures.corpus_sessions())
+        )
+        self.assertGreater(len(self.rendered), 0)
+        self.assertGreater(len(self.refused), 0)
 
     def test_every_supported_session_renders_to_a_real_page(self):
         failures = []
