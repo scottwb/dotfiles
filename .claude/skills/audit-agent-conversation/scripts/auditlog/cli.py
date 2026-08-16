@@ -23,14 +23,13 @@ from . import parse, render, resolve
 #: Line prefixes, per the repo convention: green check for success, info "i"
 #: for informational. Every line the tool prints starts with one, so a run reads
 #: as a column of outcomes rather than a paragraph.
-#: Markers carry their own trailing space, because they are not all the same
-#: width. U+2705 renders as two cells; the two variation-selector emoji render
-#: narrower in most terminals, so a single space after each puts the text at
-#: three different offsets. Padding them here keeps one space VISIBLE after
-#: every marker and the columns lined up, which is the point of the table.
-INFO = "\u2139\ufe0f  "     # information, for a session passed over
+#: Markers carry their own single trailing space, uniformly. Terminals differ
+#: on how wide a variation-selector emoji is, so there is no padding that is
+#: right everywhere; one space after each is at least predictable, and it is
+#: what the source says on every row.
+INFO = "\u2139\ufe0f "      # information, for a session passed over
 OK = "\u2705 "              # a page was written
-EXISTS = "\u2611\ufe0f  "   # a page was already there
+EXISTS = "\u2611\ufe0f "    # a page was already there
 
 #: Row markers by outcome. WROTE produced a page, EXISTS found one already
 #: there, SKIPPED passed a session over.
