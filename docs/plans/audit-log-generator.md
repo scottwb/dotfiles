@@ -340,28 +340,28 @@ cd .claude/skills/audit-log && ./run-tests
 
 ### Step 6: The normalized session model
 
-- [ ] Write the failing test first: `tests/test_session_model.py` asserts the
+- [x] Write the failing test first: `tests/test_session_model.py` asserts the
       reference session yields its known shape: the event sequence
       (thinking / say / tool), the tool-call count, a reply whose word count
       matches, and populated provenance (cwd, branch, model, effort, CLI
       version, permission mode). A parallel test asserts brief `9608087e` has a
       **1,356-word** reply, `bd35db69` **1,523**, and `d3a49460` **1,056**, the
       cheap smoke assertion that the reply extractor found the right block.
-- [ ] Write the failing test first: a graceful-degradation test feeding a
+- [x] Write the failing test first: a graceful-degradation test feeding a
       synthetic transcript containing an unknown record type, a bare-string
       `message.content`, and a missing `agent-name`, asserting it parses without
       raising
-- [ ] Implement: session model with participants, provenance, timing, token
+- [x] Implement: session model with participants, provenance, timing, token
       bundle, ordered events, and the final reply
-- [ ] Implement: `tool_result` lookup by `tool_use_id`, handling both string and
+- [x] Implement: `tool_result` lookup by `tool_use_id`, handling both string and
       list `content` shapes
-- [ ] Implement: derived side effects, counted from observed tool calls, never
+- [x] Implement: derived side effects, counted from observed tool calls, never
       hardcoded: git commits, file writes, file reads, external/MCP calls
       (Defect 3)
-- [ ] Implement: timestamps via `zoneinfo.ZoneInfo("America/Los_Angeles")`
+- [x] Implement: timestamps via `zoneinfo.ZoneInfo("America/Los_Angeles")`
       rather than the prototype's hardcoded `-7` offset, which is wrong half the
       year (A4)
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** Defect 3 (the derived half), F3, F8, Requirement "skip unknown
 record types"
