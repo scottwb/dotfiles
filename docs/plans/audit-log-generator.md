@@ -9,7 +9,7 @@ When executing this plan:
 3. **Test after each step** - Run the test commands listed to verify the change works
 4. **Commit after each step** - Use the provided commit message for each step
 5. **Update documentation continuously** - After ANY change that affects them, update:
-   - `.claude/skills/audit-log/SKILL.md` - User-facing skill documentation
+   - `.claude/skills/audit-agent-conversation/SKILL.md` - User-facing skill documentation
    - `docs/plans/audit-log-generator.md` - Mark progress, update status
    - `docs/plans/development-roadmap.md` - Mark progress, update status
 6. **Mark completion** - When all steps are done, move this item to "Completed" in the roadmap
@@ -52,7 +52,7 @@ Settled before planning. Steps cite these by ID.
 
 | ID | Decision |
 |---|---|
-| **A1** | **Skill-owned implementation with a thin `bin/` wrapper.** Python modules under `.claude/skills/audit-log/scripts/`, plus `bin/audit-log` exec'ing into them. The skill is the unit of ownership; the wrapper exists so the CLI is usable without the skill. Scott's call 2026-08-15. |
+| **A1** | **Skill-owned implementation with a thin `bin/` wrapper.** Python modules under `.claude/skills/audit-agent-conversation/scripts/`, plus `bin/audit-agent-conversation` exec'ing into them. The skill is the unit of ownership; the wrapper exists so the CLI is usable without the skill. Scott's call 2026-08-15. |
 | **A2** | **Flat output directory, chronological filenames**, `YYYYMMDD-HHMM-<from>-to-<to>-<slug>.html`, no session-id suffix. Plain `ls` sorts chronologically; `ls *-donna-to-*` filters by initiator. Scott's call 2026-08-15. |
 | **A3** | **New roadmap thread, "AI Staff."** First tool *about* the agent fleet rather than part of it. Scott's call 2026-08-15. Already applied to the roadmap. |
 | **A4** | **stdlib `unittest`, Python 3.9 baseline**, targeting Apple's stock `/usr/bin/python3`. Zero install, zero dependencies, no venv, no homebrew interpreter. Runtime stays stdlib-only, matching the prototype and the "minimize installation friction" rule. Scott's call 2026-08-15. Consequence: no `match` statements, no `X | Y` union syntax, no `tomllib`. `zoneinfo` IS available (3.9) and should be used instead of the prototype's hardcoded `-7` offset. |
@@ -60,6 +60,7 @@ Settled before planning. Steps cite these by ID.
 | **A6** | **Output goes to `~/.ai-staff-audit-log/`**, created if missing, never source controlled, never inside the dotfiles repo, never deleted from. Settled in the handoff, not reopened. |
 | **A7** | **v1 refuses rather than half-renders.** Multi-turn, image-bearing, and oversized sessions exit non-zero with a clear message naming the specific unsupported condition and its magnitude. A clean refusal is a v1 deliverable; building the feature is not. |
 | **A8** | **The prototype is deleted and the handoff is relocated** in the final step. Both were committed in `3116bde` first, so both survive in branch history. The repo root does not stay cluttered. |
+| **A10** | **The skill is named `audit-agent-conversation`.** `audit-log` was too generic. The `audit-` prefix reserves a namespace for the several kinds of audit skill that will exist later; `agent-conversation` names precisely what this one audits. Nothing in the name binds to Claude, to `claude -p`, to SendMessage, or to any single harness, model, or transport, all of which are expected to change. Scott's call 2026-08-15. Runners-up: `audit-agent-exchange` (shorter, but "exchange" reads as a single round trip and multi-turn is queued follow-on work) and `audit-conversation` (cleanest, but does not say the participants are agents). |
 | **A9** | **No model call in the render path, ever.** The optional `--annotate` enrichment pass is deferred entirely to follow-on work. Rendering is deterministic and byte-reproducible. |
 
 ## Findings that shape the design
@@ -174,12 +175,12 @@ under `message.id` dedupe, which validates both the fixtures and the method.
 - [x] Write the failing test first: `tests/test_smoke.py` imports
       `auditlog.parse` and asserts the package's `__version__` is a string.
       Fails with `ModuleNotFoundError` before the package exists.
-- [x] Implement: create `.claude/skills/audit-log/scripts/auditlog/__init__.py`
+- [x] Implement: create `.claude/skills/audit-agent-conversation/scripts/auditlog/__init__.py`
       with `__version__`, and empty `parse.py`, `render.py`, `resolve.py`,
       `cost.py`, `cli.py` modules
-- [x] Implement: create `.claude/skills/audit-log/tests/` with a
+- [x] Implement: create `.claude/skills/audit-agent-conversation/tests/` with a
       `conftest`-free layout (stdlib `unittest`, no pytest per A4)
-- [x] Implement: add `.claude/skills/audit-log/run-tests`, an executable shell
+- [x] Implement: add `.claude/skills/audit-agent-conversation/run-tests`, an executable shell
       script running `python3 -m unittest discover -s tests -t . -v` from the
       skill directory, so the test command is one word and not a path puzzle
 - [x] Implement: add a `FIXTURES` constant resolving `~/.claude/projects/` by
@@ -188,13 +189,13 @@ under `message.id` dedupe, which validates both the fixtures and the method.
 
 **Satisfies:** A1 (skill-owned layout), A4 (stdlib unittest on 3.9)
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/*.py`,
-`.claude/skills/audit-log/tests/test_smoke.py`,
-`.claude/skills/audit-log/run-tests`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/*.py`,
+`.claude/skills/audit-agent-conversation/tests/test_smoke.py`,
+`.claude/skills/audit-agent-conversation/run-tests`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 python3 -c "import sys; assert sys.version_info[:2] >= (3,9)"
 ```
 
@@ -222,13 +223,13 @@ python3 -c "import sys; assert sys.version_info[:2] >= (3,9)"
 
 **Satisfies:** Requirement "reproduce the golden figures", F8
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/cost.py`,
-`.claude/skills/audit-log/scripts/auditlog/pricing.json`,
-`.claude/skills/audit-log/tests/test_cost.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/cost.py`,
+`.claude/skills/audit-agent-conversation/scripts/auditlog/pricing.json`,
+`.claude/skills/audit-agent-conversation/tests/test_cost.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Add the maintained rate table and cost math, with the golden cost test`
@@ -255,12 +256,12 @@ cd .claude/skills/audit-log && ./run-tests
 
 **Satisfies:** F1, F7, Requirement "deduplicate usage on `message.id`"
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/parse.py`,
-`.claude/skills/audit-log/tests/test_usage_dedupe.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/parse.py`,
+`.claude/skills/audit-agent-conversation/tests/test_usage_dedupe.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Deduplicate usage on message.id, with the golden token regression test`
@@ -292,12 +293,12 @@ cd .claude/skills/audit-log && ./run-tests
 
 **Satisfies:** Defect 1, Defect 2, F2
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/parse.py`,
-`.claude/skills/audit-log/tests/test_opening_prompt.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/parse.py`,
+`.claude/skills/audit-agent-conversation/tests/test_opening_prompt.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Resolve the opening prompt regardless of promptSource, and unwrap slash commands`
@@ -326,12 +327,12 @@ cd .claude/skills/audit-log && ./run-tests
 
 **Satisfies:** A7, F2, F6, Requirement "refuse ... naming every condition found"
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/parse.py`,
-`.claude/skills/audit-log/tests/test_refusal.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/parse.py`,
+`.claude/skills/audit-agent-conversation/tests/test_refusal.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Detect unsupported sessions and refuse them cleanly, counting real turns only`
@@ -366,12 +367,12 @@ cd .claude/skills/audit-log && ./run-tests
 **Satisfies:** Defect 3 (the derived half), F3, F8, Requirement "skip unknown
 record types"
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/parse.py`,
-`.claude/skills/audit-log/tests/test_session_model.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/parse.py`,
+`.claude/skills/audit-agent-conversation/tests/test_session_model.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Build the normalized session model with derived side effects`
@@ -406,12 +407,12 @@ cd .claude/skills/audit-log && ./run-tests
 
 **Satisfies:** Section 7 "Markdown renderer notes", Requirement "stdlib-only"
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/markdown.py`,
-`.claude/skills/audit-log/tests/test_markdown.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/markdown.py`,
+`.claude/skills/audit-agent-conversation/tests/test_markdown.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Port the stdlib markdown renderer and its Obsidian handling`
@@ -434,12 +435,12 @@ cd .claude/skills/audit-log && ./run-tests
 **Satisfies:** Section 7 "Detection heuristics worth copying", acceptance
 criterion 4
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/markdown.py`,
-`.claude/skills/audit-log/tests/test_preview_detection.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/markdown.py`,
+`.claude/skills/audit-agent-conversation/tests/test_preview_detection.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Detect markdown-bearing tool results with both a command and an output check`
@@ -470,12 +471,12 @@ cd .claude/skills/audit-log && ./run-tests
 **Satisfies:** Defect 3 (the rendering half), Section 7, acceptance criteria 3
 and 4
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/render.py`,
-`.claude/skills/audit-log/tests/test_render.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/render.py`,
+`.claude/skills/audit-agent-conversation/tests/test_render.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Render the audit log page with derived stats and derived side effects`
@@ -498,12 +499,12 @@ cd .claude/skills/audit-log && ./run-tests
 
 **Satisfies:** A9, Requirement "zero external requests", acceptance criterion 8
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/render.py`,
-`.claude/skills/audit-log/tests/test_self_contained.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/render.py`,
+`.claude/skills/audit-agent-conversation/tests/test_self_contained.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Assert the rendered page is self-contained and makes no external requests`
@@ -535,12 +536,12 @@ cd .claude/skills/audit-log && ./run-tests
 **Satisfies:** Section 10 CLI shape, Requirement "never write to
 `~/.claude/projects/`"
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/resolve.py`,
-`.claude/skills/audit-log/tests/test_resolve.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/resolve.py`,
+`.claude/skills/audit-agent-conversation/tests/test_resolve.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Resolve sessions by uuid, prefix, path, project, date, or latest`
@@ -573,26 +574,26 @@ cd .claude/skills/audit-log && ./run-tests
 
 **Satisfies:** A2, A5, A6, A7, acceptance criteria 6 and 9
 
-**File(s):** `.claude/skills/audit-log/scripts/auditlog/cli.py`,
-`.claude/skills/audit-log/scripts/auditlog/participants.json`,
-`.claude/skills/audit-log/tests/test_cli.py`
+**File(s):** `.claude/skills/audit-agent-conversation/scripts/auditlog/cli.py`,
+`.claude/skills/audit-agent-conversation/scripts/auditlog/participants.json`,
+`.claude/skills/audit-agent-conversation/tests/test_cli.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ```
 
 **Commit message:** `Add the CLI, participant resolution, and output placement`
 
 ---
 
-### Step 13: The `bin/audit-log` wrapper
+### Step 13: The `bin/audit-agent-conversation` wrapper
 
 - [ ] Write the failing test first: `tests/test_wrapper.py` asserts
-      `bin/audit-log --help` exits 0 and that the wrapper is executable
+      `bin/audit-agent-conversation --help` exits 0 and that the wrapper is executable
       (`os.access(path, os.X_OK)`), per the "make executables actually
       executable" rule.
-- [ ] Implement: `bin/audit-log`, a short shell script resolving its own
+- [ ] Implement: `bin/audit-agent-conversation`, a short shell script resolving its own
       location (not cwd) and exec'ing the CLI module
 - [ ] Implement: `chmod +x`, committed as mode 100755
 - [ ] Verify green: run the test command below
@@ -600,15 +601,15 @@ cd .claude/skills/audit-log && ./run-tests
 **Satisfies:** A1, "Prefer scripts that work relative to script location, not
 cwd", acceptance criterion 10
 
-**File(s):** `bin/audit-log`, `.claude/skills/audit-log/tests/test_wrapper.py`
+**File(s):** `bin/audit-agent-conversation`, `.claude/skills/audit-agent-conversation/tests/test_wrapper.py`
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
-git ls-files -s ../../../bin/audit-log   # expect mode 100755
+cd .claude/skills/audit-agent-conversation && ./run-tests
+git ls-files -s ../../../bin/audit-agent-conversation   # expect mode 100755
 ```
 
-**Commit message:** `Add the bin/audit-log wrapper`
+**Commit message:** `Add the bin/audit-agent-conversation wrapper`
 
 ---
 
@@ -624,11 +625,11 @@ git ls-files -s ../../../bin/audit-log   # expect mode 100755
 ### Step 14: The skill wrapper and its documentation
 
 - [ ] Test-first: n/a (documentation only, no runtime behavior)
-- [ ] Implement: `.claude/skills/audit-log/SKILL.md` with frontmatter naming and
+- [ ] Implement: `.claude/skills/audit-agent-conversation/SKILL.md` with frontmatter naming and
       describing the skill, usage covering the common invocations, the output
       location, and an explicit statement of what v1 refuses and why
 - [ ] Implement: document the Section 1 caveat, that the skill is not invocable
-      as `/audit-log` until this branch merges, and that the script is tested by
+      as `/audit-agent-conversation` until this branch merges, and that the script is tested by
       path until then
 - [ ] Implement: no emdashes anywhere in the docs, per the global writing rule
 - [ ] Verify: re-read the file and confirm every documented flag exists in
@@ -636,11 +637,11 @@ git ls-files -s ../../../bin/audit-log   # expect mode 100755
 
 **Satisfies:** A1, acceptance criterion 10
 
-**File(s):** `.claude/skills/audit-log/SKILL.md`
+**File(s):** `.claude/skills/audit-agent-conversation/SKILL.md`
 
 **Test:**
 ```bash
-grep -c '—' .claude/skills/audit-log/SKILL.md   # expect 0
+grep -c '—' .claude/skills/audit-agent-conversation/SKILL.md   # expect 0
 ```
 
 **Commit message:** `Document the audit-log skill`
@@ -665,13 +666,13 @@ grep -c '—' .claude/skills/audit-log/SKILL.md   # expect 0
 
 **Satisfies:** A8, acceptance criteria 5, 6, and 7
 
-**File(s):** `.claude/skills/audit-log/tests/test_corpus_sweep.py`,
+**File(s):** `.claude/skills/audit-agent-conversation/tests/test_corpus_sweep.py`,
 `docs/plans/audit-log-handoff.md`, `docs/plans/development-roadmap.md`,
 deletion of the two root files
 
 **Test:**
 ```bash
-cd .claude/skills/audit-log && ./run-tests
+cd .claude/skills/audit-agent-conversation && ./run-tests
 ls ~/.ai-staff-audit-log/
 git status --short   # expect the two root files gone
 ```
@@ -689,19 +690,19 @@ git status --short   # expect the two root files gone
 
 | File | Steps |
 |------|-------|
-| `.claude/skills/audit-log/scripts/auditlog/__init__.py` | 1 |
-| `.claude/skills/audit-log/scripts/auditlog/parse.py` | 1, 3, 4, 5, 6 |
-| `.claude/skills/audit-log/scripts/auditlog/cost.py` | 1, 2 |
-| `.claude/skills/audit-log/scripts/auditlog/pricing.json` | 2 |
-| `.claude/skills/audit-log/scripts/auditlog/markdown.py` | 7, 8 |
-| `.claude/skills/audit-log/scripts/auditlog/render.py` | 1, 9, 10 |
-| `.claude/skills/audit-log/scripts/auditlog/resolve.py` | 1, 11 |
-| `.claude/skills/audit-log/scripts/auditlog/cli.py` | 1, 12 |
-| `.claude/skills/audit-log/scripts/auditlog/participants.json` | 12 |
-| `.claude/skills/audit-log/run-tests` | 1 |
-| `.claude/skills/audit-log/SKILL.md` | 14 |
-| `.claude/skills/audit-log/tests/*.py` | 1-13, 15 |
-| `bin/audit-log` | 13 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/__init__.py` | 1 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/parse.py` | 1, 3, 4, 5, 6 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/cost.py` | 1, 2 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/pricing.json` | 2 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/markdown.py` | 7, 8 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/render.py` | 1, 9, 10 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/resolve.py` | 1, 11 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/cli.py` | 1, 12 |
+| `.claude/skills/audit-agent-conversation/scripts/auditlog/participants.json` | 12 |
+| `.claude/skills/audit-agent-conversation/run-tests` | 1 |
+| `.claude/skills/audit-agent-conversation/SKILL.md` | 14 |
+| `.claude/skills/audit-agent-conversation/tests/*.py` | 1-13, 15 |
+| `bin/audit-agent-conversation` | 13 |
 | `docs/plans/development-roadmap.md` | 15 |
 | `docs/plans/audit-log-handoff.md` | 15 |
 
