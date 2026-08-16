@@ -593,6 +593,42 @@ def index_tool_results(records):
     return index
 
 
+def index_tool_result_times(records):
+    """Map `tool_use_id` to the timestamp of the record carrying its result.
+
+    A tool call's duration is this minus the timestamp of the record carrying
+    the `tool_use` block. Both stamps are in the file, so the figure is a
+    subtraction rather than an estimate.
+    """
+    index = {}
+    for record in records:
+        stamp = parse_timestamp(record.get("timestamp"))
+        if stamp is None:
+            continue
+        for block in content_blocks(record):
+            if block.get("type") == "tool_result":
+                key = block.get("tool_use_id")
+                if key and key not in index:
+                    index[key] = stamp
+    return index
+
+
+def previous_stamps(records):
+    """For each record (by position), the timestamp of the nearest earlier
+    record that has one. Used for the duration of a reasoning or narration
+    step, which has no result record to measure against and so is measured
+    as the gap from whatever came before it.
+    """
+    out = []
+    last = None
+    for record in records:
+        out.append(last)
+        stamp = parse_timestamp(record.get("timestamp"))
+        if stamp is not None:
+            last = stamp
+    return out
+
+
 # --------------------------------------------------------------- side effects
 
 _GIT_COMMIT = re.compile(r"\bgit\s+(?:-[^\s]+\s+)*commit\b")
@@ -719,7 +755,7 @@ class Event(object):
 
     __slots__ = (
         "kind", "timestamp", "text", "tool_name", "tool_input", "tool_id",
-        "result", "is_error", "reasoning_tokens", "signature",
+        "result", "is_error", "reasoning_tokens", "signature", "duration",
     )
 
     def __init__(self, kind, timestamp):
@@ -733,6 +769,13 @@ class Event(object):
         self.is_error = False
         self.reasoning_tokens = 0
         self.signature = ""
+        #: A `datetime.timedelta`, or None when it cannot be measured (a tool
+        #: call whose result never came back, or a record with no timestamp).
+        #: For a tool call: `tool_use` record to `tool_result` record. For a
+        #: reasoning or narration step: the gap from the previous record.
+        #: None is never rendered as zero; zero would claim the step was
+        #: instantaneous.
+        self.duration = None
 
 
 # ------------------------------------------------------------------ session
@@ -860,20 +903,29 @@ def load_session(path, records=None):
     )
 
     results = index_tool_results(records)
+    result_times = index_tool_result_times(records)
+    before = previous_stamps(records)
     events = []
-    assistant_records = [r for r in records if r.get("type") == "assistant"]
+    assistant_positions = [i for i, r in enumerate(records)
+                           if r.get("type") == "assistant"]
+    assistant_records = [records[i] for i in assistant_positions]
     last_assistant = assistant_records[-1] if assistant_records else None
 
     reply = None
     started = session.opening.timestamp if session.opening else None
     ended = None
 
-    for record in assistant_records:
+    for position, record in zip(assistant_positions, assistant_records):
         stamp = parse_timestamp(record.get("timestamp"))
         if stamp:
             ended = stamp
         usage = (record.get("message") or {}).get("usage") or {}
         details = usage.get("output_tokens_details") or {}
+        # Gap from the previous record, for steps with nothing else to
+        # measure against.
+        since_previous = None
+        if stamp is not None and before[position] is not None:
+            since_previous = stamp - before[position]
 
         for block in content_blocks(record):
             kind = block.get("type")
@@ -882,6 +934,7 @@ def load_session(path, records=None):
                 event = Event("thinking", stamp)
                 event.reasoning_tokens = details.get("thinking_tokens", 0) or 0
                 event.signature = block.get("signature") or ""
+                event.duration = since_previous
                 events.append(event)
 
             elif kind == "text":
@@ -893,6 +946,7 @@ def load_session(path, records=None):
                 else:
                     event = Event("say", stamp)
                     event.text = text
+                    event.duration = since_previous
                     events.append(event)
 
             elif kind == "tool_use":
@@ -905,6 +959,9 @@ def load_session(path, records=None):
                 if event.result is None:
                     event.result = "(no result recorded)"
                 event.is_error = bool(result_block and result_block.get("is_error"))
+                returned = result_times.get(event.tool_id)
+                if stamp is not None and returned is not None:
+                    event.duration = returned - stamp
                 events.append(event)
 
     if reply is None and last_assistant is not None:

@@ -106,11 +106,15 @@ behind.
    config map or a change to what Claude Code records. Show the provider now
    and leave the host for later rather than guessing it.
 
-2. **Work log as an aligned table, with per-step duration.** Make the log read
+2. **Work log as an aligned table, with per-step duration.** ~~Make the log read
    as columns rather than a stack: the `+` becomes a rotating arrow, then
    timestamp, then a badge, then the label and its sub-label, with duration
    right-aligned at the end. Narration rows (the italic blockquote ones) get a
-   badge of their own so every row has one and the columns actually line up.
+   badge of their own so every row has one and the columns actually line up.~~
+   **Done 2026-08-16** in the unattended batch, duration half only: six-column
+   grid rows (arrow, time, badge, tool, label + sub-label, duration), a `SAY`
+   badge on narration rows, and `Event.duration` in `parse.py`. Tokens per
+   step remain item 5 below, undecided.
 
    **Durations are free.** A tool call's wall clock is the gap between the
    record emitting the `tool_use` and the record carrying its `tool_result`;
