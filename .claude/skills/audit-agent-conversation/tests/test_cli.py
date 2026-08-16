@@ -347,8 +347,10 @@ class TestOutputFormatting(unittest.TestCase):
 
         buffer = io.StringIO()
         report = cli.Report(buffer)
-        report.row("SKIPPED", "aaaa1111", "08-16 00:00", "interactive", "One")
-        report.row("SKIPPED", "bbbb2222", "08-16 00:01", "interactive", "Two")
+        report.row("SKIPPED", "aaaa1111", "08-16 00:00", "Human (3 turns)",
+                   "scott", "donna", "One")
+        report.row("SKIPPED", "bbbb2222", "08-16 00:01", "Human (4 turns)",
+                   "scott", "donna", "Two")
         lines = buffer.getvalue().strip().splitlines()
         self.assertEqual(len(lines), 4)
         self.assertEqual(lines.count("-" * cli.LINE_WIDTH), 1)
