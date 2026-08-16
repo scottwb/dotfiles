@@ -23,9 +23,14 @@ from . import parse, render, resolve
 #: Line prefixes, per the repo convention: green check for success, info "i"
 #: for informational. Every line the tool prints starts with one, so a run reads
 #: as a column of outcomes rather than a paragraph.
-INFO = "\u2139\ufe0f"
-OK = "\u2705"
-EXISTS = "\u2611\ufe0f"
+#: Markers carry their own trailing space, because they are not all the same
+#: width. U+2705 renders as two cells; the two variation-selector emoji render
+#: narrower in most terminals, so a single space after each puts the text at
+#: three different offsets. Padding them here keeps one space VISIBLE after
+#: every marker and the columns lined up, which is the point of the table.
+INFO = "\u2139\ufe0f  "     # information, for a session passed over
+OK = "\u2705 "              # a page was written
+EXISTS = "\u2611\ufe0f  "   # a page was already there
 
 #: Row markers by outcome. WROTE produced a page, EXISTS found one already
 #: there, SKIPPED passed a session over.
@@ -40,8 +45,8 @@ COL_STATUS = 7           # SKIPPED is the longest
 COL_ID = 8               # the short session id everything else refers to
 COL_WHEN = 11            # MM-DD HH:MM; the year is in the filename and the page
 COL_DETAIL = 28          # why it was skipped, or the file that was written
-COL_SENDER = 10          # "greenthumb" is exactly 10
-COL_RECEIVER = 10
+COL_SENDER = 10          # senders are short: scott, donna, caller, FAW
+COL_RECEIVER = 14        # receivers are repo names, which run longer
 COL_SUBJECT = LINE_WIDTH - (
     2 + 1 + COL_STATUS + len(SEP) + COL_ID + len(SEP) + COL_WHEN + len(SEP)
     + COL_DETAIL + len(SEP) + COL_SENDER + len(SEP) + COL_RECEIVER + len(SEP)
@@ -106,17 +111,29 @@ def sender_for_project(project_dir_name):
     return None
 
 
-def agent_for_project(project_dir_name):
+def agent_for_project(project_dir_name, cwd=None):
     """Map a project directory to an agent name.
 
-    Longest key first, so a specific entry beats a general one. Falls back to
-    the directory's last path segment, which is usually the repo name and is a
-    better guess than "agent".
+    The configured map wins, longest key first so a specific entry beats a
+    general one. Otherwise the repository name, taken from the session's own
+    `cwd`.
+
+    Not from the project directory name, which cannot give it: that name is the
+    working directory with every separator turned into a dash, and repository
+    names contain dashes too, so splitting it is guesswork. It guessed wrong on
+    the largest project here, collapsing both `facet-admin-workspace` and
+    `facet-delivery-workspace` to "workspace" and attributing 84 sessions to a
+    name that names neither of them. Also produced "tools" for `harvest-tools`
+    and "rails" for `pe-rails`.
     """
     agents = _participant_config()["agents"]
     for key in sorted(agents, key=len, reverse=True):
         if key in project_dir_name:
             return agents[key]
+    if cwd:
+        name = os.path.basename(cwd.rstrip(os.sep))
+        if name:
+            return name
     tail = project_dir_name.rstrip("-").split("-")[-1]
     return tail or "agent"
 
@@ -153,7 +170,7 @@ def resolve_participants(session, from_name, to_name):
     project = resolve.project_dir_name(session.cwd) if session.cwd else ""
 
     receiver = to_name or getattr(session, "agent_name", None) \
-        or (agent_for_project(project) if project else "agent")
+        or (agent_for_project(project, session.cwd) if project else "agent")
 
     sender = from_name
     if not sender:
@@ -232,7 +249,7 @@ def table_header():
 
 def table_row(status, ident, when, detail, sender, receiver, subject):
     """One aligned row, prefixed with the marker for its outcome."""
-    return ("%s %s" % (
+    return ("%s%s" % (
         MARKERS.get(status, INFO),
         _cells(status, ident, when, detail, sender, receiver, subject),
     )).rstrip()
