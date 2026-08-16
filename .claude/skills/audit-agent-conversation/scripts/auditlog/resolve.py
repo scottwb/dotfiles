@@ -116,7 +116,7 @@ def _by_prefix(project_path, prefix):
     )
 
 
-def _by_date(project_path, date, session_date):
+def _by_date(project_path, date, session_date, notes=None):
     if not _DATE.match(date):
         raise ResolutionError(
             "date %r is not in YYYY-MM-DD form" % date
@@ -129,8 +129,15 @@ def _by_date(project_path, date, session_date):
             "no session in %s is dated %s"
             % (os.path.basename(project_path), date)
         )
-    # Several on one day: the latest is the useful default, and the message
-    # says so rather than picking silently.
+    # Several on one day is common: 8 dates in the greenthumb corpus carry two
+    # to four sessions. Picking the latest is the useful default, but doing it
+    # silently leaves the caller unsure which one they got, so say so.
+    if len(matches) > 1 and notes is not None:
+        notes.append(
+            "%d sessions are dated %s; rendered the latest (%s). The others: %s"
+            % (len(matches), date, os.path.basename(matches[-1])[:8],
+               ", ".join(os.path.basename(p)[:8] for p in matches[:-1]))
+        )
     return matches[-1]
 
 
@@ -159,13 +166,21 @@ def _local_date_of(path):
     return None
 
 
-def resolve(session=None, project=None, latest=False, date=None, cwd=None, root=None):
+def resolve(session=None, project=None, latest=False, date=None, cwd=None,
+            root=None, notes=None):
     """Identify one transcript.
 
     Precedence: an existing path wins outright, then a UUID or prefix within a
     project, then a date, then the latest in the project. With no project given,
     the current working directory's project is used, which makes a bare
     invocation inside a repo do the obvious thing.
+
+    `latest` is the default rather than a mode, so passing it changes nothing on
+    its own; it exists so the intent can be stated explicitly, and so `--latest`
+    and `--date` together can be rejected as contradictory by the caller.
+
+    Pass a list as `notes` to receive human-readable remarks about choices made
+    along the way, such as which session was picked from a day that had several.
     """
     if session and os.path.sep in str(session):
         if os.path.isfile(session):
@@ -187,7 +202,7 @@ def resolve(session=None, project=None, latest=False, date=None, cwd=None, root=
         return _by_prefix(project_path, str(session))
 
     if date:
-        return _by_date(project_path, date, _local_date_of)
+        return _by_date(project_path, date, _local_date_of, notes=notes)
 
     # `latest` is both the explicit flag and the default.
     return sessions_in(project_path)[-1]
