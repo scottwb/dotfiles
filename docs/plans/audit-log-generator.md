@@ -203,21 +203,21 @@ python3 -c "import sys; assert sys.version_info[:2] >= (3,9)"
 
 ### Step 2: Rate table and cost math
 
-- [ ] Write the failing test first: `tests/test_cost.py` feeds the reference
+- [x] Write the failing test first: `tests/test_cost.py` feeds the reference
       session's known token bundle (input 3,543 / cache_write_1h 89,150 /
       cache_write_5m 0 / cache_read 529,482 / output 16,179 / reasoning 9,316)
       and asserts input side `$1.1740`, output `$0.4045`, reasoning `$0.2329`,
       total `$1.5784`. Also asserts **reasoning is not added to the total**, by
       checking `total == input_side + output` exactly.
-- [ ] Implement: `pricing.json` keyed by model ID, with `claude-opus-5` at
+- [x] Implement: `pricing.json` keyed by model ID, with `claude-opus-5` at
       input $5.00, output $25.00, cache write 5m $6.25, cache write 1h $10.00,
       cache read $0.50 per million, plus a `verified` date field
-- [ ] Implement: `cost.py` loading the table and computing a cost breakdown from
+- [x] Implement: `cost.py` loading the table and computing a cost breakdown from
       a token bundle, with an explicit `reasoning_is_subset_of_output = True`
       contract expressed in code rather than a comment
-- [ ] Implement: an unknown model ID raises a clear error naming the model and
+- [x] Implement: an unknown model ID raises a clear error naming the model and
       the file to add it to, rather than silently costing at zero
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** Requirement "reproduce the golden figures", F8
 
