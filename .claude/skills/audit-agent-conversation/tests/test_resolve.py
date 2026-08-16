@@ -148,5 +148,71 @@ class TestReadOnlyGuarantee(unittest.TestCase):
             self.assertNotIn(needle, body, "resolve.py may write: %s" % needle)
 
 
+
+class TestProjectsWithSubRepositories(unittest.TestCase):
+    """A repository whose name is a prefix of another's must stay selectable.
+
+    Project directories are the working directory with every separator turned
+    into a dash, so a sub-repository's directory carries its parent's name as a
+    prefix. Substring matching alone cannot pick the parent: its own name
+    appears in both, so naming it exactly is "ambiguous". Matching the path
+    tail on a dash boundary resolves it, because only the parent ends there.
+    """
+
+    def setUp(self):
+        import shutil
+        import tempfile
+
+        self.tmp = tempfile.mkdtemp(prefix="auditlog-projects-")
+        self.names = [
+            "-Users-me-src-acme-admin-workspace",
+            "-Users-me-src-acme-admin-workspace-revops",
+            "-Users-me-src-acme-delivery-workspace",
+            "-Users-me-src-other-greenthumb",
+        ]
+        for name in self.names:
+            os.makedirs(os.path.join(self.tmp, name))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _find(self, name):
+        return os.path.basename(resolve.find_project(name, root=self.tmp))
+
+    def test_the_parent_is_selectable_by_its_own_name(self):
+        self.assertEqual(self._find("admin-workspace"),
+                         "-Users-me-src-acme-admin-workspace")
+
+    def test_the_sub_repository_is_selectable_too(self):
+        self.assertEqual(self._find("admin-workspace-revops"),
+                         "-Users-me-src-acme-admin-workspace-revops")
+        self.assertEqual(self._find("revops"),
+                         "-Users-me-src-acme-admin-workspace-revops")
+
+    def test_a_longer_path_tail_also_works(self):
+        self.assertEqual(self._find("acme-admin-workspace"),
+                         "-Users-me-src-acme-admin-workspace")
+
+    def test_slashes_are_accepted(self):
+        self.assertEqual(self._find("acme/admin-workspace"),
+                         "-Users-me-src-acme-admin-workspace")
+
+    def test_the_full_directory_name_still_works(self):
+        self.assertEqual(self._find("-Users-me-src-acme-admin-workspace"),
+                         "-Users-me-src-acme-admin-workspace")
+
+    def test_a_genuinely_ambiguous_tail_is_an_error_naming_both(self):
+        with self.assertRaises(resolve.ResolutionError) as ctx:
+            self._find("workspace")
+        message = str(ctx.exception)
+        self.assertIn("admin-workspace", message)
+        self.assertIn("delivery-workspace", message)
+
+    def test_an_unrelated_project_is_unaffected(self):
+        self.assertEqual(self._find("greenthumb"), "-Users-me-src-other-greenthumb")
+
+    def test_an_unmatched_name_still_lists_candidates(self):
+        with self.assertRaises(resolve.ResolutionError) as ctx:
+            self._find("nothing-like-this")
+        self.assertIn("nothing-like-this", str(ctx.exception))
+
 if __name__ == "__main__":
     unittest.main()
