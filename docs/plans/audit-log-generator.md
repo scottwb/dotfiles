@@ -111,7 +111,8 @@ not the mechanism.
 ### F4. `ai-title` is absent from the daily briefs too
 
 Present on the reference session (8 identical records, field name `aiTitle`) and
-on most interactive sessions, but **not on the 12 `/exec-brief` briefs**. The
+on most interactive sessions, but **not on any of the 12 slash-command briefs**
+(10 `/exec-brief`, 2 `/log-action`). The
 slug generator therefore needs a fallback chain, not a single source:
 `custom-title`, then `ai-title`, then the unwrapped slash-command invocation
 (`exec-brief-full`), then a date-derived last resort.
@@ -127,7 +128,7 @@ corroborating source and as the cleanest slug input.
 
 | Verdict | Count | Which |
 |---|---|---|
-| Renders | **15** | 12 `/exec-brief` briefs, the reference session, and 2 smaller SDK sessions |
+| Renders | **15** | 12 slash-command briefs (10 `/exec-brief`, 2 `/log-action`), the reference session, and 2 smaller SDK sessions |
 | Refused, multi-turn | 13 | 2 to 76 turns |
 | Refused, images | 8 | 1 to 33 image blocks each (handoff said 3 files; a top-level-only scan finds 4; counting images nested inside `tool_result` content, which need rendering too, finds 8) |
 | Refused, oversized | 5 | 9.9 MB to 44.0 MB |
@@ -309,9 +310,10 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 - [x] Write the failing test first: `tests/test_refusal.py` walks the whole
       greenthumb corpus and asserts the split measured in F6: **15 renderable,
-      13 refused**, with multi-turn counts of 2 to 76, image counts of 1/3/6/21
-      across 4 files, and the 5 oversized files. A dedicated test asserts that
-      **every one of the 12 `/exec-brief` briefs is renderable**, which is the
+      13 refused**, with multi-turn counts of 2 to 76, images across 8 files
+      (counting those nested inside `tool_result` content, per F6), and the 5
+      oversized files. A dedicated test asserts that
+      **every one of the 12 slash-command briefs is renderable**, which is the
       test that fails if `isMeta` is not excluded from the turn count.
 - [x] Implement: turn counter excluding `isMeta` records and `tool_result`-only
       user records (F2)
@@ -449,24 +451,27 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 ### Step 9: HTML renderer with derived stats and derived side effects
 
-- [ ] Write the failing test first: `tests/test_render.py` renders the reference
+- [x] Write the failing test first: `tests/test_render.py` renders the reference
       session and asserts: the work log ships with the `collapsed` class (hidden
       by default); there are 8 raw/preview toggle pairs; the stat grid shows the
       **derived** commit and external-call counts rather than a literal `1`; the
-      side-effects section does **not** contain the string `051a130`; and the
-      cost tiles carry the "of the output" reasoning label. Each of these fails
-      against the prototype's hardcoded output.
-- [ ] Implement: `render.py` producing masthead, provenance strip, 4x2 stat
+      cost tiles carry the "of the output" reasoning label; and the
+      side-effects box cites commit `051a130` on the reference session, where it
+      is real and derived, while a daily brief's page does **not** mention it,
+      where the prototype would have printed it regardless. That pair is the
+      actual regression: the defect was never the hash, it was the hash being
+      hardcoded. Each of these fails against the prototype's output.
+- [x] Implement: `render.py` producing masthead, provenance strip, 4x2 stat
       grid, collapsed cost breakdown, one color-coded card per participant,
       work log, reply banner, rendered reply, derived side-effects box, footer
-- [ ] Implement: participant colors from `agent-color` when present, falling
+- [x] Implement: participant colors from `agent-color` when present, falling
       back to the violet-caller / green-agent default (F3)
-- [ ] Implement: port the CSS and JS verbatim from the prototype, including the
+- [x] Implement: port the CSS and JS verbatim from the prototype, including the
       `prefers-color-scheme` dark handling and the build-time-rendered
       raw/preview panes whose handler only flips visibility
-- [ ] Implement: side-effects prose generated from the derived counts, phrased
+- [x] Implement: side-effects prose generated from the derived counts, phrased
       honestly when empty ("no commits, 4 file reads, 1 external call")
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** Defect 3 (the rendering half), Section 7, acceptance criteria 3
 and 4
