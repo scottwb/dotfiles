@@ -75,8 +75,9 @@ exists. An assistant message with a thinking block, a text block, and two
 `input_tokens`, and `cache_read_input_tokens`.
 
 Measured on the reference session: naive per-record summation yields **41,302**
-output tokens against a true **16,179**, a 2.5x overcount. The session is 26
-assistant records but only **8 API calls**. Deduplicating on `message.id` before
+output tokens against a true **16,179**, a 2.5x overcount. The session is 27
+assistant records but only **8 API calls** (the handoff says 26; the measured
+count is 27, and the token figures are unaffected). Deduplicating on `message.id` before
 summing usage is load-bearing.
 
 ### F2. The daily briefs carry TWO leading user records, and a naive turn count refuses all of them
@@ -236,21 +237,21 @@ cd .claude/skills/audit-log && ./run-tests
 
 ### Step 3: Record loading and the usage dedupe (THE regression test)
 
-- [ ] Write the failing test first: `tests/test_usage_dedupe.py` parses the
+- [x] Write the failing test first: `tests/test_usage_dedupe.py` parses the
       reference session and asserts **8** API messages and the exact six token
       figures. A second test in the same file asserts that a deliberately naive
       per-record summation yields **41,302** output tokens, documenting the
       2.5x overcount the dedupe prevents. The first test fails against a naive
       implementation; the second is the guard that keeps the reason visible.
-- [ ] Implement: `parse.py` JSONL loader tolerating blank lines and skipping
+- [x] Implement: `parse.py` JSONL loader tolerating blank lines and skipping
       malformed lines with a counted warning rather than crashing
-- [ ] Implement: usage accumulation deduplicated on `message.id`, reading
+- [x] Implement: usage accumulation deduplicated on `message.id`, reading
       `input_tokens`, `cache_creation.ephemeral_1h_input_tokens`,
       `cache_creation.ephemeral_5m_input_tokens`, `cache_read_input_tokens`,
       `output_tokens`, and `output_tokens_details.thinking_tokens`
-- [ ] Implement: skip unknown record types by default; never match exhaustively
+- [x] Implement: skip unknown record types by default; never match exhaustively
       (F7)
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** F1, F7, Requirement "deduplicate usage on `message.id`"
 
