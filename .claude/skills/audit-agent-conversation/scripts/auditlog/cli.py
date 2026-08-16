@@ -39,12 +39,12 @@ MARKERS = {"WROTE": OK, "EXISTS": EXISTS, "SKIPPED": INFO}
 #: Output is laid out as fixed columns so the pipes line up and a run can be
 #: scanned rather than read. Not a real table: no borders, no padding games,
 #: just widths that add up.
-LINE_WIDTH = 120
+LINE_WIDTH = 140
 SEP = " | "
 COL_STATUS = 7           # SKIPPED is the longest
 COL_ID = 8               # the short session id everything else refers to
 COL_WHEN = 11            # MM-DD HH:MM; the year is in the filename and the page
-COL_DETAIL = 28          # why it was skipped, or the file that was written
+COL_DETAIL = 38          # why it was skipped, or the file that was written
 COL_SENDER = 10          # senders are short: scott, donna, caller, FAW
 COL_RECEIVER = 14        # receivers are repo names, which run longer
 COL_SUBJECT = LINE_WIDTH - (
