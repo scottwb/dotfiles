@@ -81,13 +81,13 @@ changed FILENAMES, re-rendering wrote new files instead of replacing the old
 ones. The directory currently holds 84 pages named `...-to-workspace-...` and 83
 named `...-to-faw-...` for the same sessions.
 
-- [ ] Test-first: n/a (operational, no product code changes)
-- [ ] Confirm with `ls ~/.ai-staff-audit-log | wc -l` and note the count
-- [ ] `rm -rf ~/.ai-staff-audit-log`
-- [ ] `./bin/audit-agent-conversation --all --force`
-- [ ] Confirm no page's `<h1>` names a stale participant:
+- [x] Test-first: n/a (operational, no product code changes)
+- [x] Confirm with `ls ~/.ai-staff-audit-log | wc -l` and note the count
+- [x] `rm -rf ~/.ai-staff-audit-log`
+- [x] `./bin/audit-agent-conversation --all --force`
+- [x] Confirm no page's `<h1>` names a stale participant:
       `grep -l '<h1>.*workspace</h1>' ~/.ai-staff-audit-log/*.html` returns nothing
-- [ ] Confirm the three Lumbergh sessions that the filename-collision bug had
+- [x] Confirm the three Lumbergh sessions that the filename-collision bug had
       dropped are now present (the sweep should report more written than the
       old directory had distinct names)
 
@@ -112,17 +112,17 @@ must be inferred from the model id, which `pricing.json` already does to decide
 what is unpriced. **Which Ollama host served a session is not recoverable** and
 must not be guessed; say the provider and stop.
 
-- [ ] Write the failing test first: `tests/test_provider.py` asserts
+- [x] Write the failing test first: `tests/test_provider.py` asserts
       `claude-*` maps to Anthropic, `glm-4.7-flash` and `qwen3:30b-a3b` to
       Ollama, `openai/*` to OpenRouter, `<synthetic>` to the harness itself,
       and an unknown model to something honest rather than a guess
-- [ ] Implement: a `provider_for(model)` in `cost.py` or a new small module,
+- [x] Implement: a `provider_for(model)` in `cost.py` or a new small module,
       driven by the same table that already knows which models are unpriced
-- [ ] Implement: surface it in the rendered page's provenance strip beside the
+- [x] Implement: surface it in the rendered page's provenance strip beside the
       model
-- [ ] Write the failing test first: the rendered reference page names both the
+- [x] Write the failing test first: the rendered reference page names both the
       provider and the model
-- [ ] Verify green
+- [x] Verify green
 
 **Satisfies:** roadmap follow-on 1 (tier "Do first")
 

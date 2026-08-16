@@ -213,6 +213,21 @@ def agent_color_style(color):
     )
 
 
+def provider_and_model(model):
+    """`Anthropic / <code>claude-opus-5</code>` for the provenance strip.
+
+    The provider comes first because it is the part the model id does not say
+    out loud: `glm-4.7-flash` alone leaves the reader to work out that it ran
+    locally. When the provider cannot be inferred, the label says so rather
+    than leaving the slot blank, which would read as "Anthropic, obviously".
+    """
+    name = html.escape(model or "unknown")
+    provider = cost_module.provider_for(model)
+    if provider is None:
+        return "<code>%s</code> · provider unknown" % name
+    return "%s / <code>%s</code>" % (html.escape(provider), name)
+
+
 def _clock(moment):
     return moment.strftime("%H:%M:%S") if moment else "--:--:--"
 
@@ -619,7 +634,7 @@ def page(session, from_name="scott", to_name=None, channel=None):
         meta_rows.append(("Repo", "<code>%s</code>%s" % (html.escape(session.cwd), branch)))
     if session.session_id:
         meta_rows.append(("Session", "<code>%s</code>" % html.escape(session.session_id)))
-    model_bits = "<code>%s</code>" % html.escape(session.model or "unknown")
+    model_bits = provider_and_model(session.model)
     if session.effort:
         model_bits += " · effort <code>%s</code>" % html.escape(session.effort)
     if session.cli_version:
