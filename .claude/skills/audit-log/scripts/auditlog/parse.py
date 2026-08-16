@@ -176,6 +176,143 @@ def real_turns(records):
     return [r for r in records if is_real_turn(r)]
 
 
+# ------------------------------------------------------- unsupported cases
+
+#: v1 renders one caller turn. More than this is deferred work, not a bug.
+MAX_TURNS = 1
+
+#: Beyond this, embedding every tool result verbatim yields a page no browser
+#: opens comfortably. The largest transcript in the surveyed corpus is 44 MB.
+MAX_TRANSCRIPT_BYTES = 8 * 1024 * 1024
+
+
+class Unsupported(object):
+    """One reason a session cannot be rendered, with its magnitude."""
+
+    __slots__ = ("kind", "detail")
+
+    def __init__(self, kind, detail):
+        self.kind = kind
+        self.detail = detail
+
+    def __repr__(self):
+        return "<Unsupported %s: %s>" % (self.kind, self.detail)
+
+
+class SupportReport(object):
+    """Every reason a session was refused, not merely the first one found."""
+
+    __slots__ = ("reasons", "path")
+
+    def __init__(self, path, reasons):
+        self.path = path
+        self.reasons = reasons
+
+    @property
+    def ok(self):
+        return not self.reasons
+
+    def message(self):
+        if self.ok:
+            return ""
+        lines = ["Cannot render this session yet:"]
+        for reason in self.reasons:
+            lines.append("  - " + reason.detail)
+        lines.append("")
+        lines.append(
+            "These cases are deferred, not broken. Refusing is deliberate: a "
+            "half-rendered page that looks complete is worse than no page."
+        )
+        return "\n".join(lines)
+
+
+class UnsupportedSession(Exception):
+    """Raised when a transcript trips one or more deferred cases."""
+
+    def __init__(self, report):
+        Exception.__init__(self, report.message())
+        self.report = report
+
+
+def count_images(records):
+    total = 0
+    for record in records:
+        for block in content_blocks(record):
+            if block.get("type") == "image":
+                total += 1
+            # Images also arrive nested inside tool_result content.
+            nested = block.get("content")
+            if isinstance(nested, list):
+                for inner in nested:
+                    if isinstance(inner, dict) and inner.get("type") == "image":
+                        total += 1
+    return total
+
+
+def has_sidechain(records):
+    """Did any record belong to a subagent thread?
+
+    None exist anywhere in the surveyed corpus, so this is a tripwire rather
+    than a feature: it exists so a session containing one is refused instead of
+    silently mis-rendered as though the subagent's work were the main thread's.
+    """
+    return any(r.get("isSidechain") for r in records)
+
+
+def check_supported(records, path=None, size_bytes=None):
+    """Report every deferred case this session trips."""
+    import os
+
+    reasons = []
+
+    turns = real_turns(records)
+    if len(turns) > MAX_TURNS:
+        reasons.append(Unsupported(
+            "multi_turn",
+            "this session has %d user turns; multi-turn rendering is not "
+            "implemented yet" % len(turns),
+        ))
+
+    images = count_images(records)
+    if images:
+        reasons.append(Unsupported(
+            "images",
+            "this session has %d image block%s; image rendering is not "
+            "implemented yet" % (images, "" if images == 1 else "s"),
+        ))
+
+    if size_bytes is None and path is not None:
+        try:
+            size_bytes = os.path.getsize(path)
+        except OSError:
+            size_bytes = None
+    if size_bytes is not None and size_bytes > MAX_TRANSCRIPT_BYTES:
+        reasons.append(Unsupported(
+            "oversized",
+            "this transcript is %.1f MB, over the %.0f MB limit; embedding "
+            "every tool result verbatim would produce an unopenable page, and "
+            "the size budget is not implemented yet"
+            % (size_bytes / 1048576.0, MAX_TRANSCRIPT_BYTES / 1048576.0),
+        ))
+
+    if not turns:
+        reasons.append(Unsupported(
+            "no_prompt",
+            "no caller turn could be found in this transcript, so there is "
+            "nothing to render as the opening prompt",
+        ))
+
+    if has_sidechain(records):
+        reasons.append(Unsupported(
+            "sidechain",
+            "this session contains subagent (sidechain) records; rendering "
+            "them as though they were the main thread would misattribute the "
+            "work, and subagent threads are not implemented yet",
+        ))
+
+    return SupportReport(path, reasons)
+
+
 # --------------------------------------------------------------- timestamps
 
 def parse_timestamp(value):
