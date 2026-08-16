@@ -49,18 +49,47 @@ def list_projects(root=None):
 
 
 def find_project(name, root=None):
-    """Resolve a project by exact directory name, then by substring."""
+    """Resolve a project by exact name, then by path tail, then by substring.
+
+    The tail step is what makes a repository with sub-repositories usable.
+    Project directories are the working directory with every separator turned
+    into a dash, so a sub-repository's directory has its parent's name as a
+    prefix:
+
+        -Users-scottwb-src-facetdigital-facet-admin-workspace
+        -Users-scottwb-src-facetdigital-facet-admin-workspace-facet-revops
+
+    Substring matching alone therefore cannot select the parent at all: its
+    name appears in both, so naming it exactly is ambiguous. Matching the path
+    TAIL on a dash boundary picks the parent, because only the parent ends with
+    `-facet-admin-workspace`.
+
+    Slashes are accepted too, so `facetdigital/facet-admin-workspace` works.
+    """
     projects = list_projects(root)
     if not projects:
         raise ResolutionError(
             "no project directories found under %s" % (root or PROJECTS_ROOT)
         )
 
+    needle = name.strip("/").replace("/", "-")
+
     for path in projects:
-        if os.path.basename(path) == name:
+        base = os.path.basename(path)
+        if base == name or base == needle:
             return path
 
-    matches = [p for p in projects if name in os.path.basename(p)]
+    tails = [p for p in projects
+             if os.path.basename(p).endswith("-" + needle)]
+    if len(tails) == 1:
+        return tails[0]
+    if len(tails) > 1:
+        raise ResolutionError(
+            "project %r matches the end of %d directories: %s"
+            % (name, len(tails), ", ".join(os.path.basename(p) for p in tails))
+        )
+
+    matches = [p for p in projects if needle in os.path.basename(p)]
     if len(matches) == 1:
         return matches[0]
     if not matches:
@@ -69,7 +98,8 @@ def find_project(name, root=None):
             % (name, ", ".join(os.path.basename(p) for p in projects[:12]))
         )
     raise ResolutionError(
-        "project %r is ambiguous, matching %d directories: %s"
+        "project %r is ambiguous, matching %d directories: %s. "
+        "Name it exactly, or by its trailing path, to pick one."
         % (name, len(matches), ", ".join(os.path.basename(p) for p in matches))
     )
 
