@@ -74,10 +74,16 @@ neighbour. `--latest` and `--date` contradict each other and are rejected as a
 pair. When a day holds several sessions, the latest is rendered and a note names
 the ones passed over.
 
-Exit codes: `0` success, `2` could not resolve a session (or contradictory
-flags), `3` unsupported session, `4` render failure, `5` could not create the
-output directory, `6` would overwrite without `--force`, `7` destination is
-inside the transcript store.
+Every line starts with a status marker: green check for a page written, info
+`i` for a session passed over. A run reads as a column of outcomes.
+
+An output that already exists is a **skip, not an error**: the run reports it and
+exits 0, so re-running over a batch of sessions is a cheap no-op rather than a
+failure. The existing page is never touched without `--force`.
+
+Exit codes: `0` success, or nothing to do; `2` could not resolve a session (or
+contradictory flags); `3` unsupported session; `4` render failure; `5` could not
+create the output directory; `7` destination is inside the transcript store.
 
 From Donna, or any session with no repo context, `--project` is the usual way in.
 
