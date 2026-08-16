@@ -527,16 +527,16 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 ### Step 11: Session resolution
 
-- [ ] Write the failing test first: `tests/test_resolve.py` asserts resolution
+- [x] Write the failing test first: `tests/test_resolve.py` asserts resolution
       by full UUID, by UUID prefix (`9608087e`), by explicit `.jsonl` path, by
       `--project greenthumb` (substring match against the 42 project dirs), by
       `--latest`, and by `--date 2026-08-13`. Asserts an ambiguous prefix and an
       unmatched project each raise a clear error naming the candidates.
-- [ ] Implement: `resolve.py` with cwd-to-project-dir mapping (slashes to
+- [x] Implement: `resolve.py` with cwd-to-project-dir mapping (slashes to
       dashes), the six resolution modes, and `--latest` as the default within a
       project
-- [ ] Implement: read-only access throughout; never open a transcript for write
-- [ ] Verify green: run the test command below
+- [x] Implement: read-only access throughout; never open a transcript for write
+- [x] Verify green: run the test command below
 
 **Satisfies:** Section 10 CLI shape, Requirement "never write to
 `~/.claude/projects/`"
