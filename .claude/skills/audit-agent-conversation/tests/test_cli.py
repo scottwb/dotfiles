@@ -361,3 +361,33 @@ class TestOutputFormatting(unittest.TestCase):
         buffer = io.StringIO()
         cli.Report(buffer)
         self.assertEqual(buffer.getvalue(), "")
+
+
+class TestWroteDetail(unittest.TestCase):
+    """The DETAIL cell on a WROTE row: which file, and how big."""
+
+    NAME = "20260813-0917-caller-to-donna-clarify-push-authority-and-write-ladder.html"
+
+    def test_short_names_are_shown_whole(self):
+        self.assertEqual(cli.wrote_detail("a.html", "12 KB", 30), "a.html (12 KB)")
+
+    def test_the_size_is_never_truncated(self):
+        detail = cli.wrote_detail(self.NAME, "104 KB", 28)
+        self.assertTrue(detail.endswith("(104 KB)"), detail)
+
+    def test_the_cell_respects_its_width(self):
+        for width in (20, 28, 40):
+            self.assertLessEqual(len(cli.wrote_detail(self.NAME, "104 KB", width)),
+                                 width)
+
+    def test_the_tail_survives_not_the_head(self):
+        """The head is `<when>-<sender>-to-<receiver>-`, all of which is already
+        in the columns beside this one. The tail is the only new information."""
+        detail = cli.wrote_detail(self.NAME, "104 KB", 28)
+        self.assertIn("ladder.html", detail)
+        self.assertNotIn("20260813", detail)
+        self.assertTrue(detail.startswith("..."), detail)
+
+    def test_fit_tail_keeps_the_end(self):
+        self.assertEqual(cli.fit_tail("abcdefghij", 6), "...hij")
+        self.assertEqual(cli.fit_tail("abc", 6), "abc")

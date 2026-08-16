@@ -39,9 +39,9 @@ SEP = " | "
 COL_STATUS = 7           # SKIPPED is the longest
 COL_ID = 8               # the short session id everything else refers to
 COL_WHEN = 11            # MM-DD HH:MM; the year is in the filename and the page
-COL_DETAIL = 26          # why it was skipped, or how big the page is
-COL_SENDER = 12
-COL_RECEIVER = 12
+COL_DETAIL = 28          # why it was skipped, or the file that was written
+COL_SENDER = 10          # "greenthumb" is exactly 10
+COL_RECEIVER = 10
 COL_SUBJECT = LINE_WIDTH - (
     2 + 1 + COL_STATUS + len(SEP) + COL_ID + len(SEP) + COL_WHEN + len(SEP)
     + COL_DETAIL + len(SEP) + COL_SENDER + len(SEP) + COL_RECEIVER + len(SEP)
@@ -175,6 +175,28 @@ def fit(text, width):
     if len(text) > width:
         text = text[: max(0, width - 3)] + "..."
     return text.ljust(width)
+
+
+def fit_tail(text, width):
+    """Keep the END of `text`, dropping the front with a leading ellipsis."""
+    text = (text or "").strip().replace("\n", " ")
+    if len(text) > width:
+        text = "..." + text[-max(0, width - 3):]
+    return text
+
+
+def wrote_detail(filename, size_text, width=None):
+    """The DETAIL cell for a written page: which file, and how big.
+
+    The size is short and always kept whole; the filename gets whatever is
+    left. It is truncated from the FRONT, because a filename is
+    `<when>-<sender>-to-<receiver>-<slug>.html` and every part of that head is
+    already in the columns beside this one. The tail is the only part carrying
+    information those columns do not.
+    """
+    width = COL_DETAIL if width is None else width
+    suffix = " (%s)" % size_text
+    return fit_tail(filename, max(0, width - len(suffix))) + suffix
 
 
 def _cells(status, ident, when, detail, sender, receiver, subject):
@@ -570,8 +592,9 @@ def main(argv=None):
     if not args.quiet:
         description = parse.describe(records, path)
         report_out.row("WROTE", description.short_id, when_of(description),
-                       human_size(os.path.getsize(target)), sender, receiver,
-                       description.title or "(untitled)")
+                       wrote_detail(os.path.basename(target),
+                                    human_size(os.path.getsize(target))),
+                       sender, receiver, description.title or "(untitled)")
         if skipped:
             report_out.raw("   %d unparseable lines skipped" % skipped)
     return 0
