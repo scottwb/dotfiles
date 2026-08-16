@@ -200,12 +200,18 @@ class TestGracefulDegradation(unittest.TestCase):
         finally:
             os.unlink(path)
 
-    def test_custom_title_beats_ai_title(self):
+    def test_ai_title_beats_custom_title(self):
+        """ai-title describes; custom-title labels.
+
+        Real sessions set custom-title to the agent's display name, which just
+        repeats the receiver. The generated ai-title is the one-line summary a
+        reader scanning a list of sessions actually wants.
+        """
         import os
 
         path = self._write([
-            {"type": "ai-title", "aiTitle": "Generated"},
-            {"type": "custom-title", "customTitle": "Human chosen"},
+            {"type": "ai-title", "aiTitle": "What the session was about"},
+            {"type": "custom-title", "customTitle": "Agent display name"},
             {"type": "user", "parentUuid": None, "message": {"content": "hi"},
              "timestamp": "2026-08-15T12:00:00.000Z"},
             {"type": "assistant", "timestamp": "2026-08-15T12:00:01.000Z",
@@ -214,7 +220,8 @@ class TestGracefulDegradation(unittest.TestCase):
                          "usage": {"output_tokens": 1}}},
         ])
         try:
-            self.assertEqual(parse.load_session(path).title, "Human chosen")
+            self.assertEqual(parse.load_session(path).title,
+                             "What the session was about")
         finally:
             os.unlink(path)
 
