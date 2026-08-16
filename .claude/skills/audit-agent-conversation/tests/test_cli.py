@@ -429,7 +429,7 @@ class TestHelp(unittest.TestCase):
         text = self._help()
         for flag in ("--project", "--latest", "--date", "--today", "--week",
                      "--from", "--to", "-o", "--output-dir", "--stdout",
-                     "--force", "--quiet", "--no-header", "--all"):
+                     "--force", "--quiet", "--no-header", "--all", "--index"):
             self.assertIn(flag, text, flag)
 
     def test_help_explains_the_default_selection(self):
@@ -437,7 +437,7 @@ class TestHelp(unittest.TestCase):
 
     def test_help_lists_every_exit_code_the_cli_returns(self):
         text = self._help()
-        for code in ("0", "2", "3", "4", "5", "7"):
+        for code in ("0", "2", "3", "4", "5", "6", "7"):
             self.assertRegex(text, r"\n  %s  " % code)
 
     def test_help_says_what_v1_refuses(self):

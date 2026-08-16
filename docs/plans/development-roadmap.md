@@ -123,7 +123,11 @@ behind.
    build and cheap to verify.
 
 3. **An index page of every conversation there is to render**, not just the
-   ones already rendered. Scans the project directories, lists every
+   ones already rendered. **Done 2026-08-16** in the unattended batch:
+   `--index` writes `~/.ai-staff-audit-log/index.html` from `index.py`, with
+   `PAGE` / `TO DO` / `V1 CAN'T` rows, copy-able commands on the `TO DO`
+   ones, and `--all --index` to sweep then rebuild. The rest of this entry is
+   the spec it was built to. Scans the project directories, lists every
    agent-to-agent conversation across the fleet newest first, and marks each row
    as generated or not. Generated rows link to their page. **Ungenerated rows
    expand to show the command that would produce them**, with a copy button that
