@@ -163,6 +163,17 @@ behind.
    refuses above 8 MB. Needs a per-result truncation threshold and an overall
    budget.
 
+#### Queued, cheap, no decision needed
+
+**A project allowlist or blocklist for `--all`.** A bare `--all` currently
+sweeps every project directory, which today is 42 of them and only some are
+agent-to-agent staff comms; the rest are ordinary interactive work that gets
+skipped anyway. Sweeping them all is fine at this size (345 sessions, under
+three seconds, and the skips are one line each), so this is deliberately not
+urgent. It becomes worth doing when the noise outgrows the signal: an
+`all_projects` allowlist in `participants.json`, or a blocklist, with a flag to
+override. Scott's call 2026-08-16: do them all for now, add the filter later.
+
 #### Needs a decision before it can be built
 
 8. **Cost as a share of the subscription, alongside list price.** These

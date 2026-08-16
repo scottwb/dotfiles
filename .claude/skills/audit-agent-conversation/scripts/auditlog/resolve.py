@@ -120,7 +120,7 @@ def sessions_on_date(project_path, date, session_date=None):
     """Every transcript in `project_path` dated `date`, newest first."""
     if not _DATE.match(date):
         raise ResolutionError("date %r is not in YYYY-MM-DD form" % date)
-    session_date = session_date or _local_date_of
+    session_date = session_date or local_date_of
     matches = [p for p in sessions_in(project_path) if session_date(p) == date]
     matches.reverse()
     return matches
@@ -151,7 +151,7 @@ def _by_date(project_path, date, session_date, notes=None):
     return matches[-1]
 
 
-def _local_date_of(path):
+def local_date_of(path):
     """The transcript's local calendar date, from its first timestamped record.
 
     Uses the record's own timestamp rather than the file's mtime, because a
@@ -212,7 +212,7 @@ def resolve(session=None, project=None, latest=False, date=None, cwd=None,
         return _by_prefix(project_path, str(session))
 
     if date:
-        return _by_date(project_path, date, _local_date_of, notes=notes)
+        return _by_date(project_path, date, local_date_of, notes=notes)
 
     # `latest` is both the explicit flag and the default.
     return sessions_in(project_path)[-1]
