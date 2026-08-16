@@ -546,14 +546,19 @@ def render_events(session):
             cutnote = "<p class='note'>Output truncated for display.</p>" if cut else ""
 
             if md.is_markdown_result(event.tool_name, event.tool_input, result):
+                # Preview is the default. When a result is markdown, the rendered
+                # form is the one a reader can actually use; the raw text is one
+                # click away for anyone checking it was not massaged. Both panes
+                # still ship pre-rendered, so this only changes which starts
+                # visible.
                 seg = (
                     "<span class='seg'>"
-                    "<button class='segbtn on' data-view=\"raw\">Raw</button>"
-                    "<button class='segbtn' data-view=\"md\">Preview</button></span>"
+                    "<button class='segbtn' data-view=\"raw\">Raw</button>"
+                    "<button class='segbtn on' data-view=\"md\">Preview</button></span>"
                 )
                 pane = (
-                    '<pre class="result" data-pane="raw"><code>%s</code></pre>'
-                    '<div class="result mdpane" data-pane="md" hidden>%s</div>'
+                    '<pre class="result" data-pane="raw" hidden><code>%s</code></pre>'
+                    '<div class="result mdpane" data-pane="md">%s</div>'
                     % (body, md.preview_html(result))
                 )
             else:
