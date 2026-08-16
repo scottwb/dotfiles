@@ -50,6 +50,15 @@ Options:
 | `--force` | Allow overwriting an existing output file |
 | `--quiet` | Suppress the summary line |
 
+`--latest` and `--date` contradict each other and are rejected as a pair. When a
+day holds several sessions, the latest is rendered and a note names the ones
+passed over.
+
+Exit codes: `0` success, `2` could not resolve a session (or contradictory
+flags), `3` unsupported session, `4` render failure, `5` could not create the
+output directory, `6` would overwrite without `--force`, `7` destination is
+inside the transcript store.
+
 From Donna, or any session with no repo context, `--project` is the usual way in.
 
 ## Where pages go
@@ -114,7 +123,20 @@ explains why there is no text. It never implies the content could be recovered.
 
 **Transcripts are read-only, always.** They live in `~/.claude/projects/`, they
 are the only copy, and they are gitignored. This tool never writes, moves, or
-deletes one.
+deletes one, and it refuses outright to write anywhere inside that directory:
+`-o`, `--output-dir`, a `../` climb, and a symlink pointing in are all rejected
+by resolved path, and `--force` does not override it. `--force` means "replace
+my own output", never "disable the safety rail".
+
+Output is written to a temporary file and renamed into place, so an interrupted
+run cannot leave a half-written page where a good one used to be.
+
+**Who initiated a session is not recorded anywhere in a transcript.** So the
+tool works it out from the entrypoint, which is recorded: an interactive session
+was a human, and a non-interactive one was not. Non-interactive sessions consult
+the `senders` map in `participants.json`, and where that says nothing the page
+reads `caller` rather than naming someone who was not there. Pass `--from` to
+settle it explicitly.
 
 **Nothing is paraphrased.** Tool commands and their output are verbatim. Only
 the one-line labels are written by a human, and an unrecognized tool is labelled
