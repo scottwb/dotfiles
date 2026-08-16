@@ -629,15 +629,15 @@ git ls-files -s ../../../bin/audit-agent-conversation   # expect mode 100755
 
 ### Step 14: The skill wrapper and its documentation
 
-- [ ] Test-first: n/a (documentation only, no runtime behavior)
-- [ ] Implement: `.claude/skills/audit-agent-conversation/SKILL.md` with frontmatter naming and
+- [x] Test-first: n/a (documentation only, no runtime behavior)
+- [x] Implement: `.claude/skills/audit-agent-conversation/SKILL.md` with frontmatter naming and
       describing the skill, usage covering the common invocations, the output
       location, and an explicit statement of what v1 refuses and why
-- [ ] Implement: document the Section 1 caveat, that the skill is not invocable
+- [x] Implement: document the Section 1 caveat, that the skill is not invocable
       as `/audit-agent-conversation` until this branch merges, and that the script is tested by
       path until then
-- [ ] Implement: no emdashes anywhere in the docs, per the global writing rule
-- [ ] Verify: re-read the file and confirm every documented flag exists in
+- [x] Implement: no emdashes anywhere in the docs, per the global writing rule
+- [x] Verify: re-read the file and confirm every documented flag exists in
       `cli.py`
 
 **Satisfies:** A1, acceptance criterion 10
