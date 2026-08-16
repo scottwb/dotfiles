@@ -59,7 +59,9 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Plan:** [audit-log-generator.md](audit-log-generator.md)
 
-**Status:** In progress on `feature/audit-log` (worktree `../dotfiles-audit-log`), started 2026-08-15. Grew out of a one-off HTML log built by hand for a single Donna to Greenthumb exchange, which worked well enough to deserve being a real tool.
+**Status:** Built on `feature/audit-log` (worktree `../dotfiles-audit-log`), 2026-08-15. **Awaiting Scott's testing and review; deliberately not merged.** Fifteen steps, four phase gates, 249 tests. Grew out of a one-off HTML log built by hand for a single Donna to Greenthumb exchange, which worked well enough to deserve being a real tool.
+
+**The skill is `audit-agent-conversation`, not `audit-log`** (decision A10). The `audit-` prefix reserves a namespace for the other kinds of audit skill that will follow; nothing in the name binds to Claude, to `claude -p`, to SendMessage, or to any single harness, model, or transport.
 
 **Why it is not a Tools item:** it is the first thing in this repo that is *about* the agent fleet rather than part of it, which is what opened the AI Staff thread. It is also a skill plus a Python CLI, so it straddles `.claude/` and `bin/` and would sit awkwardly in either existing thread.
 

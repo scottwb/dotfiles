@@ -1,3 +1,10 @@
+> **Historical document, relocated 2026-08-15.** This is the handoff that
+> commissioned the audit log generator, kept verbatim as the record of what was
+> known going in. Three of its findings turned out to be wrong when measured
+> against the corpus; the corrections are recorded as F2, F3, and F6 in
+> [audit-log-generator.md](audit-log-generator.md), which is the live plan.
+> The prototype it refers to was committed at `3116bde` and retired once ported.
+
 # Build: Inter-Agent Conversation Audit Log Generator
 
 **This file is a handoff.** It was written at the end of a working session in
