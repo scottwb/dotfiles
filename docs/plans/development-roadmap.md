@@ -67,7 +67,7 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **The finding that shaped the whole design:** Claude Code writes one transcript record per content block, and every record repeats the entire message's `usage` object. Summing per record overcounted the reference session's output tokens by 2.5x. Deduplicating on `message.id` is load-bearing, and the golden test exists to keep it that way.
 
-**v1 is deliberately small.** Single-turn SDK sessions only, which is exactly what every Donna-to-agent brief is, and there is a ready-made 13-session corpus of them. Multi-turn rendering, image blocks, and the 46 MB scale case are all deferred; v1 detects them and refuses cleanly with a non-zero exit rather than emitting a half-correct page.
+**v1 is deliberately small.** Single-turn SDK sessions only, which is exactly what every Donna-to-agent brief is; 15 of the 28 surveyed sessions qualify. Multi-turn rendering, image blocks, and the 44 MB scale case are all deferred; v1 detects them and refuses cleanly with a non-zero exit rather than emitting a half-correct page.
 
 ### Audit log generator follow-ons
 
@@ -77,9 +77,9 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Status:** Queued behind the item above; none urgent, and v1 is useful without any of them.
 
-- **Multi-turn rendering.** Sessions run up to 70 user turns. The one-prompt-one-reply framing collapses and needs repeating turn groups. The single biggest structural change, and the one most likely to be wanted first.
-- **Image blocks.** Present in 3 of the 28 surveyed transcripts. Needs thumbnailing or a placeholder chip; base64 inline would balloon the page.
-- **Scale and an output size budget.** The largest transcript is 46 MB. Embedding every tool result verbatim yields an unopenable page, so this needs a per-result truncation threshold and an overall budget.
+- **Multi-turn rendering.** Sessions run up to 76 real user turns. The one-prompt-one-reply framing collapses and needs repeating turn groups. The single biggest structural change, and the one most likely to be wanted first.
+- **Image blocks.** Present in 8 of the 28 surveyed transcripts, counting those nested inside tool results. Needs thumbnailing or a placeholder chip; base64 inline would balloon the page.
+- **Scale and an output size budget.** The largest transcript is 44 MB, and v1 refuses above 8 MB. Embedding every tool result verbatim yields an unopenable page, so this needs a per-result truncation threshold and an overall budget.
 - **An index page** across `~/.ai-staff-audit-log/`, which becomes worth having once there are more than a handful of logs.
 - **The `--annotate` pass.** Optional model-assisted enrichment (tool-call one-liners, side-effect prose, participant names when `agent-name` is absent), quarantined to a sidecar JSON file so rebuilds stay instant, free, and byte-reproducible. Deliberately never in the render path.
 - **A retention policy** for the output directory, which nothing currently prunes.
