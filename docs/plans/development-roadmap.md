@@ -73,16 +73,125 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Thread:** AI Staff
 
-**Goal:** The pieces v1 deliberately refuses rather than implements.
+**Goal:** Everything v1 deliberately refuses or leaves out.
 
-**Status:** Queued behind the item above; none urgent, and v1 is useful without any of them.
+**Status:** Queued behind the item above; v1 is useful without any of them.
 
-- **Multi-turn rendering.** Sessions run up to 76 real user turns. The one-prompt-one-reply framing collapses and needs repeating turn groups. The single biggest structural change, and the one most likely to be wanted first.
-- **Image blocks.** Present in 8 of the 28 surveyed transcripts, counting those nested inside tool results. Needs thumbnailing or a placeholder chip; base64 inline would balloon the page.
-- **Scale and an output size budget.** The largest transcript is 44 MB, and v1 refuses above 8 MB. Embedding every tool result verbatim yields an unopenable page, so this needs a per-result truncation threshold and an overall budget.
-- **An index page** across `~/.ai-staff-audit-log/`, which becomes worth having once there are more than a handful of logs.
-- **The `--annotate` pass.** Optional model-assisted enrichment (tool-call one-liners, side-effect prose, participant names when `agent-name` is absent), quarantined to a sidecar JSON file so rebuilds stay instant, free, and byte-reproducible. Deliberately never in the render path.
-- **A retention policy** for the output directory, which nothing currently prunes.
+Ordered for value, not for size: cheap changes that improve **inspecting
+agent-to-agent conversations** come first, then work that makes more sessions
+renderable at all, then anything needing a decision before it can be built, then
+research. Each tier is meant to be finishable without leaving half-built work
+behind.
+
+#### Do first: cheap, low risk, immediate inspection value
+
+1. **Provider and model in the stats strip.** Show what actually served the
+   conversation, not just the model: `OpenRouter / gpt-5.6-sol`,
+   `Ollama / glm-4.7-flash`, `Anthropic / claude-fable-5`. Today the page names
+   the model and leaves you to infer the rest.
+
+   **Measured 2026-08-16: transcripts record no provider, base URL, or
+   endpoint at all.** Checked every top-level record field on real routed
+   sessions; there is nothing to read. Provider has to be inferred from the
+   model id, which the pricing table already does to decide what is unpriced,
+   so this is mostly wiring plus a stats tile. Consequence worth accepting up
+   front: **which Ollama host is not recoverable.** localhost versus an IP
+   versus a hosted endpoint is not in the file, so it would need either a
+   config map or a change to what Claude Code records. Show the provider now
+   and leave the host for later rather than guessing it.
+
+2. **Work log as an aligned table, with per-step duration.** Make the log read
+   as columns rather than a stack: the `+` becomes a rotating arrow, then
+   timestamp, then a badge, then the label and its sub-label, with duration
+   right-aligned at the end. Narration rows (the italic blockquote ones) get a
+   badge of their own so every row has one and the columns actually line up.
+
+   **Durations are free.** A tool call's wall clock is the gap between the
+   record emitting the `tool_use` and the record carrying its `tool_result`;
+   measured on a real brief, that yields 0.00s to 0.66s per call. No new
+   parsing, no ambiguity. Pure presentation plus arithmetic, so it is cheap to
+   build and cheap to verify.
+
+3. **An index page across `~/.ai-staff-audit-log/`.** One page listing what has
+   been generated, newest first, with participants, date, duration, and cost.
+   Worth having as soon as there are more than a handful, and it needs nothing
+   the renderer does not already produce.
+
+#### Next: makes more sessions renderable, or more honest
+
+4. **Multi-turn rendering.** The single biggest structural change: the
+   one-prompt-one-reply framing collapses and needs repeating turn groups.
+   Sessions run to 76 real user turns. Deliberately not first, because the
+   agent-to-agent briefs this tool exists for are single-turn and already
+   render; this is what unlocks *interactive* sessions, which is half the
+   corpus but not the immediate need.
+
+5. **Per-step tokens and tokens per second.** The other half of the table
+   above, split out because it is not cheap and not obvious.
+
+   **The blocker is attribution, and it is the same trap as F1.** Token counts
+   are per API message, and one message's content is spread across many rows:
+   measured on a brief, a single message's usage covers 8 content blocks.
+   There is no per-tool-call token count in the data. Dividing a message's
+   tokens across its rows would invent a number, which is exactly the error the
+   golden test exists to prevent. Options, none free: attribute the whole
+   message's tokens to the message's first row and leave the rest blank; group
+   rows visually by API call and put the figure on the group; or show tokens
+   per second only at the message level. **Decide before building.**
+
+6. **Image blocks.** Present in 8 of the 30 surveyed transcripts once those
+   nested inside tool results are counted. Needs thumbnailing or a placeholder
+   chip; base64 inline would balloon the page.
+
+7. **Scale and an output size budget.** The largest transcript is 44 MB and v1
+   refuses above 8 MB. Needs a per-result truncation threshold and an overall
+   budget.
+
+#### Needs a decision before it can be built
+
+8. **Cost as a share of the subscription, alongside list price.** These
+   sessions run on a Claude subscription, so the current figure is what the
+   traffic *would* cost through the public API. The more useful number is what
+   share of the month it actually consumed: if a plan costs $200 and covers N
+   tokens, a conversation using 10% of N cost $20 of the bill. Show both: the
+   subscription share and the pay-as-you-go price side by side. In API mode
+   there is no share to show, so the page stays as it is today.
+
+   **The open question is N.** Anthropic publishes no monthly token allotment
+   for a subscription; usage is rate-limited by rolling windows, not a monthly
+   quota. So the divisor has to come from somewhere: a figure Scott sets in
+   config, a measured personal average, or a modelled cap. Until that is
+   settled the arithmetic is fiction. Worth doing, worth not guessing.
+
+9. **Real pricing for OpenRouter and other providers.** Extend the rate table
+   past Anthropic so routed sessions cost out properly instead of rendering
+   with the figures suppressed. OpenRouter publishes per-model pricing and
+   returns generation cost, though the transcript captures only token counts,
+   so this likely means a second rate table rather than live data. Ollama and
+   other local runtimes stay genuinely unpriced, which the page already handles.
+
+10. **A retention policy** for the output directory, which nothing currently
+    prunes. Cheap to build; the decision is what to keep and for how long.
+
+11. **The `--annotate` pass.** Optional model-assisted enrichment: tool-call
+    one-liners for tools the regex table does not know, side-effect prose, and
+    participant names where nothing records them. Quarantined to a sidecar JSON
+    file so rebuilds stay instant, free, and byte-reproducible. Deliberately
+    never in the render path.
+
+#### Research, not scheduled
+
+12. **Can reasoning text be recovered at all?** Today the page shows a token
+    count and a truncated signature and says plainly that the content is not
+    recoverable, because Claude Code stores only the signed, encrypted block.
+    The question is whether anything could be captured at streaming time
+    instead, before it is discarded, and what that would cost: it would mean
+    intercepting the API stream rather than reading the transcript, which is a
+    different architecture and a different trust posture. Scope this as a
+    written finding first, not a build. Expect the answer to be that it is
+    possible only by standing between the harness and the API, which is a much
+    bigger thing than an audit log page. **Research and write up; do not start
+    building.**
 
 ### Acceptance-test the Servanda kit
 
