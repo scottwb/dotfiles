@@ -231,12 +231,36 @@ class TestWalkThroughTheCLI(unittest.TestCase):
         self.assertIn("user turns", err)
         self.assertIn("bbbb2222", err)
 
-    def test_a_date_does_not_walk_either(self):
-        self._add("aaaa1111", 1000, turns=5, entrypoint="cli",
-                  when="2026-08-16T12:00:00.000Z")
+    def test_a_date_walks_within_that_day(self):
+        """Naming a day means a session from that day, so skipping an
+        unsupported one to reach a usable one is the same courtesy --latest
+        gets."""
+        self._add("aaaa1111", 1000, turns=1, when="2026-08-16T09:00:00.000Z")
+        self._add("bbbb2222", 2000, turns=5, entrypoint="cli",
+                  when="2026-08-16T10:00:00.000Z")
         code, err = self._run("--date", "2026-08-16")
-        self.assertEqual(code, 3)
-        self.assertNotIn("SKIPPED", err)
+        self.assertEqual(code, 0)
+        self.assertIn("bbbb2222", err)   # the one it skipped
+        # _run passes --quiet, so the written page is evidence, not a row.
+        self.assertEqual(len(os.listdir(self.out)), 1)
+
+    def test_a_date_never_walks_off_its_day(self):
+        """The walk is bounded by the date. A renderable session on another
+        day is not a substitute for the one that was asked for."""
+        self._add("aaaa1111", 1000, turns=1, when="2026-08-15T09:00:00.000Z")
+        self._add("bbbb2222", 2000, turns=5, entrypoint="cli",
+                  when="2026-08-16T10:00:00.000Z")
+        code, err = self._run("--date", "2026-08-16")
+        self.assertEqual(code, 2)
+        self.assertIn("no renderable session", err)
+        self.assertIn("2026-08-16", err)
+        self.assertNotIn("aaaa1111", err)
+
+    def test_an_unknown_date_still_errors(self):
+        self._add("aaaa1111", 1000, turns=1, when="2026-08-16T09:00:00.000Z")
+        code, err = self._run("--date", "1999-01-01")
+        self.assertEqual(code, 2)
+        self.assertIn("1999-01-01", err)
 
 
 if __name__ == "__main__":

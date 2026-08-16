@@ -116,6 +116,16 @@ def _by_prefix(project_path, prefix):
     )
 
 
+def sessions_on_date(project_path, date, session_date=None):
+    """Every transcript in `project_path` dated `date`, newest first."""
+    if not _DATE.match(date):
+        raise ResolutionError("date %r is not in YYYY-MM-DD form" % date)
+    session_date = session_date or _local_date_of
+    matches = [p for p in sessions_in(project_path) if session_date(p) == date]
+    matches.reverse()
+    return matches
+
+
 def _by_date(project_path, date, session_date, notes=None):
     if not _DATE.match(date):
         raise ResolutionError(
