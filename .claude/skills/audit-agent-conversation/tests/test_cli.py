@@ -416,3 +416,57 @@ class TestWroteDetail(unittest.TestCase):
                                   "104 KB", 28)
         self.assertTrue(detail.startswith("clarify-push"), detail)
         self.assertIn("...", detail)
+
+
+class TestHelp(unittest.TestCase):
+    """Usable by a human or an agent that has never seen the tool."""
+
+    def _help(self):
+        parser = cli.build_parser()
+        return parser.format_help()
+
+    def test_help_documents_every_flag(self):
+        text = self._help()
+        for flag in ("--project", "--latest", "--date", "--today", "--week",
+                     "--from", "--to", "-o", "--output-dir", "--stdout",
+                     "--force", "--quiet", "--no-header", "--all"):
+            self.assertIn(flag, text, flag)
+
+    def test_help_explains_the_default_selection(self):
+        self.assertIn("latest session that CAN be rendered", self._help())
+
+    def test_help_lists_every_exit_code_the_cli_returns(self):
+        text = self._help()
+        for code in ("0", "2", "3", "4", "5", "7"):
+            self.assertRegex(text, r"\n  %s  " % code)
+
+    def test_help_says_what_v1_refuses(self):
+        text = self._help()
+        self.assertIn("Multi-turn", text)
+        self.assertIn("images", text)
+        self.assertIn("8 MB", text)
+
+    def test_help_shows_worked_examples(self):
+        text = self._help()
+        self.assertIn("--all --week", text)
+        self.assertIn("audit-agent-conversation --project greenthumb", text)
+
+    def test_help_states_the_read_only_guarantee(self):
+        self.assertIn("never writes there", self._help())
+
+    def test_a_bad_flag_prints_the_whole_help_not_just_usage(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            with self.assertRaises(SystemExit) as ctx:
+                cli.main(["--not-a-real-flag"])
+        finally:
+            sys.stderr = stderr
+        self.assertEqual(ctx.exception.code, 2)
+        text = buffer.getvalue()
+        self.assertIn("error:", text)
+        self.assertIn("examples", text)
+        self.assertIn("exit codes", text)
