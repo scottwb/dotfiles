@@ -536,3 +536,114 @@ class TestCellWhitespace(unittest.TestCase):
                                "scott", "donna", "tabbed\ttitle")
         self.assertEqual([len(f) for f in plain.split(" | ")[:-1]],
                          [len(f) for f in tabbed.split(" | ")[:-1]])
+
+
+class TestSweepErrorRows(unittest.TestCase):
+    """A render failure during --all appears as a row, not just in the tally.
+
+    The red marker was defined and nothing used it: a session that failed to
+    render was counted but never named, so the one outcome a reader most needs
+    to see was the one that stayed invisible.
+    """
+
+    GOOD = "aaaaaaaa-0000-0000-0000-000000000001"
+    BAD = "bbbbbbbb-0000-0000-0000-000000000002"
+
+    def setUp(self):
+        import json
+
+        from auditlog import render, resolve
+
+        self.tmp = tempfile.mkdtemp(prefix="auditlog-errrow-")
+        self.projects = os.path.join(self.tmp, "projects")
+        self.outdir = os.path.join(self.tmp, "out")
+        self.project = os.path.join(self.projects, "-Users-someone-src-thing")
+        os.makedirs(self.project)
+        for session_id, title in ((self.GOOD, "Fine"), (self.BAD, "Doomed")):
+            lines = [
+                {"type": "ai-title", "aiTitle": title},
+                {"type": "user", "parentUuid": None, "sessionId": session_id,
+                 "message": {"content": "go"}, "cwd": "/Users/someone/src/thing",
+                 "timestamp": "2026-08-15T12:00:00.000Z", "entrypoint": "sdk-cli"},
+                {"type": "assistant", "sessionId": session_id,
+                 "timestamp": "2026-08-15T12:00:01.000Z",
+                 "message": {"id": "m", "model": "claude-opus-5",
+                             "content": [{"type": "text", "text": "ok"}],
+                             "usage": {"input_tokens": 1, "output_tokens": 1}}},
+            ]
+            with open(os.path.join(self.project, session_id + ".jsonl"), "w") as fh:
+                fh.write("\n".join(json.dumps(x) for x in lines))
+
+        self._real_root = resolve.PROJECTS_ROOT
+        resolve.PROJECTS_ROOT = self.projects
+        self._real_page = render.page
+
+        bad = self.BAD
+
+        def exploding_page(session, **kwargs):
+            if session.session_id == bad:
+                raise RuntimeError("simulated renderer crash")
+            return self._real_page(session, **kwargs)
+
+        render.page = exploding_page
+
+    def tearDown(self):
+        from auditlog import render, resolve
+
+        render.page = self._real_page
+        resolve.PROJECTS_ROOT = self._real_root
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _sweep(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main(["--all", "--output-dir", self.outdir])
+        finally:
+            sys.stderr = stderr
+        return code, buffer.getvalue()
+
+    def test_a_failed_render_is_a_row_naming_the_session(self):
+        code, out = self._sweep()
+        rows = [line for line in out.splitlines() if line.startswith(cli.ERROR)]
+        self.assertEqual(len(rows), 1, out)
+        self.assertIn("ERROR", rows[0])
+        self.assertIn(self.BAD[:8], rows[0])
+        self.assertIn("Doomed", rows[0])
+        self.assertIn("render failed", rows[0])
+        # The exception itself does not fit a cell; it follows on its own line.
+        self.assertIn("simulated renderer crash", out)
+
+    def test_the_sweep_still_finishes_and_says_so(self):
+        code, out = self._sweep()
+        self.assertEqual(code, 4)
+        self.assertIn("1 written", out)
+        self.assertIn("1 failed", out)
+        written = [n for n in os.listdir(self.outdir) if n.endswith(".html")]
+        self.assertEqual(len(written), 1)
+
+    def test_the_error_row_is_aligned_like_every_other_row(self):
+        code, out = self._sweep()
+        rows = [line for line in out.splitlines()
+                if line.startswith(cli.ERROR) or line.startswith(cli.OK)]
+        self.assertEqual(len(rows), 2)
+        # Same marker width, so the STATUS column starts at the same offset.
+        self.assertEqual(rows[0].index(" | "), rows[1].index(" | "))
+
+    def test_outside_a_sweep_the_error_is_still_the_long_message(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main([os.path.join(self.project, self.BAD + ".jsonl"),
+                             "--output-dir", self.outdir])
+        finally:
+            sys.stderr = stderr
+        self.assertEqual(code, 4)
+        self.assertIn("could not render", buffer.getvalue())
+        self.assertNotIn(cli.ERROR, buffer.getvalue())

@@ -133,7 +133,10 @@ so mixing widths makes the column impossible to align for everyone at once. A
 test enforces the rule.
 
 `WROTE` produced a page, `EXISTS` found one already there, `SKIPPED` passed a
-session over. The receiver is the agent's own `agent-name` when the transcript
+session over, and during a sweep `ERROR` names a session whose render failed,
+with the exception on the line beneath it, so the one outcome a reader most
+needs to see is in the same column as every other outcome rather than only in
+the tally. Outside a sweep, a failure is still the long message. The receiver is the agent's own `agent-name` when the transcript
 carries one, then a configured name from `participants.json`, then the
 repository name taken from the session's `cwd`. Not from the project directory
 name: that is the working directory with every separator turned into a dash, and
