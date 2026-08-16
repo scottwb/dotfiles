@@ -143,6 +143,15 @@ create the output directory; `7` destination is inside the transcript store.
 
 From Donna, or any session with no repo context, `--project` is the usual way in.
 
+**`--project` matches the exact directory name, then the path tail, then any
+substring.** The tail step is what keeps a repository with sub-repositories
+usable: project directories are the working directory with every separator
+turned into a dash, so `facet-admin-workspace` is a prefix of
+`facet-admin-workspace-facet-revops` and substring matching alone cannot select
+the parent at all. Matching on a dash boundary picks it, because only the parent
+ends there. Slashes work too, so `--project facetdigital/facet-admin-workspace`
+resolves.
+
 ## Where pages go
 
 `~/.ai-staff-audit-log/`, created on first use.
