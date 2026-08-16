@@ -221,11 +221,11 @@ The red marker is defined and nothing uses it. During `--all`, a render failure
 is counted in the tally but never appears as a row, so the one outcome a reader
 most needs to see is the one that stays invisible.
 
-- [ ] Write the failing test first: a sweep containing a session that fails to
+- [x] Write the failing test first: a sweep containing a session that fails to
       render emits an `ERROR` row naming it, and still finishes the sweep
-- [ ] Implement: emit the row from `render_one`'s failure path when
+- [x] Implement: emit the row from `render_one`'s failure path when
       `args.all`, the same way refusals already emit a `SKIPPED` row
-- [ ] Verify green
+- [x] Verify green
 
 **Satisfies:** closes a dead affordance introduced with the marker set
 
