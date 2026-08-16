@@ -470,3 +470,34 @@ class TestHelp(unittest.TestCase):
         self.assertIn("error:", text)
         self.assertIn("examples", text)
         self.assertIn("exit codes", text)
+
+
+class TestMarkers(unittest.TestCase):
+    """The property that makes the table line up on somebody else's terminal."""
+
+    def test_markers_cannot_break_alignment(self):
+        """One codepoint, Wide, no variation selector.
+
+        A variation-selector emoji is Neutral width, so terminals disagree
+        about whether it takes one cell or two. Mixing widths in the first
+        column means no amount of padding is right for everyone, which is
+        exactly what went wrong twice before this rule existed.
+        """
+        import unicodedata
+
+        for status, marker in sorted(cli.MARKERS.items()):
+            glyph = marker.rstrip(" ")
+            self.assertEqual(len(glyph), 1,
+                             "%s: %r is not a single codepoint" % (status, glyph))
+            self.assertNotIn("️", glyph, "%s carries a variation selector" % status)
+            self.assertEqual(unicodedata.east_asian_width(glyph), "W",
+                             "%s: %r is not Wide" % (status, glyph))
+
+    def test_every_marker_ends_with_exactly_one_space(self):
+        for status, marker in sorted(cli.MARKERS.items()):
+            self.assertTrue(marker.endswith(" "), status)
+            self.assertFalse(marker.endswith("  "), status)
+
+    def test_every_outcome_has_its_own_marker(self):
+        self.assertEqual(sorted(cli.MARKERS), ["ERROR", "EXISTS", "SKIPPED", "WROTE"])
+        self.assertEqual(len(set(cli.MARKERS.values())), len(cli.MARKERS))

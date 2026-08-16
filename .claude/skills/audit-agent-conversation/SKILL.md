@@ -96,10 +96,18 @@ Output is an aligned table, 140 characters wide, one row per session:
 ```
    STATUS  | SESSION  | WHEN        | DETAIL                       | SENDER | RECEIVER   | SUBJECT
 ------------------------------------------------------------------------------------------------
-i  SKIPPED | 7e4fd501 | 08-16 00:07 | Human (3 turns)              | scott  | greenthumb | Greenthumb
-#  EXISTS  | 01ee0390 | 08-16 05:57 | use --force to replace       | donna  | greenthumb | /exec-brief full
-*  WROTE   | e9de9126 | 08-13 09:17 | clarify-push-aut... (104 KB) | caller | donna      | Clarify push author...
+green  WROTE   | ffd88a79 | 08-16 05:57 | facet-morning-brief (161 KB) | caller | FAW  | /facet-morning-brief
+blue   EXISTS  | 01ee0390 | 08-16 05:57 | use --force to replace       | donna  | greenthumb | /exec-brief full
+white  SKIPPED | 7e4fd501 | 08-16 00:07 | Human (3 turns)              | scott  | greenthumb | Greenthumb
+red    ERROR   | 41b62623 | 08-10 23:56 | render failed                | scott  | donna      | New night shift boot...
 ```
+
+Each row opens with a coloured circle: green wrote a page, blue found one
+already there, white passed a session over, red failed. They are all single
+codepoints of the same display width, deliberately: a variation-selector emoji
+is Neutral width and terminals disagree about whether it takes one cell or two,
+so mixing widths makes the column impossible to align for everyone at once. A
+test enforces the rule.
 
 `WROTE` produced a page, `EXISTS` found one already there, `SKIPPED` passed a
 session over. The receiver is the agent's own `agent-name` when the transcript
