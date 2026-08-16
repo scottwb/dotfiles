@@ -37,7 +37,25 @@ ICON = {
     "EXTERNAL": "&#9729;",
     "TASK": "&#9737;",
     "TOOL": "&#9679;",
+    "THINK": "&#9675;",
+    "SAY": "&#8220;",
 }
+
+
+def tool_short_name(name):
+    """The tool column's text: the tool's own name, kept short.
+
+    An MCP tool's full name is `mcp__<server>__<tool>`; the column shows
+    `server:tool`, which says the same thing in a third of the width. Every
+    other tool is already a single word.
+    """
+    name = name or "?"
+    if name.startswith("mcp__"):
+        pieces = name.split("__")
+        server = pieces[1] if len(pieces) > 1 else "?"
+        tool = pieces[2] if len(pieces) > 2 else "?"
+        return "%s:%s" % (server, tool)
+    return name
 
 #: Shell verbs, most specific first. Matching is on the whole command, since a
 #: heredoc can bury the interesting part hundreds of characters in.
@@ -243,6 +261,25 @@ def _duration_words(delta):
     return "%dm %02ds" % (minutes, seconds)
 
 
+def step_duration(delta):
+    """A per-row duration: `0.42s`, `1m 03s`, or a dash when unmeasurable.
+
+    Hundredths below a minute, because that is the scale tool calls actually
+    live at (0.00s to 0.66s on a real brief). None becomes a dash rather than
+    `0.00s`: a call whose result never came back was not instantaneous.
+    """
+    if delta is None:
+        return "&ndash;"
+    seconds = delta.total_seconds()
+    if seconds < 60:
+        return "%.2fs" % seconds
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return "%dh %02dm" % (hours, minutes)
+    return "%dm %02ds" % (minutes, seconds)
+
+
 def _initial(name):
     return (name or "?").strip()[:1].upper() or "?"
 
@@ -395,17 +432,24 @@ button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .log{padding:8px 0}
 .ev{border-bottom:1px solid var(--line);font-family:ui-sans-serif,system-ui,sans-serif}
 .ev:last-child{border-bottom:0}
-.ev > summary{display:flex;align-items:baseline;gap:11px;padding:11px 24px;cursor:pointer;
-  list-style:none;font-size:13.5px}
+/* Every row, expandable or not, is the same six columns:
+   arrow | time | badge | tool | label + sub-label | duration.
+   The widths are fixed so the columns line up down the whole log. */
+.ev > summary,.ev.say > .row{display:grid;
+  grid-template-columns:12px 60px 96px 104px minmax(0,1fr) 62px;
+  column-gap:11px;align-items:baseline;padding:11px 24px 11px 20px;font-size:13.5px}
+.ev > summary{cursor:pointer;list-style:none}
 .ev > summary::-webkit-details-marker{display:none}
 .ev > summary:hover{background:var(--code-bg)}
-.ev > summary::after{content:"+";margin-left:auto;color:var(--muted);font:13px/1 ui-monospace,monospace;
-  flex:0 0 auto;padding-left:10px}
-.ev[open] > summary::after{content:"\\2212"}
+.ev > summary::before{content:"\\25B8";color:var(--muted);font:13px/1 ui-monospace,monospace;
+  display:inline-block;transform-origin:50% 55%;transition:transform .15s ease}
+.ev[open] > summary::before{transform:rotate(90deg)}
 .ev[open] > summary{background:var(--code-bg)}
-.evtime{font:11px/1.5 ui-monospace,monospace;color:var(--muted);flex:0 0 60px}
-.badge{font:600 10px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.09em;padding:4px 7px;
-  border-radius:5px;flex:0 0 auto;border:1px solid transparent}
+.ev.say > .row::before{content:""}
+.evtime{font:11px/1.5 ui-monospace,monospace;color:var(--muted)}
+.badge{display:inline-block;width:100%;text-align:center;font:600 10px/1 ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.09em;padding:4px 0;border-radius:5px;border:1px solid transparent;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .k-shell{background:var(--code-bg);color:var(--ink);border-color:var(--line)}
 .k-read{background:var(--agent-bg);color:var(--agent);border-color:var(--agent-line)}
 .k-write{background:var(--code-bg);color:var(--accent);border-color:var(--line)}
@@ -413,11 +457,18 @@ button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .k-external{background:var(--caller-bg);color:var(--caller);border-color:var(--caller-line)}
 .k-task{background:var(--caller-bg);color:var(--caller);border-color:var(--caller-line)}
 .k-tool{background:var(--code-bg);color:var(--muted);border-color:var(--line)}
-.badge.think{background:transparent;color:var(--muted);border:1px dashed var(--line);
-  text-transform:uppercase}
+.k-think{background:transparent;color:var(--muted);border:1px dashed var(--line)}
+.k-say{background:transparent;color:var(--agent);border:1px dashed var(--agent-line)}
+.evtool{font:11.5px/1.5 ui-monospace,monospace;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;min-width:0}
+.evmain{min-width:0}
 .evtitle{font-weight:550;min-width:0;overflow-wrap:anywhere}
-.evmeta{color:var(--muted);font-size:12px;min-width:0;overflow-wrap:anywhere}
-@media(max-width:640px){.evmeta{display:none}}
+.evmeta{color:var(--muted);font-size:12px;min-width:0;overflow-wrap:anywhere;margin-left:9px}
+.evdur{font:11px/1.5 ui-monospace,monospace;color:var(--muted);text-align:right;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:640px){.evmeta{display:none}
+  .ev > summary,.ev.say > .row{grid-template-columns:12px 60px 96px minmax(0,1fr) 62px}
+  .evtool{display:none}}
 .evdetail{padding:4px 24px 20px 24px;font-size:13.5px}
 .evdetail .kv{display:flex;gap:10px;font-size:12px;margin:0 0 7px;color:var(--muted)}
 .evdetail .kv span{flex:0 0 74px}
@@ -456,13 +507,10 @@ pre.result{background:var(--code-bg);border:1px solid var(--line);border-radius:
 pre.result code{background:none;padding:0;font-size:inherit}
 pre.code.shell{white-space:pre-wrap;overflow-wrap:anywhere}
 
-.ev.say{padding:13px 24px}
-.ev.say .evbody{display:flex}
 .saybubble{border-left:3px solid var(--agent);padding-left:14px;color:var(--ink);
   font:italic 14px/1.6 ui-serif,Charter,Georgia,serif}
 .saybubble p{margin:0}
-.ev.say{display:flex;gap:11px;align-items:baseline}
-.ev.say .evtime{flex:0 0 60px}
+.saybubble > :last-child{margin-bottom:0}
 
 .replybar{display:flex;align-items:center;gap:11px;padding:14px 24px;
   background:var(--agent-bg);border-top:1px solid var(--agent-line);border-bottom:1px solid var(--agent-line);
@@ -525,30 +573,48 @@ document.addEventListener('click', (e) => {
 RESULT_CAP = 200000
 
 
+def _badge(kind):
+    return "<span class='badge k-%s'>%s %s</span>" % (
+        kind.lower(), ICON.get(kind, ICON["TOOL"]), kind,
+    )
+
+
 def render_events(session):
+    """The work log: one row per event, six columns each. See the CSS."""
     out = []
     for event in session.events:
+        when = _clock(session._local(event.timestamp))
+        took = step_duration(event.duration)
+
         if event.kind == "say":
+            # Narration is not expandable (the bubble IS the content), but it
+            # is laid out on the same grid so its columns line up with the
+            # rows around it. The empty first cell is where the arrow goes.
             out.append(
-                "<div class='ev say'><div class='evtime'>%s</div>"
-                "<div class='evbody'><div class='saybubble'>%s</div></div></div>"
-                % (_clock(session._local(event.timestamp)), md.render(event.text or ""))
+                "<div class='ev say'><div class='row'>"
+                "<div class='evtime'>%s</div>%s<span class='evtool'></span>"
+                "<div class='evmain'><div class='saybubble'>%s</div></div>"
+                "<span class='evdur'>%s</span></div></div>"
+                % (when, _badge("SAY"), md.render(event.text or ""), took)
             )
 
         elif event.kind == "thinking":
             out.append(
                 "<details class='ev think'><summary><div class='evtime'>%s</div>"
-                "<span class='badge think'>thinking</span>"
-                "<span class='evtitle'>Reasoned privately</span>"
-                "<span class='evmeta'>%s reasoning tokens this step</span></summary>"
+                "%s<span class='evtool'></span>"
+                "<span class='evmain'><span class='evtitle'>Reasoned privately</span>"
+                "<span class='evmeta'>%s reasoning tokens this step</span></span>"
+                "<span class='evdur'>%s</span></summary>"
                 "<div class='evdetail'><p class='note'>Extended thinking is not retained in "
                 "plaintext in the transcript. Claude Code stores only the signed, encrypted "
                 "block, so the token count and its cryptographic signature are all that "
                 "survive on disk. The reasoning text is not recoverable from this file.</p>"
                 "%s</div></details>"
                 % (
-                    _clock(session._local(event.timestamp)),
+                    when,
+                    _badge("THINK"),
                     "{:,}".format(event.reasoning_tokens),
+                    took,
                     _kv("signature", (event.signature or "")[:96] + "…")
                     if event.signature else "",
                 )
@@ -583,19 +649,22 @@ def render_events(session):
             out.append(
                 "<details class='ev tool'><summary>"
                 "<div class='evtime'>%s</div>"
-                "<span class='badge k-%s'>%s %s</span>"
-                "<span class='evtitle'>%s</span>"
-                "<span class='evmeta'>%s</span></summary>"
+                "%s"
+                "<span class='evtool' title='%s'>%s</span>"
+                "<span class='evmain'><span class='evtitle'>%s</span>"
+                "<span class='evmeta'>%s</span></span>"
+                "<span class='evdur'>%s</span></summary>"
                 "<div class='evdetail'>%s"
                 "<div class='reslabel'>Result%s%s</div>"
                 "%s%s</div></details>"
                 % (
-                    _clock(session._local(event.timestamp)),
-                    kind.lower(),
-                    ICON.get(kind, ICON["TOOL"]),
-                    kind,
+                    when,
+                    _badge(kind),
+                    html.escape(event.tool_name or "?", quote=True),
+                    html.escape(tool_short_name(event.tool_name)),
                     html.escape(title),
                     html.escape(verb),
+                    took,
                     detail,
                     " · error" if event.is_error else "",
                     seg,

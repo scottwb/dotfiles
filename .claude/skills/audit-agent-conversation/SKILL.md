@@ -199,6 +199,19 @@ page that looks complete is worse than no page.
 - One card per participant, then the work log, then the reply.
 - A "side effects on the real world" box, derived the same way.
 
+The work log is laid out as aligned rows, six columns each: a disclosure arrow
+that rotates when the row is open, the time, a badge (every row has one,
+including the italic narration rows, which are badged `SAY`), the tool's own
+name, the plain-English label with its sub-label, and the step's duration
+right-aligned at the end. A tool call's duration is the gap between the
+record carrying its `tool_use` and the record carrying the matching
+`tool_result`; a reasoning or narration step's is the gap from the previous
+record. Both are subtractions of timestamps that are in the file, never
+estimates, and a call whose result never came back shows a dash rather than
+`0.00s`. Per-step tokens are deliberately absent: token counts are per API
+message and one message spans many rows, so a per-row figure would be
+invented.
+
 Every tool call and reasoning step is individually expandable, and markdown
 tool results carry a **Raw / Preview** toggle. Both panes are rendered when the
 page is built and shipped as sibling divs, so the toggle only flips visibility

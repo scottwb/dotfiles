@@ -154,16 +154,16 @@ the record carrying its `tool_use` block and the record carrying the matching
 `tool_result`. Measured on a real brief this yields 0.00s to 0.66s per call. A
 reasoning step's duration is the gap to the previous record.
 
-- [ ] Write the failing test first: the session model exposes a duration per
+- [x] Write the failing test first: the session model exposes a duration per
       tool event, and the reference session's values are sane (non-negative,
       and the sum does not exceed the session's wall clock)
-- [ ] Implement: per-event duration in `parse.py`
-- [ ] Write the failing test first: every work-log row carries a badge,
+- [x] Implement: per-event duration in `parse.py`
+- [x] Write the failing test first: every work-log row carries a badge,
       including narration rows, and the rendered page contains a duration cell
       per tool row
-- [ ] Implement: the row layout in `render.py` and its CSS, with the disclosure
+- [x] Implement: the row layout in `render.py` and its CSS, with the disclosure
       arrow rotating on open
-- [ ] Verify green, then render the reference session and look at it
+- [x] Verify green, then render the reference session and look at it
 
 **Satisfies:** roadmap follow-on 2 (tier "Do first"), duration half only
 
