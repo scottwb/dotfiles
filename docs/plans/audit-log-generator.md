@@ -41,8 +41,8 @@ markdown parser ships with the page.
 
 This generalizes a one-off script that produced `~/donna-greenthumb.html` by hand
 for a single Donna to Greenthumb exchange. That prototype is committed on this
-branch at `inter-agent-prompt-audit-log-generator-prototype.py` as reference
-material. Its parsing, cost math, markdown renderer, and CSS are worth keeping;
+branch at `3116bde` as reference material (retired from the working tree
+in the final step). Its parsing, cost math, markdown renderer, and CSS are worth keeping;
 its hardcoded participant names, hardcoded side-effect prose, and module-level
 path constants are exactly what this plan replaces.
 
@@ -655,19 +655,19 @@ grep -c '—' .claude/skills/audit-agent-conversation/SKILL.md   # expect 0
 
 ### Step 15: Corpus sweep, acceptance run, and repo cleanup
 
-- [ ] Write the failing test first: `tests/test_corpus_sweep.py` renders **all
+- [x] Write the failing test first: `tests/test_corpus_sweep.py` renders **all
       15 renderable sessions** end to end and asserts each produces a
       non-trivial page, and that all 13 unsupported sessions refuse with a
       non-zero status and no file written. This is acceptance criterion 5 as an
       executable test rather than a manual check.
-- [ ] Implement: whatever the sweep exposes
-- [ ] Implement: generate sample pages for the reference session and three daily
+- [x] Implement: whatever the sweep exposes
+- [x] Implement: generate sample pages for the reference session and three daily
       briefs into `~/.ai-staff-audit-log/` for Scott to review
-- [ ] Implement: delete `inter-agent-prompt-audit-log-generator-prototype.py`
+- [x] Implement: delete `inter-agent-prompt-audit-log-generator-prototype.py`
       and move `inter-agent-prompt-audit-log-generator-prompt.md` to
       `docs/plans/audit-log-handoff.md` (A8); both remain in history at `3116bde`
-- [ ] Implement: update this plan's status and the roadmap item
-- [ ] Verify green: run the test command below
+- [x] Implement: update this plan's status and the roadmap item
+- [x] Verify green: run the test command below
 
 **Satisfies:** A8, acceptance criteria 5, 6, and 7
 
