@@ -555,27 +555,27 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 ### Step 12: CLI, participant resolution, and output naming
 
-- [ ] Write the failing test first: `tests/test_cli.py` asserts the filename for
+- [x] Write the failing test first: `tests/test_cli.py` asserts the filename for
       brief `9608087e` matches `20260813-0557-donna-to-greenthumb-<slug>.html`;
       that a second run without `--force` exits non-zero and does not overwrite;
       that `--force` does overwrite; that `--stdout` writes HTML to stdout and
       creates no file; and that the output directory is created when absent.
       A slug test asserts the F4 fallback chain: `custom-title`, then
       `ai-title`, then the slash-command invocation, then the date.
-- [ ] Implement: `cli.py` with the full argument surface from the handoff's
+- [x] Implement: `cli.py` with the full argument surface from the handoff's
       Section 10
-- [ ] Implement: participant resolution per A5: `--to` from `agent-name` /
+- [x] Implement: participant resolution per A5: `--to` from `agent-name` /
       `custom-title` when present, else the project map, else the project
       directory's last segment; `--from` from the project map, else `scott`
-- [ ] Implement: `participants.json` holding the project-directory map, seeded
+- [x] Implement: `participants.json` holding the project-directory map, seeded
       with the known fleet (`donna-smithers` to `donna`, `greenthumb` to
       `greenthumb`, `lumbergh`, `timercue`, `smykowski`, `argus`)
-- [ ] Implement: output written under `~/.ai-staff-audit-log/` (A6), directory
+- [x] Implement: output written under `~/.ai-staff-audit-log/` (A6), directory
       created if missing, never overwritten without `--force`, and never deleted
       from
-- [ ] Implement: refusals surface as a clear message on stderr and a non-zero
+- [x] Implement: refusals surface as a clear message on stderr and a non-zero
       exit, with no file written (A7)
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** A2, A5, A6, A7, acceptance criteria 6 and 9
 

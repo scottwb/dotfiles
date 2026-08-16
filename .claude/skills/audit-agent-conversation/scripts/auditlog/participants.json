@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "Project directory to agent name. Nothing in a transcript records who",
+    "INITIATED a session, and agent-name is absent from most of them, so",
+    "attribution is a config question rather than a parsing one (decision A5).",
+    "Keys are matched as substrings of the project directory name, longest",
+    "first, so a more specific entry wins over a more general one.",
+    "Override either end at the command line with --from / --to."
+  ],
+  "default_sender": "scott",
+  "agents": {
+    "scottwb-donna-smithers": "donna",
+    "scottwb-greenthumb": "greenthumb",
+    "scottwb-lumbergh": "lumbergh",
+    "facetdigital-timercue": "timercue",
+    "facetdigital-smykowski": "smykowski",
+    "facetdigital-argus": "argus",
+    "facetdigital-spartan": "spartan",
+    "scottwb-brownie": "brownie",
+    "scottwb-kate": "kate"
+  }
+}
