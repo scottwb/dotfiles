@@ -18,7 +18,9 @@ The two format facts that drive the whole design:
    `is_real_turn`.
 """
 
+import datetime
 import json
+import re
 
 
 class Usage(object):
@@ -172,3 +174,122 @@ def is_real_turn(record):
 
 def real_turns(records):
     return [r for r in records if is_real_turn(r)]
+
+
+# --------------------------------------------------------------- timestamps
+
+def parse_timestamp(value):
+    """Parse a transcript's UTC ISO 8601 timestamp into an aware datetime."""
+    if not value:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+# ---------------------------------------------------------- slash commands
+
+_COMMAND_NAME = re.compile(r"<command-name>\s*(.*?)\s*</command-name>", re.S)
+_COMMAND_ARGS = re.compile(r"<command-args>\s*(.*?)\s*</command-args>", re.S)
+
+
+def unwrap_slash_command(text):
+    """Turn a slash-command invocation's XML into a readable `/name args`.
+
+    A prompt invoked as a slash command arrives as markup:
+
+        <command-message>exec-brief</command-message>
+        <command-name>/exec-brief</command-name>
+        <command-args>full</command-args>
+
+    Rendering that verbatim is Defect 2. Returns None for ordinary prose so
+    callers can tell "not a slash command" from "a slash command with no
+    arguments".
+    """
+    if not text or "<command-name>" not in text:
+        return None
+    name_match = _COMMAND_NAME.search(text)
+    if not name_match:
+        return None
+    name = name_match.group(1).strip()
+    if not name:
+        return None
+    if not name.startswith("/"):
+        name = "/" + name
+
+    args_match = _COMMAND_ARGS.search(text)
+    args = args_match.group(1).strip() if args_match else ""
+    return ("%s %s" % (name, args)).strip()
+
+
+# --------------------------------------------------------- opening prompt
+
+class OpeningPrompt(object):
+    """The caller's turn that started the session."""
+
+    __slots__ = (
+        "record",
+        "raw_text",
+        "text",
+        "is_slash_command",
+        "expanded_text",
+        "timestamp",
+    )
+
+    def __init__(self, record, raw_text, expanded_text=None):
+        self.record = record
+        self.raw_text = raw_text
+        self.expanded_text = expanded_text
+        self.timestamp = parse_timestamp(record.get("timestamp"))
+
+        unwrapped = unwrap_slash_command(raw_text)
+        self.is_slash_command = unwrapped is not None
+        self.text = unwrapped if unwrapped is not None else raw_text
+
+
+def _record_text(record):
+    parts = []
+    for block in content_blocks(record):
+        if block.get("type") == "text":
+            parts.append(block.get("text") or "")
+    return "\n".join(parts)
+
+
+def find_opening_prompt(records):
+    """Locate the caller's opening turn.
+
+    Defect 1 was matching on `promptSource == "sdk"`, which is set on the
+    reference session and absent on every daily brief, so the briefs found no
+    opening prompt at all and died computing a duration against None.
+
+    The real rule owes nothing to `promptSource`: the opening prompt is the
+    first `user` record that is a genuine turn, meaning not `isMeta` and
+    carrying no `tool_result` blocks. A `parentUuid` of None is a useful
+    corroborator and is preferred when one exists, but it is not required,
+    because it is absent on resumed and bridged sessions.
+    """
+    turns = real_turns(records)
+    if not turns:
+        return None
+
+    rooted = [r for r in turns if r.get("parentUuid") is None]
+    opening = rooted[0] if rooted else turns[0]
+
+    # The expansion, when present, is the isMeta record immediately following
+    # the invocation. It holds the instructions the agent actually acted on.
+    expanded = None
+    try:
+        position = records.index(opening)
+    except ValueError:
+        position = -1
+    if position >= 0:
+        for candidate in records[position + 1:]:
+            kind = candidate.get("type")
+            if kind == "user" and candidate.get("isMeta"):
+                expanded = _record_text(candidate)
+                break
+            if kind in ("user", "assistant"):
+                break
+
+    return OpeningPrompt(opening, _record_text(opening), expanded)
