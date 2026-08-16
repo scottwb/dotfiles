@@ -20,13 +20,16 @@ transcript with HTML, and the tool's own error message coaches the user into
 adding `--force`. The fix is a few lines; everything else in the phase is
 sound.
 
-Audit note: the worktree was under active development during this audit (a
-builder session committed Step 14 and was mid-Step-15). The audit was therefore
-performed against a pristine export of the phase boundary commit `887b7fa`,
-attacked only in the scratchpad, with the live worktree used solely for
-read-only verification. The in-flight Step 15 state (a red, untracked
-`test_corpus_sweep.py` and additions to `pricing.json`) is Phase 4 work,
-expected mid-step, and out of scope here; the v1 gate should verify it.
+Audit note: the branch advanced during this audit. A builder session committed
+Step 14 (`e8e433d`), the Phase 2 gate's markdown security fix (`d964c82`),
+pricing for every corpus model (`d97415b`), Step 15's corpus sweep and cleanup
+(`1df1d48`), and roadmap corrections (`181bf03`). None of that is Phase 3 work
+and none of it counts toward this verdict. The audit was performed against a
+pristine export of the phase boundary commit `887b7fa`, attacked only in the
+scratchpad; every finding was then re-verified at HEAD `181bf03`, where the
+three Phase 3 files (`cli.py`, `resolve.py`, `bin/audit-agent-conversation`)
+are byte-identical to the boundary, the suite is 249 tests green, and the
+blocking clobber reproduces identically.
 
 ## Test truthfulness
 
@@ -40,8 +43,11 @@ expected mid-step, and out of scope here; the v1 gate should verify it.
   golden token figures (8 API messages, 16,179 output, naive 41,302 guard),
   golden cost figures to the cent, the 15/13 corpus split
   (`tests/test_refusal.py:110-113`), and the self-containment assertions.
-- The Phase 4 in-progress `pricing.json` change only adds models; the
-  `claude-opus-5` row the goldens depend on is unchanged.
+- The `pricing.json` change landed after the boundary (`d97415b`) only adds
+  models and the "unpriced" concept; the `claude-opus-5` row the goldens
+  depend on is unchanged, and the goldens pass at HEAD.
+- At HEAD `181bf03`: **249 tests, all green**, including the now-committed
+  corpus sweep and the new markdown security tests.
 - Gap worth noting: the suite never exercises the wrapper **through a
   symlink**, which is how it runs in real use (`bin/` is linked into `$HOME`).
   Verified manually here (absolute link, relative chain, from `/`): all pass.
@@ -160,7 +166,6 @@ subprocess, no network surface.
 4. **Atomic output write** (low, `cli.py:209`): temp file + `os.replace`.
 5. **Drop or honor the unused `latest` parameter** (nit, `resolve.py:162`).
 6. For the v1 gate: add a suite test that invokes the wrapper through a
-   symlink, since that is its real-world shape, and re-verify the in-flight
-   Step 15 corpus sweep once committed (it was red mid-step during this audit,
-   with 11 sessions failing on unpriced models, and `pricing.json` was being
-   extended to address exactly that).
+   symlink, since that is its real-world shape. (The Step 15 corpus sweep,
+   red mid-step during this audit on unpriced models, was committed and is
+   green at HEAD `181bf03`; no follow-up needed there.)

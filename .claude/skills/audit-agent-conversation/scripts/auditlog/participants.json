@@ -5,7 +5,8 @@
     "attribution is a config question rather than a parsing one (decision A5).",
     "Keys are matched as substrings of the project directory name, longest",
     "first, so a more specific entry wins over a more general one.",
-    "Override either end at the command line with --from / --to."
+    "Override either end at the command line with --from / --to.",
+    "`senders` records who INITIATES sessions in a project, where that is known. Greenthumb's non-interactive briefs come from Donna. Unmapped non-interactive sessions are labelled 'caller' rather than attributed to a human who was not there."
   ],
   "default_sender": "scott",
   "agents": {
@@ -18,5 +19,8 @@
     "facetdigital-spartan": "spartan",
     "scottwb-brownie": "brownie",
     "scottwb-kate": "kate"
+  },
+  "senders": {
+    "scottwb-greenthumb": "donna"
   }
 }
