@@ -170,20 +170,20 @@ under `message.id` dedupe, which validates both the fixtures and the method.
 
 ### Step 1: Package skeleton and test harness
 
-- [ ] Write the failing test first: `tests/test_smoke.py` imports
+- [x] Write the failing test first: `tests/test_smoke.py` imports
       `auditlog.parse` and asserts the package's `__version__` is a string.
       Fails with `ModuleNotFoundError` before the package exists.
-- [ ] Implement: create `.claude/skills/audit-log/scripts/auditlog/__init__.py`
+- [x] Implement: create `.claude/skills/audit-log/scripts/auditlog/__init__.py`
       with `__version__`, and empty `parse.py`, `render.py`, `resolve.py`,
       `cost.py`, `cli.py` modules
-- [ ] Implement: create `.claude/skills/audit-log/tests/` with a
+- [x] Implement: create `.claude/skills/audit-log/tests/` with a
       `conftest`-free layout (stdlib `unittest`, no pytest per A4)
-- [ ] Implement: add `.claude/skills/audit-log/run-tests`, an executable shell
+- [x] Implement: add `.claude/skills/audit-log/run-tests`, an executable shell
       script running `python3 -m unittest discover -s tests -t . -v` from the
       skill directory, so the test command is one word and not a path puzzle
-- [ ] Implement: add a `FIXTURES` constant resolving `~/.claude/projects/` by
+- [x] Implement: add a `FIXTURES` constant resolving `~/.claude/projects/` by
       absolute path, never by a worktree-relative path (Section 1 gotcha)
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** A1 (skill-owned layout), A4 (stdlib unittest on 3.9)
 
