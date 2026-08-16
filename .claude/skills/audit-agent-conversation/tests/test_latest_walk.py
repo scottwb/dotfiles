@@ -42,26 +42,41 @@ def _session(path, turns=1, entrypoint="sdk-cli", title=None, when="2026-08-16T1
     return path
 
 
-class TestSkipLineShape(unittest.TestCase):
+class TestSkipRowShape(unittest.TestCase):
     def _line(self, **kwargs):
         tmp = tempfile.mkdtemp(prefix="auditlog-skipline-")
         try:
             path = _session(os.path.join(tmp, "abcd1234-ffff.jsonl"), **kwargs)
             records, _ = parse.load_records(path)
             report = parse.check_supported(records, path)
-            return cli.skip_line(parse.describe(records, path), report.reasons)
+            return cli.skip_row(parse.describe(records, path), report.reasons)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_has_four_pipe_separated_fields(self):
+    def test_is_an_aligned_row_of_five_fields(self):
         line = self._line(turns=3, entrypoint="cli", title="Some session title")
-        self.assertTrue(line.startswith("SKIPPED "))
-        self.assertEqual(len(line.split(" | ")), 4, line)
+        self.assertIn("SKIPPED", line)
+        self.assertEqual(len(line.split(" | ")), 5, line)
+
+    def test_fits_the_line_budget(self):
+        long_title = " ".join("word%d" % i for i in range(30))
+        line = self._line(turns=99, entrypoint="cli", title=long_title)
+        # The marker is two display columns; count it as such rather than as
+        # the one or two code points it happens to be.
+        width = len(line) - len(cli.MARKERS["SKIPPED"]) + 2
+        self.assertLessEqual(width, cli.LINE_WIDTH, line)
+
+    def test_columns_land_at_the_same_offsets_on_every_row(self):
+        a = self._line(turns=3, entrypoint="cli", title="Short")
+        b = self._line(turns=99, entrypoint="sdk-cli",
+                       title="A considerably longer title than the other one")
+        self.assertEqual([len(f) for f in a.split(" | ")[:-1]],
+                         [len(f) for f in b.split(" | ")[:-1]])
 
     def test_names_the_session_and_when_it_started(self):
         line = self._line(turns=3, entrypoint="cli", title="A title")
         self.assertIn("abcd1234", line)
-        self.assertIn("2026-08-16", line)
+        self.assertIn("08-16", line)
 
     def test_interactive_sessions_say_so(self):
         line = self._line(turns=3, entrypoint="cli", title="A title")
@@ -73,12 +88,12 @@ class TestSkipLineShape(unittest.TestCase):
         self.assertNotIn("interactive", line)
         self.assertIn("4 turns", line)
 
-    def test_title_is_capped_at_ten_words(self):
+    def test_an_overlong_title_is_truncated_with_an_ellipsis(self):
         long_title = " ".join("word%d" % i for i in range(30))
         line = self._line(turns=2, entrypoint="cli", title=long_title)
-        title = line.split(" | ")[3]
-        self.assertTrue(title.endswith("..."), title)
-        self.assertEqual(len(title.replace("...", "").split()), 10)
+        subject = line.split(" | ")[4]
+        self.assertTrue(subject.endswith("..."), subject)
+        self.assertEqual(len(subject), cli.COL_SUBJECT)
 
     def test_an_untitled_session_says_so_rather_than_showing_a_blank(self):
         line = self._line(turns=2, entrypoint="cli", title=None)
@@ -189,15 +204,16 @@ class TestWalkThroughTheCLI(unittest.TestCase):
         self._add("bbbb2222", 2000, turns=5, entrypoint="cli")
         code, err = self._run()
         self.assertEqual(code, 0)
-        self.assertIn("SKIPPED bbbb2222", err)
-        self.assertIn(cli.INFO.strip(), err)
+        self.assertIn("bbbb2222", err)
+        self.assertIn("SKIPPED", err)
+        self.assertIn(cli.INFO, err)
 
     def test_exhausted_walk_exits_two_and_explains(self):
         self._add("aaaa1111", 1000, turns=4, entrypoint="cli")
         code, err = self._run()
         self.assertEqual(code, 2)
         self.assertIn("no renderable session", err)
-        self.assertIn("SKIPPED aaaa1111", err)
+        self.assertIn("aaaa1111", err)
         self.assertFalse(os.path.isdir(self.out), "wrote output despite finding none")
 
     def test_an_explicitly_named_session_does_not_walk(self):
@@ -208,6 +224,7 @@ class TestWalkThroughTheCLI(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertNotIn("SKIPPED", err)
         self.assertIn("user turns", err)
+        self.assertIn("bbbb2222", err)
 
     def test_a_date_does_not_walk_either(self):
         self._add("aaaa1111", 1000, turns=5, entrypoint="cli",

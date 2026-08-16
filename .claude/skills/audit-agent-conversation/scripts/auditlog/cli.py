@@ -23,8 +23,27 @@ from . import parse, render, resolve
 #: Line prefixes, per the repo convention: green check for success, info "i"
 #: for informational. Every line the tool prints starts with one, so a run reads
 #: as a column of outcomes rather than a paragraph.
-INFO = "\u2139\ufe0f "
-OK = "\u2705 "
+INFO = "\u2139\ufe0f"
+OK = "\u2705"
+EXISTS = "\u2611\ufe0f"
+
+#: Row markers by outcome. WROTE produced a page, EXISTS found one already
+#: there, SKIPPED passed a session over.
+MARKERS = {"WROTE": OK, "EXISTS": EXISTS, "SKIPPED": INFO}
+
+#: Output is laid out as fixed columns so the pipes line up and a run can be
+#: scanned rather than read. Not a real table: no borders, no padding games,
+#: just widths that add up.
+LINE_WIDTH = 78
+SEP = " | "
+COL_STATUS = 7           # SKIPPED is the longest
+COL_ID = 8               # the short session id everything else refers to
+COL_WHEN = 11            # MM-DD HH:MM; the year is in the filename
+COL_DETAIL = 20          # why it was skipped, or how big the page is
+COL_SUBJECT = LINE_WIDTH - (
+    2 + 1 + COL_STATUS + len(SEP) + COL_ID + len(SEP)
+    + COL_WHEN + len(SEP) + COL_DETAIL + len(SEP)
+)
 
 #: Where rendered pages land. Decision A6, settled and not reopened.
 DEFAULT_OUTPUT_DIR = os.path.expanduser("~/.ai-staff-audit-log")
@@ -146,6 +165,77 @@ def resolve_participants(session, from_name, to_name):
     return sender, receiver
 
 
+# -------------------------------------------------------------- table output
+
+def fit(text, width):
+    """Left-justify to `width`, truncating with an ellipsis when too long."""
+    text = (text or "").strip().replace("\n", " ")
+    if len(text) > width:
+        text = text[: max(0, width - 3)] + "..."
+    return text.ljust(width)
+
+
+def table_header():
+    """Header and rule, sized to the same columns as the rows."""
+    head = "%s %s%s%s%s%s%s%s%s%s" % (
+        "  ",
+        fit("STATUS", COL_STATUS), SEP,
+        fit("SESSION", COL_ID), SEP,
+        fit("WHEN", COL_WHEN), SEP,
+        fit("DETAIL", COL_DETAIL), SEP,
+        fit("SUBJECT", COL_SUBJECT),
+    )
+    return head.rstrip() + "\n" + "-" * LINE_WIDTH
+
+
+def table_row(status, ident, when, detail, subject):
+    """One aligned row, prefixed with the marker for its outcome."""
+    return ("%s %s%s%s%s%s%s%s%s%s" % (
+        MARKERS.get(status, INFO),
+        fit(status, COL_STATUS), SEP,
+        fit(ident, COL_ID), SEP,
+        fit(when, COL_WHEN), SEP,
+        fit(detail, COL_DETAIL), SEP,
+        fit(subject, COL_SUBJECT),
+    )).rstrip()
+
+
+class Report(object):
+    """Emits aligned rows, printing the header before the first one.
+
+    Everything goes to stderr: stdout belongs to `--stdout`, which emits the
+    page itself, and a report interleaved with HTML would ruin both.
+    """
+
+    def __init__(self, stream, show_header=True):
+        self.stream = stream
+        self.pending = show_header
+
+    def row(self, *args):
+        if self.pending:
+            self.stream.write(table_header() + "\n")
+            self.pending = False
+        self.stream.write(table_row(*args) + "\n")
+
+    def emit(self, prebuilt_row):
+        """A row already formatted by `skip_row`."""
+        if self.pending:
+            self.stream.write(table_header() + "\n")
+            self.pending = False
+        self.stream.write(prebuilt_row + "\n")
+
+    def raw(self, line):
+        self.stream.write(line + "\n")
+
+
+def when_of(description):
+    if not description.started:
+        return "unknown"
+    return description.started.astimezone(parse.local_timezone()).strftime(
+        "%m-%d %H:%M"
+    )
+
+
 # ------------------------------------------------------------------ display
 
 def tilde(path):
@@ -179,34 +269,15 @@ def human_size(count):
 MAX_SKIPS = 200
 
 
-def skip_line(description, reasons):
-    """One line explaining why a session was passed over.
-
-    `SKIPPED <id> | <when it started> | <why> | <what it was about>`, so a run
-    that walks back through a dozen interactive sessions reads as a list rather
-    than a wall.
-    """
-    when = (
-        description.started.astimezone(parse.local_timezone()).strftime(
-            "%Y-%m-%d %H:%M"
-        )
-        if description.started else "date unknown"
-    )
-
+def skip_row(description, reasons):
+    """One aligned row explaining why a session was passed over."""
     why = ", ".join(r.short for r in reasons) or "not renderable"
     # "interactive" is the human-meaningful half: the turn count says WHAT
     # tripped the check, this says what kind of session it was.
     if description.is_interactive:
         why = "interactive, " + why
-
-    title = (description.title or "").strip().replace("\n", " ")
-    words = title.split()
-    if len(words) > 10:
-        title = " ".join(words[:10]) + "..."
-
-    return "SKIPPED %s | %s | %s | %s" % (
-        description.short_id, when, why, title or "(untitled)"
-    )
+    return table_row("SKIPPED", description.short_id, when_of(description),
+                     why, description.title or "(untitled)")
 
 
 def latest_renderable(project_path):
@@ -237,14 +308,14 @@ def latest_renderable(project_path):
             reasons = [parse.Unsupported(
                 "oversized", "", short="%.0f MB" % (size / 1048576.0)
             )]
-            skips.append(skip_line(parse.describe_head(candidate), reasons))
+            skips.append(skip_row(parse.describe_head(candidate), reasons))
             continue
 
         records, _ = parse.load_records(candidate)
         report = parse.check_supported(records, candidate, size_bytes=size)
         if report.ok:
             return candidate, skips
-        skips.append(skip_line(parse.describe(records, candidate), report.reasons))
+        skips.append(skip_row(parse.describe(records, candidate), report.reasons))
 
     return None, skips
 
@@ -333,7 +404,10 @@ def build_parser():
                         help="write the HTML to stdout and create no file")
     parser.add_argument("--force", action="store_true",
                         help="allow overwriting an existing output file")
-    parser.add_argument("--quiet", action="store_true", help="suppress the summary line")
+    parser.add_argument("--quiet", action="store_true",
+                        help="suppress the row for a page that was written")
+    parser.add_argument("--no-header", action="store_true",
+                        help="omit the column header and rule")
     return parser
 
 
@@ -346,6 +420,7 @@ def main(argv=None):
         )
         return 2
 
+    report_out = Report(sys.stderr, show_header=not args.no_header)
     notes = []
     walking = not args.session and not args.date
 
@@ -365,7 +440,7 @@ def main(argv=None):
                 )
             path, skips = latest_renderable(project_path)
             for line in skips:
-                sys.stderr.write("%s%s\n" % (INFO, line))
+                report_out.emit(line)
             if path is None:
                 sys.stderr.write(
                     "error: no renderable session in %s. %s\n"
@@ -441,12 +516,9 @@ def main(argv=None):
         # Not an error: the page you asked for is already there. Report it the
         # same way as any other session passed over, and exit 0 so re-running a
         # batch is a cheap no-op rather than a failure.
-        sys.stderr.write("%s%s\n" % (INFO, skip_line(
-            parse.describe(records, path),
-            [parse.Unsupported(
-                "exists", "", short="already exists; use --force to overwrite"
-            )],
-        )))
+        description = parse.describe(records, path)
+        report_out.row("EXISTS", description.short_id, when_of(description),
+                       "use --force to replace", description.title or "(untitled)")
         return 0
 
     # Write to a sibling temp file and rename into place, so an interrupted run
@@ -465,12 +537,12 @@ def main(argv=None):
         raise
 
     if not args.quiet:
-        note = " (%d unparseable lines skipped)" % skipped if skipped else ""
-        sys.stdout.write(
-            "%swrote %s (%s) from session %s%s\n"
-            % (OK, tilde(target), human_size(os.path.getsize(target)),
-               session.session_id or os.path.basename(path), note)
-        )
+        description = parse.describe(records, path)
+        report_out.row("WROTE", description.short_id, when_of(description),
+                       human_size(os.path.getsize(target)),
+                       description.title or "(untitled)")
+        if skipped:
+            report_out.raw("   %d unparseable lines skipped" % skipped)
     return 0
 
 

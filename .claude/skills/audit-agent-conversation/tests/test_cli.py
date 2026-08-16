@@ -167,8 +167,7 @@ class TestWriting(unittest.TestCase):
         self.assertEqual(os.listdir(self.outdir), written, "wrote an extra file")
 
         message = buffer.getvalue()
-        self.assertIn("SKIPPED", message)
-        self.assertIn("already exists", message)
+        self.assertIn("EXISTS", message)
         self.assertIn("--force", message)
         self.assertNotIn("error", message.lower())
 
@@ -295,7 +294,7 @@ class TestOutputFormatting(unittest.TestCase):
         self.assertEqual(cli.human_size(int(4.3 * 1024 * 1024)), "4.3 MB")
         self.assertEqual(cli.human_size(int(1.5 * 1024)), "1.5 KB")
 
-    def test_success_line_is_one_line_with_a_check(self):
+    def test_a_written_page_reports_as_a_wrote_row(self):
         import io
         import shutil
         import sys
@@ -304,18 +303,59 @@ class TestOutputFormatting(unittest.TestCase):
         fixtures.require_corpus(self)
         outdir = tempfile.mkdtemp(prefix="auditlog-fmt-")
         buffer = io.StringIO()
-        stdout, sys.stdout = sys.stdout, buffer
+        stderr, sys.stderr = sys.stderr, buffer
         try:
             code = cli.main([fixtures.path(fixtures.BRIEF_AUG13),
                              "--output-dir", outdir, "--force"])
         finally:
-            sys.stdout = stdout
+            sys.stderr = stderr
             shutil.rmtree(outdir, ignore_errors=True)
 
         self.assertEqual(code, 0)
-        line = buffer.getvalue().strip()
-        self.assertEqual(len(line.splitlines()), 1, line)
-        self.assertTrue(line.startswith(cli.OK.strip()), line)
-        self.assertIn("wrote", line)
-        self.assertIn("from session", line)
-        self.assertNotIn(" bytes)", line)  # human-readable, not a raw count
+        lines = buffer.getvalue().strip().splitlines()
+        self.assertEqual(len(lines), 3, lines)          # header, rule, row
+        self.assertTrue(lines[0].strip().startswith("STATUS"), lines[0])
+        self.assertEqual(lines[1], "-" * cli.LINE_WIDTH)
+        self.assertTrue(lines[2].startswith(cli.OK), lines[2])
+        self.assertIn("WROTE", lines[2])
+        self.assertIn("KB", lines[2])
+
+    def test_no_header_suppresses_the_header_and_rule(self):
+        import io
+        import shutil
+        import sys
+        import tempfile
+
+        fixtures.require_corpus(self)
+        outdir = tempfile.mkdtemp(prefix="auditlog-nohdr-")
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            cli.main([fixtures.path(fixtures.BRIEF_AUG13), "--output-dir", outdir,
+                      "--force", "--no-header"])
+        finally:
+            sys.stderr = stderr
+            shutil.rmtree(outdir, ignore_errors=True)
+
+        lines = buffer.getvalue().strip().splitlines()
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("WROTE", lines[0])
+
+    def test_the_header_appears_once_no_matter_how_many_rows(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        report = cli.Report(buffer)
+        report.row("SKIPPED", "aaaa1111", "08-16 00:00", "interactive", "One")
+        report.row("SKIPPED", "bbbb2222", "08-16 00:01", "interactive", "Two")
+        lines = buffer.getvalue().strip().splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertEqual(lines.count("-" * cli.LINE_WIDTH), 1)
+
+    def test_a_run_with_no_rows_prints_no_header(self):
+        import io
+
+        buffer = io.StringIO()
+        cli.Report(buffer)
+        self.assertEqual(buffer.getvalue(), "")
