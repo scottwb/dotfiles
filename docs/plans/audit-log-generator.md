@@ -421,16 +421,16 @@ cd .claude/skills/audit-agent-conversation && ./run-tests
 
 ### Step 8: Markdown-preview detection
 
-- [ ] Write the failing test first: `tests/test_preview_detection.py` asserts a
+- [x] Write the failing test first: `tests/test_preview_detection.py` asserts a
       `Read` of a `.md` path is offered a preview; a `grep` of a `.md` path with
       markdown-shaped output is offered one; and **a `git commit` whose message
       contains the word "head" is NOT**, which is the false positive the
       command-check-alone approach produces. A corpus test asserts the reference
       session offers exactly **8** previews.
-- [ ] Implement: `is_markdown_result()` requiring both a reader-command match
+- [x] Implement: `is_markdown_result()` requiring both a reader-command match
       plus a bare `.md` path argument **and** an output shape check (2+ pipe
       rows, or a heading, or 2+ bullets)
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** Section 7 "Detection heuristics worth copying", acceptance
 criterion 4
