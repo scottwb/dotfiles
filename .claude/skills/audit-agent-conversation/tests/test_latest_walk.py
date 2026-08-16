@@ -53,10 +53,10 @@ class TestSkipRowShape(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_is_an_aligned_row_of_five_fields(self):
+    def test_is_an_aligned_row_of_seven_fields(self):
         line = self._line(turns=3, entrypoint="cli", title="Some session title")
         self.assertIn("SKIPPED", line)
-        self.assertEqual(len(line.split(" | ")), 5, line)
+        self.assertEqual(len(line.split(" | ")), 7, line)
 
     def test_fits_the_line_budget(self):
         long_title = " ".join("word%d" % i for i in range(30))
@@ -78,26 +78,31 @@ class TestSkipRowShape(unittest.TestCase):
         self.assertIn("abcd1234", line)
         self.assertIn("08-16", line)
 
-    def test_interactive_sessions_say_so(self):
+    def test_a_human_driven_session_says_human(self):
+        """"Human (3 turns)" answers the question you are actually asking."""
         line = self._line(turns=3, entrypoint="cli", title="A title")
-        self.assertIn("interactive", line)
-        self.assertIn("3 turns", line)
+        self.assertIn("Human (3 turns)", line)
 
-    def test_non_interactive_sessions_do_not_claim_to_be_interactive(self):
+    def test_an_agent_driven_session_says_agent(self):
         line = self._line(turns=4, entrypoint="sdk-cli", title="A title")
-        self.assertNotIn("interactive", line)
-        self.assertIn("4 turns", line)
+        self.assertIn("Agent (4 turns)", line)
+        self.assertNotIn("Human", line)
 
     def test_an_overlong_title_is_truncated_with_an_ellipsis(self):
         long_title = " ".join("word%d" % i for i in range(30))
         line = self._line(turns=2, entrypoint="cli", title=long_title)
-        subject = line.split(" | ")[4]
+        subject = line.split(" | ")[6]
         self.assertTrue(subject.endswith("..."), subject)
         self.assertEqual(len(subject), cli.COL_SUBJECT)
 
     def test_an_untitled_session_says_so_rather_than_showing_a_blank(self):
         line = self._line(turns=2, entrypoint="cli", title=None)
-        self.assertTrue(line.split(" | ")[3].strip())
+        self.assertTrue(line.split(" | ")[6].strip())
+
+    def test_the_row_names_both_participants(self):
+        line = self._line(turns=3, entrypoint="cli", title="A title")
+        self.assertTrue(line.split(" | ")[4].strip(), "no sender")
+        self.assertTrue(line.split(" | ")[5].strip(), "no receiver")
 
     def test_reasons_are_short_not_the_full_refusal_prose(self):
         line = self._line(turns=3, entrypoint="cli", title="A title")

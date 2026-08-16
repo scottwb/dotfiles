@@ -474,9 +474,14 @@ def title_for(records, opening=None):
     """
     if opening is None:
         opening = find_opening_prompt(records)
+    # ai-title first, deliberately. `custom-title` is a LABEL in practice: real
+    # sessions set it to the agent's display name ("Donna Dev", "Greenthumb"),
+    # which just repeats the receiver. `ai-title` is the generated one-line
+    # description of what the session was about, which is what a reader
+    # scanning a list actually wants.
     return (
-        _first_field(records, "custom-title", "customTitle", "title")
-        or _first_field(records, "ai-title", "aiTitle", "title")
+        _last_field(records, "ai-title", "aiTitle", "title")
+        or _last_field(records, "custom-title", "customTitle", "title")
         or (opening.text if opening and opening.is_slash_command else None)
         or (opening.text.strip().split("\n")[0][:80]
             if opening and opening.text.strip() else None)
@@ -486,14 +491,21 @@ def title_for(records, opening=None):
 class Description(object):
     """Just enough about a session to name it in a one-line notice."""
 
-    __slots__ = ("path", "session_id", "started", "entrypoint", "title")
+    #: `cwd` and `agent_name` are here so a Description can stand in for a
+    #: Session wherever participants are resolved: naming who was talking should
+    #: not require parsing a whole transcript just to print one row about it.
+    __slots__ = ("path", "session_id", "started", "entrypoint", "title",
+                 "cwd", "agent_name")
 
-    def __init__(self, path, session_id, started, entrypoint, title):
+    def __init__(self, path, session_id, started, entrypoint, title,
+                 cwd=None, agent_name=None):
         self.path = path
         self.session_id = session_id
         self.started = started
         self.entrypoint = entrypoint
         self.title = title
+        self.cwd = cwd
+        self.agent_name = agent_name
 
     @property
     def short_id(self):
@@ -526,8 +538,14 @@ def describe(records, path=None):
         or _first_field(records, "assistant", "entrypoint")
         or _first_field(records, "attachment", "entrypoint")
     )
+    cwd = (
+        (opening.record.get("cwd") if opening else None)
+        or _first_field(records, "assistant", "cwd")
+        or _first_field(records, "user", "cwd")
+    )
     return Description(path, session_id, started, entrypoint,
-                       title_for(records, opening))
+                       title_for(records, opening), cwd,
+                       _last_field(records, "agent-name", "agentName"))
 
 
 def describe_head(path, limit=PEEK_RECORDS):
@@ -783,6 +801,24 @@ def _first_field(records, record_type, *fields):
     return None
 
 
+def _last_field(records, record_type, *fields):
+    """The LAST value, for identity records that settle over a session.
+
+    A session renames itself as it goes: one transcript opens with
+    `agentName: "Donna /color red /rc"`, captured while a slash command was
+    being typed, and every record after it says `"Donna"`. Taking the first
+    value pins the accident; taking the last takes what it settled on.
+    """
+    found = None
+    for record in records:
+        if record.get("type") != record_type:
+            continue
+        for field in fields:
+            if record.get(field):
+                found = record[field]
+    return found
+
+
 def load_session(path, records=None):
     """Parse a transcript into a `Session`.
 
@@ -804,8 +840,8 @@ def load_session(path, records=None):
     session.model = session.usage.model
     session.opening = find_opening_prompt(records)
 
-    session.agent_name = _first_field(records, "agent-name", "agentName")
-    session.agent_color = _first_field(records, "agent-color", "agentColor")
+    session.agent_name = _last_field(records, "agent-name", "agentName")
+    session.agent_color = _last_field(records, "agent-color", "agentColor")
     session.title = title_for(records, session.opening)
 
     opening_record = session.opening.record if session.opening else {}

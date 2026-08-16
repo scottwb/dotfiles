@@ -34,15 +34,17 @@ MARKERS = {"WROTE": OK, "EXISTS": EXISTS, "SKIPPED": INFO}
 #: Output is laid out as fixed columns so the pipes line up and a run can be
 #: scanned rather than read. Not a real table: no borders, no padding games,
 #: just widths that add up.
-LINE_WIDTH = 78
+LINE_WIDTH = 120
 SEP = " | "
 COL_STATUS = 7           # SKIPPED is the longest
 COL_ID = 8               # the short session id everything else refers to
-COL_WHEN = 11            # MM-DD HH:MM; the year is in the filename
-COL_DETAIL = 20          # why it was skipped, or how big the page is
+COL_WHEN = 11            # MM-DD HH:MM; the year is in the filename and the page
+COL_DETAIL = 26          # why it was skipped, or how big the page is
+COL_SENDER = 12
+COL_RECEIVER = 12
 COL_SUBJECT = LINE_WIDTH - (
-    2 + 1 + COL_STATUS + len(SEP) + COL_ID + len(SEP)
-    + COL_WHEN + len(SEP) + COL_DETAIL + len(SEP)
+    2 + 1 + COL_STATUS + len(SEP) + COL_ID + len(SEP) + COL_WHEN + len(SEP)
+    + COL_DETAIL + len(SEP) + COL_SENDER + len(SEP) + COL_RECEIVER + len(SEP)
 )
 
 #: Where rendered pages land. Decision A6, settled and not reopened.
@@ -175,28 +177,30 @@ def fit(text, width):
     return text.ljust(width)
 
 
+def _cells(status, ident, when, detail, sender, receiver, subject):
+    return (
+        fit(status, COL_STATUS) + SEP
+        + fit(ident, COL_ID) + SEP
+        + fit(when, COL_WHEN) + SEP
+        + fit(detail, COL_DETAIL) + SEP
+        + fit(sender, COL_SENDER) + SEP
+        + fit(receiver, COL_RECEIVER) + SEP
+        + fit(subject, COL_SUBJECT)
+    )
+
+
 def table_header():
     """Header and rule, sized to the same columns as the rows."""
-    head = "%s %s%s%s%s%s%s%s%s%s" % (
-        "  ",
-        fit("STATUS", COL_STATUS), SEP,
-        fit("SESSION", COL_ID), SEP,
-        fit("WHEN", COL_WHEN), SEP,
-        fit("DETAIL", COL_DETAIL), SEP,
-        fit("SUBJECT", COL_SUBJECT),
-    )
+    head = "   " + _cells("STATUS", "SESSION", "WHEN", "DETAIL", "SENDER",
+                          "RECEIVER", "SUBJECT")
     return head.rstrip() + "\n" + "-" * LINE_WIDTH
 
 
-def table_row(status, ident, when, detail, subject):
+def table_row(status, ident, when, detail, sender, receiver, subject):
     """One aligned row, prefixed with the marker for its outcome."""
-    return ("%s %s%s%s%s%s%s%s%s%s" % (
+    return ("%s %s" % (
         MARKERS.get(status, INFO),
-        fit(status, COL_STATUS), SEP,
-        fit(ident, COL_ID), SEP,
-        fit(when, COL_WHEN), SEP,
-        fit(detail, COL_DETAIL), SEP,
-        fit(subject, COL_SUBJECT),
+        _cells(status, ident, when, detail, sender, receiver, subject),
     )).rstrip()
 
 
@@ -269,15 +273,41 @@ def human_size(count):
 MAX_SKIPS = 200
 
 
+def reason_text(description, reasons):
+    """The DETAIL cell for a skipped session: terse, and says who drove it.
+
+    A bare turn count answers the wrong question. What you want when scanning
+    is whether this was a person at a keyboard or an agent, so the turn count
+    rides inside that: `Human (10 turns)`, `Agent (4 turns)`. Everything else
+    stays as short as it can be.
+    """
+    parts = []
+    for reason in reasons:
+        if reason.kind == "multi_turn":
+            who = "Human" if description.is_interactive else "Agent"
+            parts.append("%s (%s)" % (who, reason.short))
+        else:
+            parts.append(reason.short)
+    if not parts:
+        return "not renderable"
+    if description.is_interactive and not any(
+        r.kind == "multi_turn" for r in reasons
+    ):
+        parts.insert(0, "Human")
+    return ", ".join(parts)
+
+
+def participants_of(description):
+    """Who was talking, for a session we may not have fully parsed."""
+    return resolve_participants(description, None, None)
+
+
 def skip_row(description, reasons):
     """One aligned row explaining why a session was passed over."""
-    why = ", ".join(r.short for r in reasons) or "not renderable"
-    # "interactive" is the human-meaningful half: the turn count says WHAT
-    # tripped the check, this says what kind of session it was.
-    if description.is_interactive:
-        why = "interactive, " + why
+    sender, receiver = participants_of(description)
     return table_row("SKIPPED", description.short_id, when_of(description),
-                     why, description.title or "(untitled)")
+                     reason_text(description, reasons), sender, receiver,
+                     description.title or "(untitled)")
 
 
 def latest_renderable(project_path):
@@ -518,7 +548,8 @@ def main(argv=None):
         # batch is a cheap no-op rather than a failure.
         description = parse.describe(records, path)
         report_out.row("EXISTS", description.short_id, when_of(description),
-                       "use --force to replace", description.title or "(untitled)")
+                       "use --force to replace", sender, receiver,
+                       description.title or "(untitled)")
         return 0
 
     # Write to a sibling temp file and rename into place, so an interrupted run
@@ -539,7 +570,7 @@ def main(argv=None):
     if not args.quiet:
         description = parse.describe(records, path)
         report_out.row("WROTE", description.short_id, when_of(description),
-                       human_size(os.path.getsize(target)),
+                       human_size(os.path.getsize(target)), sender, receiver,
                        description.title or "(untitled)")
         if skipped:
             report_out.raw("   %d unparseable lines skipped" % skipped)

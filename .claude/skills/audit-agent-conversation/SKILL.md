@@ -74,8 +74,24 @@ neighbour. `--latest` and `--date` contradict each other and are rejected as a
 pair. When a day holds several sessions, the latest is rendered and a note names
 the ones passed over.
 
-Every line starts with a status marker: green check for a page written, info
-`i` for a session passed over. A run reads as a column of outcomes.
+Output is an aligned table, 120 characters wide, one row per session:
+
+```
+   STATUS  | SESSION  | WHEN        | DETAIL             | SENDER  | RECEIVER   | SUBJECT
+----------------------------------------------------------------------------------------
+i  SKIPPED | 7e4fd501 | 08-16 00:07 | Human (3 turns)    | scott   | greenthumb | Greenthumb
+#  EXISTS  | 01ee0390 | 08-16 05:57 | use --force        | donna   | greenthumb | /exec-brief full
+*  WROTE   | e9de9126 | 08-13 09:17 | 104 KB             | caller  | donna      | Clarify push author...
+```
+
+`WROTE` produced a page, `EXISTS` found one already there, `SKIPPED` passed a
+session over. `DETAIL` says why, and says who drove it: `Human (12 turns)` is
+the answer you usually want, not a bare turn count. Anything too long for its
+column is truncated with an ellipsis. Column widths are constants that add up,
+so rebalancing them is a one-line change. `--no-header` omits the header and
+rule.
+
+Rows go to stderr. stdout belongs to `--stdout`, which emits the page itself.
 
 An output that already exists is a **skip, not an error**: the run reports it and
 exits 0, so re-running over a batch of sessions is a cheap no-op rather than a
