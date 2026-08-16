@@ -128,7 +128,7 @@ corroborating source and as the cleanest slug input.
 |---|---|---|
 | Renders | **15** | 12 `/exec-brief` briefs, the reference session, and 2 smaller SDK sessions |
 | Refused, multi-turn | 13 | 2 to 76 turns |
-| Refused, images | 4 | 1, 3, 6, and 21 image blocks (handoff said 3 files; it is 4) |
+| Refused, images | 8 | 1 to 33 image blocks each (handoff said 3 files; a top-level-only scan finds 4; counting images nested inside `tool_result` content, which need rendering too, finds 8) |
 | Refused, oversized | 5 | 9.9 MB to 44.0 MB |
 
 Refusals overlap; the largest session trips all three. The detector must report
@@ -306,23 +306,23 @@ cd .claude/skills/audit-log && ./run-tests
 
 ### Step 5: Unsupported-case detection and honest refusal
 
-- [ ] Write the failing test first: `tests/test_refusal.py` walks the whole
+- [x] Write the failing test first: `tests/test_refusal.py` walks the whole
       greenthumb corpus and asserts the split measured in F6: **15 renderable,
       13 refused**, with multi-turn counts of 2 to 76, image counts of 1/3/6/21
       across 4 files, and the 5 oversized files. A dedicated test asserts that
       **every one of the 12 `/exec-brief` briefs is renderable**, which is the
       test that fails if `isMeta` is not excluded from the turn count.
-- [ ] Implement: turn counter excluding `isMeta` records and `tool_result`-only
+- [x] Implement: turn counter excluding `isMeta` records and `tool_result`-only
       user records (F2)
-- [ ] Implement: an `UnsupportedSession` exception carrying **all** conditions
+- [x] Implement: an `UnsupportedSession` exception carrying **all** conditions
       found, not just the first, each with its magnitude
-- [ ] Implement: a sidechain detector that records whether any `isSidechain`
+- [x] Implement: a sidechain detector that records whether any `isSidechain`
       record was seen and warns rather than mis-rendering (none exist in this
       corpus, so this is a tripwire, not a feature)
-- [ ] Implement: refusal messages of the shape `this session has 44 user turns;
+- [x] Implement: refusal messages of the shape `this session has 44 user turns;
       multi-turn rendering is not implemented yet`, naming the condition and the
       number
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** A7, F2, F6, Requirement "refuse ... naming every condition found"
 
