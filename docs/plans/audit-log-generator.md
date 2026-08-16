@@ -269,7 +269,7 @@ cd .claude/skills/audit-log && ./run-tests
 
 ### Step 4: Opening-prompt resolution and slash-command unwrapping (Defects 1 and 2)
 
-- [ ] Write the failing test first: `tests/test_opening_prompt.py` asserts three
+- [x] Write the failing test first: `tests/test_opening_prompt.py` asserts three
       things, each failing against the prototype's behavior:
       (a) the reference session (`promptSource: "sdk"`) resolves its prompt;
       (b) a daily brief (`promptSource: None`) **also** resolves, where the
@@ -278,17 +278,17 @@ cd .claude/skills/audit-log && ./run-tests
       opening prompt.
       A fourth test asserts the XML unwraps to exactly `/exec-brief full`, not
       the literal `<command-message>` markup.
-- [ ] Implement: opening-prompt resolver selecting the first `user` record that
+- [x] Implement: opening-prompt resolver selecting the first `user` record that
       is not `isMeta` and carries no `tool_result` blocks, preferring
       `parentUuid: null` when available, and working whether `promptSource` is
       `sdk`, `None`, or absent
-- [ ] Implement: slash-command unwrapper turning the XML triple into
+- [x] Implement: slash-command unwrapper turning the XML triple into
       `/<name> <args>`, retaining the raw form on the model for the
       raw/preview affordance
-- [ ] Implement: retain the `isMeta` expansion body on the session model as the
+- [x] Implement: retain the `isMeta` expansion body on the session model as the
       expanded command text, since it is the real instruction the agent acted on
       and is worth rendering behind a disclosure
-- [ ] Verify green: run the test command below
+- [x] Verify green: run the test command below
 
 **Satisfies:** Defect 1, Defect 2, F2
 
