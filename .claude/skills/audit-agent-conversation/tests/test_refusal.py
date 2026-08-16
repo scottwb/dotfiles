@@ -95,7 +95,14 @@ class TestRefusalConditions(unittest.TestCase):
 
 
 class TestCorpusSplit(unittest.TestCase):
-    """The measured 15/13 split across the whole greenthumb project."""
+    """Classification across the whole greenthumb project.
+
+    Deliberately NOT asserting absolute totals. This is a live directory that
+    grows every time Greenthumb runs: it was 28 files when the plan was written
+    and 30 the next morning, which turned a green suite red overnight with
+    nothing wrong. Assert the invariants and the named fixtures instead, and
+    leave the census to a test that reports rather than judges.
+    """
 
     def setUp(self):
         fixtures.require_corpus(self)
@@ -106,25 +113,45 @@ class TestCorpusSplit(unittest.TestCase):
             report = parse.check_supported(records, path)
             (self.renderable if report.ok else self.refused).append((path, report))
 
-    def test_fifteen_renderable(self):
-        self.assertEqual(len(self.renderable), 15)
+    def test_every_session_is_classified_exactly_once(self):
+        total = len(fixtures.corpus_sessions())
+        self.assertEqual(len(self.renderable) + len(self.refused), total)
+        overlap = set(p for p, _ in self.renderable) & set(p for p, _ in self.refused)
+        self.assertEqual(overlap, set())
 
-    def test_thirteen_refused(self):
-        self.assertEqual(len(self.refused), 13)
+    def test_the_corpus_holds_both_kinds(self):
+        self.assertGreater(len(self.renderable), 0)
+        self.assertGreater(len(self.refused), 0)
 
-    def test_image_bearing_files_number_eight(self):
-        """Eight, not the four a top-level-only scan finds.
+    def test_every_named_renderable_fixture_is_renderable(self):
+        renderable = set(p for p, _ in self.renderable)
+        for session in (fixtures.REFERENCE, fixtures.BRIEF_AUG13,
+                        fixtures.BRIEF_AUG14, fixtures.BRIEF_AUG15):
+            self.assertIn(fixtures.path(session), renderable)
+
+    def test_every_named_unsupported_fixture_is_refused(self):
+        refused = set(p for p, _ in self.refused)
+        for session in (fixtures.MULTITURN_HUGE, fixtures.IMAGES,
+                        fixtures.MULTITURN_SMALL):
+            self.assertIn(fixtures.path(session), refused)
+
+    def test_image_bearing_files_are_all_refused(self):
+        """Any session with an image is refused, and told so.
 
         Images also arrive nested inside `tool_result` content, and those need
-        rendering just as much. All eight are already refused for multi-turn as
-        well, so counting them correctly does not change the renderable set; it
-        changes what the refusal message tells you.
+        rendering just as much: counting only top-level blocks finds 4 files
+        where counting nested ones finds 8. That does not change the renderable
+        set, since all of them are multi-turn too; it changes whether the
+        refusal tells you the truth about why.
         """
-        with_images = [
-            r for _, r in self.refused
-            if any(x.kind == "images" for x in r.reasons)
-        ]
-        self.assertEqual(len(with_images), 8)
+        for path in fixtures.corpus_sessions():
+            records, _ = parse.load_records(path)
+            if parse.count_images(records):
+                report = parse.check_supported(records, path)
+                self.assertFalse(report.ok, path)
+                self.assertTrue(
+                    any(x.kind == "images" for x in report.reasons), path
+                )
 
     def test_every_refusal_states_at_least_one_reason(self):
         for path, report in self.refused:
