@@ -158,7 +158,7 @@ assert_contains "no arguments prints usage"    "$noargs_out" "Usage"
 section "D6: no exec anywhere in the launcher chain"
 
 # Route detection walks process ancestry. An exec replaces the launcher
-# process, erasing the ancestor what-claude looks for.
+# process, erasing the ancestor claude-ps looks for.
 if grep -nE '^[[:space:]]*exec[[:space:]]' "$CLAUDE_RUN" >/dev/null 2>&1; then
   bad "claude-run contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$CLAUDE_RUN")"
 else
@@ -371,7 +371,7 @@ done
 
 # ---------------------------------------------------------------- route detection
 #
-# D6: what-claude reads each session's route back out of process ancestry. This
+# D6: claude-ps reads each session's route back out of process ancestry. This
 # is the assertion that makes the no-exec rule enforceable rather than merely
 # documented, because an exec anywhere in the chain breaks detection silently
 # and every routed session would quietly report as plain Anthropic.
@@ -379,12 +379,12 @@ done
 # A stub `claude` stands in for a real session: it creates the exact ancestry
 # without minutes of model loading or a single token of spend.
 
-section "what-claude route detection (D6)"
+section "claude-ps route detection (D6)"
 
-WHAT_CLAUDE="$SCRIPT_DIR/what-claude"
+CLAUDE_PS="$SCRIPT_DIR/claude-ps"
 
-if [ ! -x "$WHAT_CLAUDE" ]; then
-  bad "what-claude exists and is executable" "missing: $WHAT_CLAUDE"
+if [ ! -x "$CLAUDE_PS" ]; then
+  bad "claude-ps exists and is executable" "missing: $CLAUDE_PS"
 else
   # Count routed rows BEFORE launching anything.
   #
@@ -393,7 +393,7 @@ else
   # an absolute count ("exactly one ollama row") fails in that case for no good
   # reason. Learned the hard way on 2026-08-01, when a live routed session made
   # two assertions fail against correct code.
-  route_rows() { "$WHAT_CLAUDE" 2>/dev/null | grep -c 'glm-4.7-flash' || true; }
+  route_rows() { "$CLAUDE_PS" -n 2>/dev/null | grep -c 'glm-4.7-flash' || true; }
   baseline_rows="$(route_rows)"
   [ "$baseline_rows" -gt 0 ] && \
     printf '  \033[2m(%d routed session(s) already running; counting relative to that)\033[0m\n' \
@@ -414,10 +414,9 @@ STUB
   # Give the chain time to establish: wrapper -> claude-run -> stub.
   sleep 2
 
-  wc_out="$("$WHAT_CLAUDE" 2>&1)"
+  wc_out="$("$CLAUDE_PS" -n 2>&1)"
 
-  assert_contains "table has a ROUTE column"        "$wc_out" "ROUTE"
-  assert_contains "routed session shows its provider" "$wc_out" "ollama"
+  assert_contains "routed session shows its provider" "$wc_out" "Ollama (local)"
   assert_contains "routed session shows its model"    "$wc_out" "glm-4.7-flash"
 
   # The launcher processes must not be listed as sessions.
@@ -425,7 +424,7 @@ STUB
   # claude-run and every wrapper have "claude" in their command line, so the
   # process filter picks them up and one launch reports as three or four rows.
   # Introduced by this launcher family: before it existed, nothing in bin/
-  # matched. Caught by the ROUTE column making the duplicates obvious.
+  # matched. Caught by the PROVIDER column making the duplicates obvious.
   routed_rows="$(printf '%s' "$wc_out" | grep -c 'glm-4.7-flash' || true)"
   expected_rows=$((baseline_rows + 1))
   if [ "$routed_rows" -eq "$expected_rows" ]; then
@@ -437,11 +436,11 @@ STUB
   assert_not_contains "claude-run is not listed as a session" "$wc_out" "claude-run "
   assert_not_contains "wrappers are not listed as sessions"   "$wc_out" "claude-glm "
 
-  # The fallback must be labelled as inferred. A session with no launcher
-  # ancestor is *presumed* to be on Anthropic because nothing says otherwise;
-  # that is not the same as having observed it, and the table should not
-  # pretend it is.
-  assert_contains "unrouted sessions are labelled as inferred" "$wc_out" "inferred"
+  # A session with no launcher ancestor is reported as Anthropic. Strictly an
+  # inference from absence (a process's environment is not readable on macOS),
+  # but in practice every unrouted session here is Anthropic; claude-ps says
+  # so plainly and keeps the caveat in its comments.
+  assert_contains "unrouted sessions are reported as Anthropic" "$wc_out" "Anthropic"
 
   # Cleanup is scoped to this suite's own temp dir so a real routed session
   # running alongside is never touched.

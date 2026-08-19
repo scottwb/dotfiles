@@ -1,0 +1,721 @@
+#!/usr/bin/env bash
+#
+# claude-ps - Show all running Claude Code sessions: name, working directory,
+#             branch, harness, provider, model, effort, context use, and more.
+#
+# Usage: claude-ps [OPTIONS] [FILTER]
+#
+#   FILTER          Case-insensitive substring match against the session name,
+#                   working directory, and branch. `claude-ps harvest` lists
+#                   harvest-mcp-server and harvest-tools but not greenthumb.
+#
+#   -l, --long      Also show MODE, PID, STATUS, UPTIME, MEM, CPU
+#   -q, --quiet     Print only PIDs, one per line (handy for `kill $(claude-ps -q)`)
+#   -j, --json      Emit a JSON array (always includes every field)
+#   -n, --no-header Omit the header and footer notes (for piping)
+#   -h, --help      Show this help
+#
+# NAME is the /rename title when one was set, else Claude's auto-generated
+# title, else the derived "<dir>-<id>" name. A row indented with "└" is a
+# claude process spawned from the session above it (a subagent, hook, or
+# `claude -p`). CONTEXT is tokens in context at
+# the last turn over the assumed window (see CONTEXT_WINDOW_DEFAULT); the cell
+# turns red at CONTEXT_WARN_PCT or above when stdout is a terminal. STATUS is
+# idle, busy, or waiting (<reason>), plus zombie / stopped from the process
+# table and "busy (stale Nm)" when a busy session's transcript has gone quiet
+# (see BUSY_STALE_MINUTES). HARNESS is
+# green when the session runs the latest known Claude Code, yellow when it is a
+# patch release behind, red when a minor or major behind (see latest_claude).
+#
+set -euo pipefail
+
+# How many ancestor levels to walk looking for a route launcher. Three covers
+# the deepest real chain (wrapper -> claude-run -> claude) with a level spare.
+readonly ROUTE_ANCESTRY_DEPTH=3
+
+# How many ancestor levels to walk looking for a parent claude session, for
+# grouping spawned children (claude -> bash -> claude is the common shape).
+readonly PARENT_ANCESTRY_DEPTH=6
+
+# Claude Code's own bookkeeping. sessions/<pid>.json is written by the running
+# session (name, status, sessionId); projects/*/<sessionId>.jsonl is its
+# transcript, whose last assistant line carries model, effort, and usage.
+readonly CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+# Context window assumed for plain Anthropic sessions when nothing tells us
+# otherwise. Routed sessions take the window from claude-run's plan; see
+# anthropic_window() for how 1M is recognised.
+readonly CONTEXT_WINDOW_DEFAULT=200000
+
+# Context use at or above this percentage is highlighted in the table.
+readonly CONTEXT_WARN_PCT=80
+
+# A session reporting "busy" whose transcript has not changed in this many
+# minutes is flagged stale. A genuinely busy session writes every few seconds;
+# a long single tool call can look the same, so this is a hint, not a verdict.
+readonly BUSY_STALE_MINUTES=10
+
+# How much of the transcript tail to scan for the last assistant line. Bounded
+# so a multi-MB transcript does not slow the listing; assistant lines are
+# frequent enough that this always finds one once a session has answered.
+readonly TRANSCRIPT_TAIL_BYTES=1000000
+
+# Field separator inside a row: ASCII unit separator, which cannot appear in a
+# PID, a branch, or any sane working directory. Not a tab, because `read` with
+# a whitespace IFS collapses adjacent separators and eats empty fields.
+readonly SEP=$'\x1f'
+
+usage() {
+  sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'
+}
+
+long=0; quiet=0; json=0; header=1; filter=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -l|--long)      long=1 ;;
+    -q|--quiet)     quiet=1 ;;
+    -j|--json)      json=1 ;;
+    -n|--no-header) header=0 ;;
+    -h|--help)      usage; exit 0 ;;
+    --)             shift; filter="${1:-}"; break ;;
+    -*)             echo "ERROR: unknown option: $1" >&2; echo >&2; usage >&2; exit 1 ;;
+    *)
+      if [ -n "$filter" ]; then
+        echo "ERROR: only one FILTER may be given (got '$filter' and '$1')" >&2
+        exit 1
+      fi
+      filter="$1"
+      ;;
+  esac
+  shift
+done
+
+# ---------------------------------------------------------------- helpers
+
+# One process-table snapshot, and one awk walk per session, instead of a `ps`
+# per hop per session. ancestry_of prints up to N ancestors of a pid, nearest
+# first, as "pid<SEP>command" lines, stopping at launchd.
+PS_TABLE="$(ps -axo pid=,ppid=,command= 2>/dev/null || true)"
+ancestry_of() {
+  printf '%s\n' "$PS_TABLE" | awk -v start="$1" -v max="$2" -v sep="$SEP" '
+    { pp[$1] = $2; c = $0; sub(/^ *[0-9]+ +[0-9]+ +/, "", c); cmd[$1] = c }
+    END {
+      p = start
+      for (i = 0; i < max; i++) {
+        if (!(p in pp)) break
+        p = pp[p]
+        if (p <= 1) break
+        print p sep cmd[p]
+      }
+    }'
+}
+
+# Does the space-separated list $2 contain $1?
+in_list() {
+  local needle="$1" item
+  for item in $2; do [ "$item" = "$needle" ] && return 0; done
+  return 1
+}
+
+# Pull "key":"value" or "key":number out of a JSON blob. Good enough for the
+# flat, machine-written files read here; not a general parser.
+# First occurrence wins (a greedy sed would pick the last, e.g. a name inside
+# "formerNames"), and the colon may be followed by whitespace.
+json_str() { printf '%s' "$2" | { grep -o "\"$1\": *\"[^\"]*\"" || true; } | head -1 | sed 's/^[^:]*: *"//; s/"$//'; }
+json_num() { printf '%s' "$2" | { grep -o "\"$1\": *[0-9][0-9]*"  || true; } | head -1 | sed 's/^[^:]*: *//'; }
+
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+# 1234567 -> "1.2M", 72345 -> "72k", 950 -> "950"
+humanize_tokens() {
+  local n="${1:-0}"
+  if   [ "$n" -ge 1000000 ]; then printf '%d.%dM' $((n / 1000000)) $(((n % 1000000) / 100000))
+  elif [ "$n" -ge 1000 ];    then printf '%dk' $((n / 1000))
+  else                            printf '%d' "$n"
+  fi
+}
+
+# ps etime ("[[dd-]hh:]mm:ss") -> "35s", "12m", "1h 13m", "1d 13h", "3w 4d".
+# Two units at most, the second dropped when zero.
+humanize_etime() {
+  local e="$1" d=0 h=0 m=0 s=0 rest total parts
+  case "$e" in *-*) d="${e%%-*}"; e="${e#*-}" ;; esac
+  IFS=: read -r -a parts <<< "$e"
+  case "${#parts[@]}" in
+    3) h="${parts[0]}"; m="${parts[1]}"; s="${parts[2]}" ;;
+    2) m="${parts[0]}"; s="${parts[1]}" ;;
+    1) s="${parts[0]}" ;;
+  esac
+  total=$(( 10#$d * 86400 + 10#$h * 3600 + 10#$m * 60 + 10#$s ))
+  if   [ "$total" -lt 60 ];     then printf '%ds' "$total"
+  elif [ "$total" -lt 3600 ];   then printf '%dm' $((total / 60))
+  elif [ "$total" -lt 86400 ];  then rest=$(((total % 3600) / 60));     printf '%dh' $((total / 3600));   [ "$rest" -gt 0 ] && printf ' %dm' "$rest"
+  elif [ "$total" -lt 604800 ]; then rest=$(((total % 86400) / 3600));  printf '%dd' $((total / 86400));  [ "$rest" -gt 0 ] && printf ' %dh' "$rest"
+  else                               rest=$(((total % 604800) / 86400)); printf '%dw' $((total / 604800)); [ "$rest" -gt 0 ] && printf ' %dd' "$rest"
+  fi
+  return 0
+}
+
+# Minutes -> the same shape as humanize_etime ("42m", "3h 5m", "2d 1h").
+humanize_minutes() { humanize_etime "$(( $1 / 60 )):$(( $1 % 60 )):00"; }
+
+# Current branch of a directory, short hash when detached, "-" outside a repo.
+git_branch() {
+  local dir="$1" b
+  [ -d "$dir" ] || { printf -- '-'; return 0; }
+  b=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null || true)
+  [ -z "$b" ] && b=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || true)
+  [ -z "$b" ] && b='-'
+  printf '%s' "$b"
+}
+
+# Find another listed claude process among a session's ancestors ($1 is the
+# ancestry_of output). Prints that pid, or nothing for a top-level session.
+find_parent_session() {
+  local ancestry="$1" all="$2" line ancestor i=0
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    [ $((i++)) -ge "$PARENT_ANCESTRY_DEPTH" ] && break
+    ancestor="${line%%"$SEP"*}"
+    if in_list "$ancestor" "$all"; then printf '%s' "$ancestor"; return 0; fi
+  done <<< "$ancestry"
+  return 0
+}
+
+# ---------------------------------------------------------------- routing
+
+# Resolve an alias to "provider|model|window" by asking claude-run itself, so
+# the model table stays in exactly one place. Results are memoized because
+# several sessions commonly share an alias.
+ROUTE_CACHE=""
+resolve_route_alias() {
+  local alias="$1" claude_run plan provider base model window host cached
+
+  cached="$(printf '%s' "$ROUTE_CACHE" | sed -n "s/^${alias}=//p" | head -1)"
+  if [ -n "$cached" ]; then printf '%s' "$cached"; return 0; fi
+
+  claude_run="$(command -v claude-run 2>/dev/null || true)"
+  [ -z "$claude_run" ] && claude_run="$(dirname "${BASH_SOURCE[0]}")/claude-run"
+
+  if [ ! -x "$claude_run" ]; then
+    printf '%s||' "$alias"
+    return 0
+  fi
+
+  # Dry run touches no network and launches nothing, so this is safe to call
+  # from a status tool.
+  plan="$(CLAUDE_ROUTE_DRYRUN=1 "$claude_run" "$alias" 2>/dev/null || true)"
+  provider="$(printf '%s' "$plan" | sed -n 's/^  provider  *//p'       | head -1)"
+  base="$(printf '%s' "$plan"     | sed -n 's/^  base url  *//p'       | head -1)"
+  model="$(printf '%s' "$plan"    | sed -n 's/^  model  *//p'          | head -1)"
+  window="$(printf '%s' "$plan"   | sed -n 's/^  context tokens  *//p' | head -1)"
+
+  if [ -z "$provider" ]; then
+    printf '%s||' "$alias"
+    return 0
+  fi
+
+  # Friendly provider names. Ollama says where it is, since that is the
+  # difference between a local model and one on another box.
+  case "$provider" in
+    ollama)
+      host="$(printf '%s' "$base" | sed -E 's#^[a-z]+://##; s#[:/].*$##')"
+      case "$host" in
+        localhost|127.0.0.1|::1|"") provider="Ollama (local)" ;;
+        *)                          provider="Ollama ($host)" ;;
+      esac
+      ;;
+    openrouter) provider="OpenRouter" ;;
+    openai)     provider="OpenAI" ;;
+  esac
+
+  ROUTE_CACHE="${ROUTE_CACHE}${alias}=${provider}|${model}|${window}"$'\n'
+  printf '%s|%s|%s' "$provider" "$model" "$window"
+}
+
+# Read a session's route out of its process ancestry ($2 is the ancestry_of
+# output). Prints "provider|model|window"; model and window are empty for
+# plain Anthropic.
+#
+# D6: this is why no launcher in the chain may use `exec`. An exec replaces the
+# launcher process with claude, erasing the very ancestor matched here, and
+# every routed session would silently report as plain Anthropic.
+detect_route() {
+  local cmd="$1" ancestry="$2" line acmd i=0 alias
+
+  # Preserve the pre-existing claude-code-router detection.
+  if echo "$cmd" | grep -q 'claude-code-router'; then
+    printf 'claude-code-router||'
+    return 0
+  fi
+
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    [ $((i++)) -ge "$ROUTE_ANCESTRY_DEPTH" ] && break
+    acmd="${line#*"$SEP"}"
+
+    # Named wrappers carry their alias implicitly; claude-run carries it as its
+    # first argument.
+    case "$acmd" in
+      *claude-run*)
+        alias=$(echo "$acmd" | sed -n 's/.*claude-run[[:space:]]\{1,\}\([^[:space:]-][^[:space:]]*\).*/\1/p')
+        [ -n "$alias" ] && { resolve_route_alias "$alias"; return 0; }
+        ;;
+      *claude-glm*)        resolve_route_alias glm; return 0 ;;
+      *claude-gpt*)        resolve_route_alias gpt; return 0 ;;
+      *claude-ollama*)     resolve_route_alias glm; return 0 ;;
+      *claude-openrouter*) resolve_route_alias gpt; return 0 ;;
+    esac
+  done <<< "$ancestry"
+
+  # No launcher ancestor. Strictly this is an inference from absence: the
+  # environment of a running process is not readable on macOS, so a session
+  # started some other way with ANTHROPIC_BASE_URL exported would look the
+  # same. In practice every unrouted session here is Anthropic, so say that.
+  printf 'Anthropic||'
+  return 0
+}
+
+# Latest Claude Code version known to this machine, without touching the
+# network: the higher of what `claude --version` reports (the auto-updater
+# keeps the install current) and the top entry of the changelog Claude Code
+# caches for itself. A session behind this has simply not been restarted since
+# an update landed.
+latest_claude() {
+  local installed cached
+  installed="$(claude --version 2>/dev/null | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || true)"
+  cached="$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' "$CLAUDE_HOME/cache/changelog.md" 2>/dev/null | cut -c4- || true)"
+  printf '%s\n%s\n' "$installed" "$cached" | grep . | sort -V | tail -1
+}
+LATEST_CLAUDE="$(latest_claude)"
+
+# Compare a session's version to LATEST_CLAUDE: "ok", "patch" (behind on the
+# patch number), "minor" (behind on major or minor), "" (unknown or ahead).
+version_lag() {
+  local v="$1" a1 a2 a3 b1 b2 b3
+  [ -z "$v" ] || [ "$v" = "-" ] || [ -z "$LATEST_CLAUDE" ] && return 0
+  IFS=. read -r a1 a2 a3 <<< "$v"
+  IFS=. read -r b1 b2 b3 <<< "$LATEST_CLAUDE"
+  if   [ "${a1:-0}" -lt "${b1:-0}" ] || { [ "${a1:-0}" -eq "${b1:-0}" ] && [ "${a2:-0}" -lt "${b2:-0}" ]; }; then printf 'minor'
+  elif [ "${a1:-0}" -eq "${b1:-0}" ] && [ "${a2:-0}" -eq "${b2:-0}" ] && [ "${a3:-0}" -lt "${b3:-0}" ]; then printf 'patch'
+  elif [ "$v" = "$LATEST_CLAUDE" ]; then printf 'ok'
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------- session state
+#
+# Seams, for whoever generalises this beyond Claude Code one day: the two
+# functions below (read_session_file, read_transcript) are the Claude Code
+# adapter, the only code that knows where one harness keeps its state.
+# detect_route above is the Patchbay enricher, the only code that knows about
+# the launchers. Everything else (process discovery, tree, table, JSON) is
+# harness-agnostic.
+
+# Read what the session wrote about itself. Sets: s_name s_name_derived
+# s_status s_session_id s_version. Everything is "-" when the file is absent
+# (a bare `claude -p` child, or a version that predates the file).
+#
+# status is one of idle, busy, or waiting; waiting comes with a waitingFor
+# string ("input needed", "dialog open", "sandbox request", ...), which is
+# folded into the status as "waiting (input needed)".
+read_session_file() {
+  local pid="$1" f="$CLAUDE_HOME/sessions/$pid.json" blob src waiting_for
+  s_name='-'; s_name_derived=0; s_status='-'; s_session_id=''; s_version='-'
+  [ -r "$f" ] || return 0
+  blob="$(cat "$f" 2>/dev/null || true)"
+  s_session_id="$(json_str sessionId "$blob")"
+  s_status="$(json_str status "$blob")";   : "${s_status:=-}"
+  waiting_for="$(json_str waitingFor "$blob")"
+  [ "$s_status" = "waiting" ] && [ -n "$waiting_for" ] && s_status="waiting ($waiting_for)"
+  s_version="$(json_str version "$blob")"; : "${s_version:=-}"
+  s_name="$(json_str name "$blob")";       : "${s_name:=-}"
+  # A derived name ("dotfiles-59") is a placeholder; remember that so the
+  # transcript's AI title can take its place.
+  src="$(json_str nameSource "$blob")"
+  [ "$src" = "derived" ] && s_name_derived=1
+  return 0
+}
+
+# Read what the transcript says about the last turn. Sets: t_model t_effort
+# t_ctx_used t_mode t_title t_age_min (minutes since the transcript last
+# changed). Empty when there is no transcript yet.
+read_transcript() {
+  local sid="$1" f last_asst usage in cc cr meta
+  t_model=''; t_effort=''; t_ctx_used=''; t_mode=''; t_title=''; t_age_min=''
+  [ -z "$sid" ] && return 0
+  f="$(ls "$CLAUDE_HOME"/projects/*/"$sid".jsonl 2>/dev/null | head -1)"
+  [ -z "$f" ] && return 0
+  t_age_min=$(( ($(date +%s) - $(stat -f %m "$f" 2>/dev/null || date +%s)) / 60 ))
+
+  # "<synthetic>" assistant lines are Claude Code's own error/interrupt
+  # messages, not model turns; skip them so a session whose last event was an
+  # error still reports its real model.
+  # LC_ALL=C: byte-wise grep is several times faster than UTF-8 on these
+  # multi-MB files, and the keys searched for are plain ASCII.
+  last_asst="$(tail -c "$TRANSCRIPT_TAIL_BYTES" "$f" 2>/dev/null \
+    | LC_ALL=C grep '"type":"assistant"' | LC_ALL=C grep -v '"model":"<synthetic>"' | tail -1 || true)"
+  if [ -n "$last_asst" ]; then
+    t_model="$(json_str model "$last_asst")"
+    t_effort="$(json_str effort "$last_asst")"
+    # Context at the last turn is everything the model was sent: fresh input
+    # plus what was read from or written to the prompt cache.
+    usage="$(printf '%s' "$last_asst" | sed -n 's/.*"usage":{\([^}]*\)}.*/\1/p' | head -1)"
+    in="$(json_num input_tokens "$usage")"
+    cc="$(json_num cache_creation_input_tokens "$usage")"
+    cr="$(json_num cache_read_input_tokens "$usage")"
+    t_ctx_used=$(( ${in:-0} + ${cc:-0} + ${cr:-0} ))
+  fi
+
+  # Titles and mode changes are rare lines that may sit anywhere in the file;
+  # one pass over the whole transcript picks up the last of each.
+  meta="$(LC_ALL=C grep -E '"type":"(ai-title|permission-mode)"' "$f" 2>/dev/null || true)"
+  t_title="$(printf '%s\n' "$meta" | grep '"type":"ai-title"' | tail -1 | sed -n 's/.*"aiTitle":"\([^"]*\)".*/\1/p' || true)"
+  t_mode="$(printf '%s\n' "$meta" | grep '"type":"permission-mode"' | tail -1 | sed -n 's/.*"permissionMode":"\([^"]*\)".*/\1/p' || true)"
+  case "$t_mode" in
+    bypassPermissions) t_mode="bypass" ;;
+    acceptEdits)       t_mode="accept-edits" ;;
+    dontAsk)           t_mode="dont-ask" ;;
+  esac
+  return 0
+}
+
+# Context window for a plain Anthropic session: 1M when the configured model
+# string says "[1m]", or when the session has already been observed above the
+# default (it evidently has the bigger window); else the default.
+anthropic_window() {
+  local used="${1:-0}" settings="$CLAUDE_HOME/settings.json" m
+  m="$(json_str model "$(cat "$settings" 2>/dev/null || true)")"
+  case "$m" in *1m*|*1M*) printf '1000000'; return 0 ;; esac
+  [ "$used" -gt "$CONTEXT_WINDOW_DEFAULT" ] && { printf '1000000'; return 0; }
+  printf '%s' "$CONTEXT_WINDOW_DEFAULT"
+}
+
+# ---------------------------------------------------------------- gather
+
+# Gather claude processes, excluding Claude Desktop (Electron app)
+pids=()
+while IFS= read -r line; do
+  pid=$(echo "$line" | awk '{print $2}')
+  pids+=("$pid")
+done < <(ps aux | grep -E '[c]laude' \
+  | grep -v 'Claude\.app' \
+  | grep -v 'Claude Helper' \
+  | grep -v 'Claude Renderer' \
+  | grep -v 'claude-ps' \
+  | grep -v 'shell-snapshots' \
+  | grep -vE 'claude-(run|glm|gpt|ollama|openrouter|route-selftest)')
+  # ^ The route launchers themselves. Every one has "claude" in its command
+  #   line, so without this a single `claude-glm` reports as three or four
+  #   rows: the wrapper, claude-run, and the session it started. They are the
+  #   scaffolding around a session, not sessions.
+  #
+  #   This exclusion is why the launchers must not be renamed casually, and it
+  #   is deliberately narrow: `claude-code-router` is NOT excluded, because it
+  #   is a real routing layer worth reporting.
+
+all_pids="${pids[*]:-}"
+
+# One lsof for every session's working directory instead of one per session;
+# lsof is the slow part of this script. -F output is "p<pid>" / "n<name>".
+LSOF_TABLE=""
+if [ -n "${all_pids// /}" ]; then
+  LSOF_TABLE="$(lsof -a -p "$(printf '%s' "$all_pids" | tr ' ' ',')" -d cwd -Fpn 2>/dev/null || true)"
+fi
+cwd_of() {
+  printf '%s\n' "$LSOF_TABLE" | awk -v want="$1" '
+    /^p/ { p = substr($0, 2) }
+    /^n/ && p == want { print substr($0, 2); exit }'
+}
+
+# Row layout (SEP-separated), one row per process, 1-based field numbers:
+readonly F_PID=1 F_PARENT=2 F_NAME=3 F_STATUS=4 F_CWD=5 F_BRANCH=6 F_UPTIME=7 \
+         F_MEM=8 F_CPU=9 F_HARNESS=10 F_PROVIDER=11 F_MODEL=12 F_EFFORT=13 \
+         F_CTX=14 F_MODE=15 F_CTX_USED=16 F_CTX_WINDOW=17 F_CTX_PCT=18 \
+         F_HARNESS_LAG=19 F_STATUS_CLASS=20
+field() { printf '%s' "$2" | cut -d "$SEP" -f "$1"; }
+
+declare -a rows=()
+for pid in "${pids[@]:-}"; do
+  [ -z "$pid" ] && continue
+  # The ps snapshot above and the per-PID lookups below are separate moments,
+  # so a short-lived process can appear in the list and be gone by now. It then
+  # renders as a row of "unknown" with no working directory, which looks like a
+  # broken session rather than the race it is. Drop it.
+  ps -p "$pid" >/dev/null 2>&1 || continue
+
+  cwd=$(cwd_of "$pid")
+  [ -z "$cwd" ] && cwd="unknown"
+  cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "unknown")
+
+  # Uptime, memory (RSS in MB), CPU. %cpu is ps's decaying average of recent
+  # use for this process, as a percentage of one core (so it can exceed 100).
+  read -r etime rss cpu pstate < <(ps -o etime=,rss=,%cpu=,stat= -p "$pid" 2>/dev/null || echo "0:00 0 0 ?")
+  uptime="$(humanize_etime "$etime")"
+  mem="$(( ${rss:-0} / 1024 ))M"
+  cpu="${cpu:-0}%"
+
+  branch=$(git_branch "$cwd")
+  display_cwd=$(echo "$cwd" | sed "s|^$HOME|~|")
+  ancestry="$(ancestry_of "$pid" "$PARENT_ANCESTRY_DEPTH")"
+  parent=$(find_parent_session "$ancestry" "$all_pids")
+
+  # Provider / model / window from the launch route, then what the session
+  # itself recorded. The transcript's model is observed, so it wins when known.
+  IFS='|' read -r provider route_model route_window <<< "$(detect_route "$cmd" "$ancestry")"
+  read_session_file "$pid"
+  read_transcript "$s_session_id"
+
+  # Refine the self-reported status with what the OS and the transcript say.
+  # The session file cannot report a session that is dead or wedged.
+  status="$s_status"; status_class=""
+  case "$pstate" in
+    Z*) status="zombie";  status_class="bad" ;;
+    T*) status="stopped"; status_class="bad" ;;
+    *)
+      case "$s_status" in
+        idle)     status_class="idle" ;;
+        waiting*) status_class="bad" ;;
+        busy)
+          if [ -n "$t_age_min" ] && [ "$t_age_min" -ge "$BUSY_STALE_MINUTES" ]; then
+            status="busy (stale $(humanize_minutes "$t_age_min"))"; status_class="warn"
+          else
+            status_class="good"
+          fi
+          ;;
+      esac
+      ;;
+  esac
+
+  name="$s_name"
+  [ "$s_name_derived" = 1 ] && [ -n "$t_title" ] && name="$t_title"
+
+  model="${t_model:-${route_model:--}}"
+  effort="${t_effort:--}"
+  mode="${t_mode:--}"
+
+  # The harness is the program running the session. Only Claude Code is
+  # detected today; the column exists so others (opencode, aider, ...) have a
+  # place to land without reshaping the table.
+  harness="claude"
+  [ "$s_version" != "-" ] && harness="claude ($s_version)"
+  harness_lag="$(version_lag "$s_version")"
+
+  window="${route_window:-$(anthropic_window "${t_ctx_used:-0}")}"
+  ctx_pct=0
+  if [ -n "$t_ctx_used" ]; then
+    ctx_pct=$(( t_ctx_used * 100 / window ))
+    ctx="$(humanize_tokens "$t_ctx_used")/$(humanize_tokens "$window") (${ctx_pct}%)"
+  else
+    ctx="-"
+  fi
+
+  rows+=("${pid}${SEP}${parent}${SEP}${name}${SEP}${status}${SEP}${display_cwd}${SEP}${branch}${SEP}${uptime}${SEP}${mem}${SEP}${cpu}${SEP}${harness}${SEP}${provider}${SEP}${model}${SEP}${effort}${SEP}${ctx}${SEP}${mode}${SEP}${t_ctx_used:-0}${SEP}${window}${SEP}${ctx_pct}${SEP}${harness_lag}${SEP}${status_class}")
+done
+
+# Apply the filter against name, working directory, and branch.
+if [ -n "$filter" ]; then
+  kept=()
+  for row in "${rows[@]:-}"; do
+    [ -z "$row" ] && continue
+    if printf '%s\n%s\n%s\n' "$(field $F_NAME "$row")" "$(field $F_CWD "$row")" "$(field $F_BRANCH "$row")" \
+        | grep -qiF -- "$filter"; then
+      kept+=("$row")
+    fi
+  done
+  rows=("${kept[@]:-}")
+fi
+
+live_pids=""
+for row in "${rows[@]:-}"; do
+  [ -z "$row" ] && continue
+  live_pids="$live_pids ${row%%"$SEP"*}"
+done
+
+if [ -z "${live_pids// /}" ]; then
+  if [ "$json" -eq 1 ]; then echo "[]"
+  elif [ "$quiet" -eq 1 ]; then :
+  elif [ -n "$filter" ]; then echo "No running Claude Code sessions match '$filter'."
+  else echo "No running Claude Code sessions found."
+  fi
+  exit 0
+fi
+
+# Order: top-level sessions sorted by working directory then PID, each followed
+# by the children it spawned (same sort), recursively. A child whose parent was
+# filtered out is promoted to top level so it still shows. Each entry is
+# "depth<SEP>row".
+sorted_rows=()
+emit_tree() {   # $1 = parent pid ("" for top level), $2 = depth
+  local want="$1" depth="$2" row pid parent
+  while IFS= read -r row; do
+    [ -z "$row" ] && continue
+    sorted_rows+=("${depth}${SEP}${row}")
+    pid="${row%%"$SEP"*}"
+    emit_tree "$pid" $((depth + 1))
+  done < <(
+    for row in "${rows[@]}"; do
+      parent=$(field $F_PARENT "$row")
+      in_list "$parent" "$live_pids" || parent=""
+      [ "$parent" = "$want" ] && printf '%s\n' "$row"
+    done | sort -t "$SEP" -k${F_CWD},${F_CWD} -k${F_PID},${F_PID}n
+  )
+}
+emit_tree "" 0
+
+# ---------------------------------------------------------------- output
+
+if [ "$quiet" -eq 1 ]; then
+  for row in "${sorted_rows[@]}"; do
+    printf '%s\n' "$(field $((F_PID + 1)) "$row")"
+  done
+  exit 0
+fi
+
+if [ "$json" -eq 1 ]; then
+  printf '['
+  first=1
+  for row in "${sorted_rows[@]}"; do
+    IFS="$SEP" read -r depth pid parent name status dir branch uptime mem cpu harness provider model effort ctx mode ctx_used window ctx_pct harness_lag status_class <<< "$row"
+    in_list "$parent" "$live_pids" || parent=""
+    [ "$first" -eq 1 ] || printf ','
+    first=0
+    printf '\n  {"pid": %s, "parent": %s, "name": "%s", "status": "%s", "cwd": "%s", "branch": "%s", "uptime": "%s", "mem_mb": %s, "cpu_pct": %s, "harness": "%s", "provider": "%s", "model": "%s", "effort": "%s", "context_used": %s, "context_window": %s, "context_pct": %s, "mode": "%s", "harness_latest": "%s", "harness_lag": "%s"}' \
+      "$pid" "${parent:-null}" "$(json_escape "$name")" "$status" "$(json_escape "$dir")" \
+      "$(json_escape "$branch")" "$uptime" "${mem%M}" "${cpu%\%}" "$(json_escape "$harness")" \
+      "$(json_escape "$provider")" "$(json_escape "$model")" "$effort" \
+      "$ctx_used" "$window" "$ctx_pct" "$mode" "$LATEST_CLAUDE" "${harness_lag:-unknown}"
+  done
+  printf '\n]\n'
+  exit 0
+fi
+
+# Table. Columns are (header, source field, alignment).
+# Every column is sized to its contents; names and models vary a lot.
+cols_hdr=(NAME "WORKING DIRECTORY" BRANCH HARNESS PROVIDER MODEL EFFORT CONTEXT)
+cols_fld=($F_NAME $F_CWD $F_BRANCH $F_HARNESS $F_PROVIDER $F_MODEL $F_EFFORT $F_CTX)
+cols_aln=(L L L L L L L R)
+if [ "$long" -eq 1 ]; then
+  cols_hdr+=(MODE PID STATUS UPTIME MEM CPU)
+  cols_fld+=($F_MODE $F_PID $F_STATUS $F_UPTIME $F_MEM $F_CPU)
+  cols_aln+=(L R L R R R)
+fi
+ncols=${#cols_hdr[@]}
+
+# Colour only when a human is looking. A coloured cell carries a leading
+# marker byte (one per colour); it is stripped for sizing and replaced by the
+# escape sequence (or nothing) at print time, so padding stays correct.
+readonly M_RED=$'\x01' M_YELLOW=$'\x02' M_GREEN=$'\x03' M_GRAY=$'\x04'
+if [ -t 1 ]; then
+  RED=$'\033[31m'; YELLOW=$'\033[33m'; GREEN=$'\033[32m'; GRAY=$'\033[90m'; RESET=$'\033[0m'
+  tty=1
+else
+  RED=""; YELLOW=""; GREEN=""; GRAY=""; RESET=""
+  tty=0
+fi
+# Strip a leading colour marker, if any; sets `plain` and `color`.
+uncolor() {
+  plain="$1"; color=""
+  case "${1:0:1}" in
+    "$M_RED")    color="$RED";    plain="${1:1}" ;;
+    "$M_YELLOW") color="$YELLOW"; plain="${1:1}" ;;
+    "$M_GREEN")  color="$GREEN";  plain="${1:1}" ;;
+    "$M_GRAY")   color="$GRAY";   plain="${1:1}" ;;
+  esac
+}
+
+# Status colour for a class: the STATUS word and the margin dot share it.
+status_marker() {
+  case "$1" in
+    good) printf '%s' "$M_GREEN" ;;
+    warn) printf '%s' "$M_YELLOW" ;;
+    bad)  printf '%s' "$M_RED" ;;
+    idle) printf '%s' "$M_GRAY" ;;
+  esac
+}
+
+# Materialize display cells per row (children get the tree marker on NAME),
+# plus a status-coloured dot per row for the left margin, so the status colour
+# is visible even when the STATUS column is not. Only drawn on a terminal; in
+# a pipe it would carry no colour and would shift every field by one.
+cells=()   # flat, row-major, ncols per row
+dots=()    # one per row
+for row in "${sorted_rows[@]}"; do
+  depth="${row%%"$SEP"*}"
+  body="${row#*"$SEP"}"
+  m="$(status_marker "$(field $F_STATUS_CLASS "$body")")"
+  if [ -n "$m" ]; then dots+=("${m}●"); else dots+=(" "); fi
+  for ((c = 0; c < ncols; c++)); do
+    v="$(field "${cols_fld[$c]}" "$body")"
+    if [ "${cols_fld[$c]}" = "$F_NAME" ] && [ "$depth" -gt 0 ]; then
+      v="$(printf '%*s' $((depth * 2)) '')└ $v"
+    fi
+    if [ "${cols_fld[$c]}" = "$F_CTX" ] && [ "$(field $F_CTX_PCT "$body")" -ge "$CONTEXT_WARN_PCT" ]; then
+      v="${M_RED}${v}"
+    fi
+    [ "${cols_fld[$c]}" = "$F_STATUS" ] && v="${m}${v}"
+    if [ "${cols_fld[$c]}" = "$F_HARNESS" ]; then
+      case "$(field $F_HARNESS_LAG "$body")" in
+        ok)    v="${M_GREEN}${v}" ;;
+        patch) v="${M_YELLOW}${v}" ;;
+        minor) v="${M_RED}${v}" ;;
+      esac
+    fi
+    cells+=("$v")
+  done
+done
+
+# The first column is "AGENT NAME" when it has room to say so, "NAME" when
+# every name is shorter than that and the longer header would only add pad.
+longest_name=0
+for ((i = 0; i < ${#cells[@]}; i += ncols)); do
+  uncolor "${cells[$i]}"
+  [ ${#plain} -gt "$longest_name" ] && longest_name=${#plain}
+done
+[ "$longest_name" -ge ${#cols_hdr[0]} ] && cols_hdr[0]="AGENT NAME"
+
+w=()
+for ((c = 0; c < ncols; c++)); do w+=("${#cols_hdr[$c]}"); done
+for ((i = 0; i < ${#cells[@]}; i++)); do
+  c=$((i % ncols))
+  uncolor "${cells[$i]}"
+  [ ${#plain} -gt "${w[$c]}" ] && w[$c]=${#plain}
+done
+
+dashes() { printf '%*s' "$1" '' | tr ' ' '-'; }
+
+print_row() {   # $1 = margin dot (may be empty), then one value per column
+  local c out="" v plain color dot pad
+  uncolor "$1"; shift
+  dot="$plain"; [ -n "$color" ] && dot="${color}${dot}${RESET}"
+  if [ "$tty" -eq 1 ]; then out="${dot:- } "; else out=" "; fi
+  for ((c = 0; c < ncols; c++)); do
+    uncolor "$1"; shift
+    # Pad by character count, not printf's byte count: the child marker "└"
+    # is three bytes wide in UTF-8 and one column wide on screen.
+    pad=$(( w[c] - ${#plain} )); [ "$pad" -lt 0 ] && pad=0
+    if [ "${cols_aln[$c]}" = R ]; then
+      v="$(printf '%*s%s' "$pad" '' "$plain")"
+    else
+      v="$(printf '%s%*s' "$plain" "$pad" '')"
+    fi
+    [ -n "$color" ] && v="${color}${v}${RESET}"
+    out+="$v"
+    [ $c -lt $((ncols - 1)) ] && out+="  "
+  done
+  printf ' %s\n' "${out%"${out##*[![:space:]]}"}"   # trim trailing pad
+}
+
+if [ "$header" -eq 1 ]; then
+  printf "\n"
+  print_row "" "${cols_hdr[@]}"
+  d=(); for ((c = 0; c < ncols; c++)); do d+=("$(dashes "${w[$c]}")"); done
+  print_row "" "${d[@]}"
+fi
+for ((i = 0; i < ${#cells[@]}; i += ncols)); do
+  print_row "${dots[$((i / ncols))]}" "${cells[@]:$i:$ncols}"
+done
+[ "$header" -eq 1 ] && printf "\n"
+exit 0

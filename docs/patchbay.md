@@ -30,7 +30,7 @@ bin/claude-glm          Ollama, local, glm-4.7-flash          free,  ~4 min to f
 bin/claude-gpt          OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 sec
 bin/claude-ollama       the Ollama default
 bin/claude-openrouter   the OpenRouter default
-bin/what-claude         which backend every running session is on
+bin/claude-ps           every running session: backend, model, context, status
 bin/claude-route-selftest   105 assertions, no session, no spend
 ```
 
@@ -126,7 +126,7 @@ four harnesses times six models is not. The general form:
 ```bash
 pbay run claude glm          # what claude-glm does today
 pbay run aider deepseek
-pbay ps                      # what-claude, absorbed
+pbay ps                      # claude-ps, as an alias
 pbay doctor                  # preflight: op, key, credit limit, ollama, window
 pbay models --refresh        # discover and cache; catalogs churn
 pbay config set default.claude glm
@@ -142,7 +142,7 @@ the doctor script, the periodic model-slug refresh, and the harness expansion.
 
 **Design notes for whoever builds it:**
 
-- `pbay ps` must keep reporting *unrouted* sessions. `what-claude` is useful
+- `pbay ps` must keep reporting *unrouted* sessions. `claude-ps` is useful
   beyond Patchbay, and narrowing it to routed sessions only would be a
   regression.
 - The model cache is **account-specific**, not global. Zero Data Retention

@@ -15,6 +15,6 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# NO `exec` (D6). what-claude reports each session's route by walking process
+# NO `exec` (D6). claude-ps reports each session's route by walking process
 # ancestry; exec would replace this shell and erase the ancestor it matches on.
 "$SCRIPT_DIR/claude-run" glm "$@"

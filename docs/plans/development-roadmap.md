@@ -156,6 +156,16 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 - **A periodic model-slug refresh.** OpenRouter's catalog churns and several 2025-era slugs already carry expiration dates.
 - **Bake `num_ctx` into `Modelfile.glm-4.7-flash`.** Fixes both the `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`, since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which is silent when absent; a baked-in parameter survives any start method. Demoted from a Gate A blocker on 2026-07-30 once `/api/ps` showed the effective window was already correct.
 
+### Write up `claude-ps` (blog / LinkedIn / internal Facet post)
+
+**Thread:** Tools
+
+**Goal:** A short post introducing `bin/claude-ps`, the `ps` for Claude Code sessions: agent name, working directory, branch, harness version (green/yellow/red against latest), provider, model, effort, context used with a red cell past 80%, and with `-l` the permission mode, PID, status (idle / busy / waiting / stale / zombie / stopped, with a coloured margin dot), uptime, memory, CPU. Subagents nest under their parent. Angle: everything it shows comes from what Claude Code already writes to disk (`~/.claude/sessions/<pid>.json`, the transcript) plus the process table; no daemon, no network, one bash script. Decide the venue (personal blog, LinkedIn, or the internal Facet channel) when writing; the content is the same.
+
+**Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
+
+**Status:** Queued 2026-08-19. Write after the `claude-ps` overhaul commit lands. If the tool gets generalised beyond Claude Code (see the seam comment in the script and the `pbay ps` note in [patchbay.md](../patchbay.md)), the post should wait for that name instead.
+
 ### Patchbay v2: the `pbay` front door
 
 **Thread:** Tools

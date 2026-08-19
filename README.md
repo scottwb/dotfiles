@@ -105,7 +105,7 @@ either knowing about the other, and nothing global is flipped to switch.
 | `claude-openrouter` | OpenRouter | the OpenRouter default (currently `gpt`) | ~$0.06-0.10/turn | ~4 s |
 
 All four are three-line wrappers over `bin/claude-run`, which owns the provider
-table, the model table, and all environment construction. `bin/what-claude`
+table, the model table, and all environment construction. `bin/claude-ps`
 shows which backend every running session is on.
 
 Inspect any launcher without starting anything:
@@ -160,7 +160,7 @@ values were measured rather than guessed.
 
 ### Never use `exec` in a launcher
 
-`what-claude` reports each session's route by walking process ancestry.
+`claude-ps` reports each session's route by walking process ancestry.
 `exec` replaces the launcher process with `claude`, erasing the ancestor that
 detection matches on, and **every routed session silently reports as plain
 Anthropic**. Nothing errors; the column just quietly lies.

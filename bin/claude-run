@@ -471,7 +471,7 @@ done <<< "$ROUTE_ENV"
 
 # D6: NO `exec` HERE, AND NONE IN ANY WRAPPER.
 #
-# what-claude reports each session's route by walking process ancestry with
+# claude-ps reports each session's route by walking process ancestry with
 # `ps -o ppid=` and matching ancestors against claude-run and its wrappers.
 # `exec` replaces this shell with the claude process, erasing the very ancestor
 # that detection depends on, and the ROUTE column would silently fall back to
