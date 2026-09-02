@@ -23,6 +23,7 @@ Related but living elsewhere in this repo:
 | What | Where | Doc |
 |---|---|---|
 | **Patchbay**, the harness/model/provider launchers | `bin/claude-run`, `bin/claude-*` | [docs/patchbay.md](../docs/patchbay.md) |
+| Session listing, and how Claude Code runs background work | `bin/claude-ps`, `bin/agent` | [docs/claude-code-background-sessions.md](../docs/claude-code-background-sessions.md) |
 
 ## Conventions
 
