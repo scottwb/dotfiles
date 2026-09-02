@@ -24,15 +24,19 @@
       "Bash(wc:*)",
       "Bash(which:*)",
       "Bash(whoami)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(slackline-read:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "auto"
   },
-  "model": "claude-fable-5[1m]",
+  "model": "claude-fable-5-1[1m]",
   "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "agentPushNotifEnabled": false,
   "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. Keep this file secret-free; it lives in the PUBLIC dotfiles repo. NON-ANTHROPIC BACKENDS: the parked x-env Ollama profile that used to live here was retired on 2026-08-01, replaced by the per-process launchers in bin/ (claude-glm, claude-gpt, claude-ollama, claude-openrouter, all thin wrappers over bin/claude-run). Routing is now per process rather than a global settings flip, so a routed session and a plain Max session run side by side and this file never needs editing to switch. The audit tier decision that lived in the x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME marker is ANSWERED and now recorded in bin/claude-run: routed profiles leave the fable tier deliberately unmapped so Servanda gates halt loudly rather than running a weak adversarial audit. See docs/plans/claude-route-launchers.md and docs/assessments/route-gates.md.",
-  "gitAttribution": false
+  "attribution": {
+    "sessionUrl": false
+  }
 }
