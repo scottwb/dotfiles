@@ -20,10 +20,27 @@ image-cache/
 paste-cache/
 stats-cache.json
 tasks/
+gh-pr-status-cache.json
 telemetry/
 .last-cleanup
 .last-update-result.json
 mcp-needs-auth-cache.json
+
+# Background job and daemon runtime state. Same reason as security/ below: the
+# job records carry `cwd` and repo identifiers from WHATEVER repo the session
+# ran in, so committing them would publish project paths into this PUBLIC repo.
+# Observed untracked and unignored on 2026-08-06.
+daemon/
+daemon.log
+daemon.lock
+daemon.status.json
+jobs/
+
+# Drafted product feedback awaiting send. Same reason as security/ and jobs/:
+# a draft quotes whatever session prompted it, so it can carry paths and
+# content from WHATEVER repo that session was in. Empty today, which is the
+# only reason it has not already shown up untracked.
+feedback/
 
 # Analytics and feature flags
 statsig/
