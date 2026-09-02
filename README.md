@@ -92,7 +92,7 @@ Claude Code route launchers
 `bin/` holds a family of launchers that run Claude Code against non-Anthropic
 backends, one process at a time.
 
-**Plain `claude` and `claudedsp` are deliberately untouched.** They stay on the
+**Plain `claude` is deliberately untouched.** It stays on the
 Max subscription with no wrapper in the path and no telemetry changes. Routing
 is per process, so a routed session and a plain one run side by side without
 either knowing about the other, and nothing global is flipped to switch.

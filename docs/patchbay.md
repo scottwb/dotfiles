@@ -153,6 +153,45 @@ the doctor script, the periodic model-slug refresh, and the harness expansion.
   is a different program. Decide the language deliberately rather than
   discovering it at 900 lines.
 
+### `bin/agent` and `pbay` are the same shape
+
+`bin/agent` exists on disk today, untracked as of 2026-09-02. It is v0 and
+deliberately small: a `DEFAULTS` array (`--model opus --effort high
+--remote-control --permission-mode auto`), a session name derived from the
+current directory's basename, a check that backs off if the caller passed
+`-n`/`--name` themselves, the caller's own arguments appended last so they
+always win, a canary line to stderr naming the exact command, and `exec`. Its
+header says directory-aware config comes later.
+
+That is the same job `pbay run` describes above: choose the right defaults for
+a context, then exec a harness. `agent` picks them by *directory*; `pbay run`
+picks them by *backend*. Two axes of the same lookup, and `agent`'s hardcoded
+`DEFAULTS` array is the thing `~/.pbay/` config is meant to replace.
+
+**Decision, 2026-09-02: keep both names.** Scott expects to stay attached to
+`agent`, and it is the verb he actually types. The likely shape is one
+implementation with two doors:
+
+- `agent` stays the ergonomic front door. No subcommand, no ceremony, just
+  "start a session here with the right defaults." This is the common case and
+  it should stay one word.
+- `pbay` is the full CLI: `run`, `ps`, `doctor`, `models`, `config`,
+  `providers`. Everything that needs a noun and a verb.
+
+So `agent` becomes either a thin wrapper over `pbay run` with the directory
+profile applied, or the same binary dispatching on `argv[0]`. Whoever builds
+this should not treat the two names as a thing to resolve. They are a
+deliberate keep-both.
+
+Two things to carry across when they merge:
+
+- `agent`'s defaults are per-machine and hardcoded, which was fine for v0 and
+  is exactly what the config store is for. The migration is DEFAULTS becoming a
+  profile, not a rewrite.
+- The canary line matters. It is how you find out that a different `agent` is
+  shadowing this one on PATH, or that you are not in the directory you thought
+  you were. Keep it, on stderr, printing the resolved command.
+
 ### The trigger for building it
 
 **The first time you want aider or codex against a routed backend for real

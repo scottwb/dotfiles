@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# agent - launch a coding agent with the right defaults for this directory.
+#
+# v0: always claude. Config is the DEFAULTS array below.
+# Anything you pass on the command line is appended, so it wins.
+#
+#   agent                      # interactive, named after this dir
+#   agent "fix the auth bug"   # same, with an opening prompt
+#   agent --model opus         # your flag lands after the defaults
+#   agent -n donna             # your own name; the auto-name backs off
+
+set -euo pipefail
+
+# --- defaults ---------------------------------------------------------------
+# Put per-machine defaults here for now. Directory-aware config comes later.
+DEFAULTS=(
+  --model opus
+  --effort high
+  --remote-control
+  --permission-mode auto
+)
+
+# --- session name -----------------------------------------------------------
+# Named after the current directory. Claude Code dedupes live sessions on the
+# same machine by appending a variant, so two sessions in the same dir get
+# distinct names without any work here.
+auto_name="${PWD##*/}"
+auto_name="${auto_name// /-}"
+
+# Back off if the caller named the session themselves.
+user_named=false
+for arg in "$@"; do
+  case "$arg" in
+    -n|--name|-n=*|--name=*) user_named=true; break ;;
+  esac
+done
+
+NAME_ARGS=()
+if [[ "$user_named" == false ]]; then
+  NAME_ARGS=(--name "$auto_name")
+fi
+
+# --- go ---------------------------------------------------------------------
+CMD=(claude "${DEFAULTS[@]}" "${NAME_ARGS[@]}" "$@")
+
+# The canary: if a different `agent` ever shadows this one, or you are not in
+# the directory you think you are, this line is where you find out.
+printf 'agent: %s\n' "${CMD[*]}" >&2
+
+exec "${CMD[@]}"

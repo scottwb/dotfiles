@@ -6,10 +6,11 @@
 # environment construction; bin/claude-glm, bin/claude-gpt, bin/claude-ollama
 # and bin/claude-openrouter are thin wrappers over it.
 #
-# Plain `claude` and `claudedsp` are deliberately untouched and stay on the
-# Anthropic Max subscription. Routing here is per process, so a routed session
-# and a plain one can run side by side. Gate A proved that routing does not
-# disturb the stored Max OAuth credentials.
+# Plain `claude` is deliberately untouched and stays on the Anthropic Max
+# subscription. Routing here is per process, so a routed session and a plain
+# one can run side by side. Gate A proved that routing does not disturb the
+# stored Max OAuth credentials. The `claudedsp` alias carried the same
+# guarantee until it was retired on 2026-09-02; bin/agent covers it now.
 #
 # Usage:
 #   claude-run <alias> [claude args...]

@@ -1,5 +1,12 @@
 # Plan: Claude Code Route Launchers (OpenRouter + Ollama)
 
+> **Note, 2026-09-02.** This plan repeatedly promises that `claude` and
+> `claudedsp` stay untouched, including in decision D1. The `claudedsp` alias
+> has since been retired: `bin/agent` launches with `--permission-mode auto`
+> and `.claude/settings.json` sets that as the default, so the alias bought
+> nothing. The guarantee still holds for plain `claude`. The text below is left
+> as written, because it records what was decided at the time.
+
 ## Execution Instructions
 
 When executing this plan:
