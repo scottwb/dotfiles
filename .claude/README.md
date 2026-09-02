@@ -7,6 +7,7 @@ of them.
 | What | Where | Doc |
 |---|---|---|
 | **Servanda**, the workflow command kit | `commands/`, `COMMANDS.md` | [docs/servanda.md](docs/servanda.md) |
+| **/office-hours**, a standalone lightning round for open questions | `commands/office-hours.md` | itself |
 | Session settings and permissions | `settings.json` | inline `x-instructions` key |
 | Global agent instructions | `CLAUDE.md` | itself |
 | Skills | `skills/` | each skill's own `SKILL.md` |
