@@ -19,3 +19,8 @@ typeset -U path fpath
 . ~/.zsh/completion
 
 export TERM=xterm
+
+# Tool shell integrations (direnv, ...). Sourced LAST so hooks land after
+# everything above that touches the prompt or precmd_functions, ~/.localrc
+# included. See the header of the file itself for the fpath/compinit exception.
+. ~/.zsh/integrations

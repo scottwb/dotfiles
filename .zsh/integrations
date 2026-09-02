@@ -1,0 +1,16 @@
+# Tool shell integrations: hooks a tool installs into the shell itself, as
+# opposed to the plain environment variables in ~/.zsh/environment.
+#
+# Sourced LAST from ~/.zshrc. A hook like direnv's has to be installed after
+# anything that manipulates the prompt or precmd_functions, ~/.localrc
+# included. The exception is an integration that adds to fpath: those have to
+# run before compinit and belong up beside the completion sourcing instead.
+#
+# Guard each block on the tool being present, and use `if` rather than
+# `cmd && eval`. With `&&`, a missing tool leaves $? at 1, which is harmless
+# but shows as a phantom error in any prompt that displays the last exit code.
+
+# direnv: auto-load and unload per-directory .envrc files.
+if command -v direnv >/dev/null 2>&1; then
+  eval "$(direnv hook zsh)"
+fi
