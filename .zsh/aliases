@@ -38,4 +38,3 @@ alias dcsh='./.devcontainer/dc sh'
 alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartSynchronize"
 alias zipp='zip -er'
 alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
-alias claudedsp="claude --dangerously-skip-permissions"
