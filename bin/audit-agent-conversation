@@ -1,0 +1,42 @@
+#!/bin/sh
+# Render a Claude Code session transcript into a single self-contained HTML
+# audit log page, written to ~/.ai-staff-audit-log/.
+#
+# Thin wrapper over the audit-agent-conversation skill's Python package. All
+# the behavior, and all the documentation, live there:
+#   .claude/skills/audit-agent-conversation/
+#
+# Resolves its own location rather than trusting cwd, and follows a symlink
+# back to the real file first, so this works both from the repo and from
+# ~/bin/audit-agent-conversation once the dotfiles are linked into $HOME.
+#
+# Usage:
+#   audit-agent-conversation --project greenthumb --latest
+#   audit-agent-conversation 9608087e --project greenthumb --from donna
+#   audit-agent-conversation path/to/session.jsonl --stdout
+#   audit-agent-conversation --help
+set -e
+
+self=$0
+# Resolve a chain of symlinks without depending on GNU readlink -f, which
+# macOS does not ship.
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in
+    /*) self=$link ;;
+    *)  self=$(dirname "$self")/$link ;;
+  esac
+done
+bindir=$(cd "$(dirname "$self")" && pwd)
+
+skill=$bindir/../.claude/skills/audit-agent-conversation
+if [ ! -d "$skill/scripts/auditlog" ]; then
+  echo "audit-agent-conversation: cannot find the skill package at $skill" >&2
+  echo "  (expected alongside this script, at ../.claude/skills/)" >&2
+  exit 127
+fi
+
+PYTHONPATH="$skill/scripts${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+
+exec python3 -m auditlog.cli "$@"

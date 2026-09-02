@@ -1,0 +1,14 @@
+#!/bin/sh
+# Run the audit-log test suite.
+#
+# Works relative to this script's own location, not the caller's cwd, so it can
+# be run from anywhere. stdlib unittest only: no pytest, no venv, no install.
+set -e
+
+here=$(cd "$(dirname "$0")" && pwd)
+cd "$here"
+
+PYTHONPATH="$here/scripts${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+
+exec python3 -m unittest discover -s tests -t . "$@"

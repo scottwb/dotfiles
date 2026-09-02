@@ -1,0 +1,109 @@
+{
+  "_comment": [
+    "Maintained rate table, dollars per MILLION tokens, keyed by model id.",
+    "Rates go stale. They live here rather than in code so updating them is a",
+    "data edit, and so a page can state which day its figures were checked.",
+    "Cache writes bill at a multiple of base input: 1.25x on the 5-minute TTL,",
+    "2x on the 1-hour TTL. Cache reads bill at 0.1x.",
+    "Reasoning tokens are a SUBSET of output tokens and bill at the output rate.",
+    "They are never a separate line item; see cost.REASONING_IS_SUBSET_OF_OUTPUT.",
+    "",
+    "`unpriced` lists models that really do appear in transcripts but have no",
+    "Anthropic list price: locally hosted models, models reached through a",
+    "routed backend, and the harness's own synthetic messages. A session on one",
+    "of these renders with the cost figures suppressed and a note saying why.",
+    "That is different from an UNKNOWN model, which is a loud error, because a",
+    "missing entry usually means the table needs updating.",
+    "",
+    "`providers` names who served each model. Transcripts record no provider,",
+    "base URL, or endpoint, so this is inferred from the model id and nothing",
+    "else. Every model under `models` is Anthropic without needing an entry;",
+    "unpriced models are listed explicitly. Which Ollama HOST served a session",
+    "is not recoverable and is never guessed: the provider is as far as it goes."
+  ],
+  "verified": "2026-08-15",
+  "source": "claude-api skill, published list rates",
+  "models": {
+    "claude-fable-5": {
+      "input": 10.00,
+      "output": 50.00,
+      "cache_write_5m": 12.50,
+      "cache_write_1h": 20.00,
+      "cache_read": 1.00
+    },
+    "claude-mythos-5": {
+      "input": 10.00,
+      "output": 50.00,
+      "cache_write_5m": 12.50,
+      "cache_write_1h": 20.00,
+      "cache_read": 1.00
+    },
+    "claude-opus-5": {
+      "input": 5.00,
+      "output": 25.00,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.00,
+      "cache_read": 0.50
+    },
+    "claude-opus-4-8": {
+      "input": 5.00,
+      "output": 25.00,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.00,
+      "cache_read": 0.50
+    },
+    "claude-opus-4-7": {
+      "input": 5.00,
+      "output": 25.00,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.00,
+      "cache_read": 0.50
+    },
+    "claude-opus-4-6": {
+      "input": 5.00,
+      "output": 25.00,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.00,
+      "cache_read": 0.50
+    },
+    "claude-sonnet-5": {
+      "input": 3.00,
+      "output": 15.00,
+      "cache_write_5m": 3.75,
+      "cache_write_1h": 6.00,
+      "cache_read": 0.30
+    },
+    "claude-sonnet-4-6": {
+      "input": 3.00,
+      "output": 15.00,
+      "cache_write_5m": 3.75,
+      "cache_write_1h": 6.00,
+      "cache_read": 0.30
+    },
+    "claude-haiku-4-5-20251001": {
+      "input": 1.00,
+      "output": 5.00,
+      "cache_write_5m": 1.25,
+      "cache_write_1h": 2.00,
+      "cache_read": 0.10
+    }
+  },
+  "aliases": {
+    "claude-opus-5[1m]": "claude-opus-5",
+    "claude-sonnet-5[1m]": "claude-sonnet-5",
+    "claude-fable-5[1m]": "claude-fable-5",
+    "claude-haiku-4-5": "claude-haiku-4-5-20251001"
+  },
+  "unpriced": {
+    "<synthetic>": "a harness-generated message, not an API call",
+    "glm-4.7-flash": "runs locally through Ollama, so no per-token price applies",
+    "qwen3:30b-a3b": "runs locally through Ollama, so no per-token price applies",
+    "openai/gpt-5.6-sol": "reached through a routed non-Anthropic backend"
+  },
+  "providers": {
+    "<synthetic>": "Claude Code",
+    "glm-4.7-flash": "Ollama",
+    "qwen3:30b-a3b": "Ollama",
+    "openai/gpt-5.6-sol": "OpenRouter"
+  }
+}
