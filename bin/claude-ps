@@ -16,9 +16,12 @@
 #   -h, --help      Show this help
 #
 # NAME is the /rename title when one was set, else Claude's auto-generated
-# title, else the derived "<dir>-<id>" name. A row indented with "└" is a
-# claude process spawned from the session above it (a subagent, hook, or
-# `claude -p`). CONTEXT is tokens in context at
+# title, else the derived "<dir>-<id>" name, else a bracketed label such as
+# [daemon] or [spare] for a background process that keeps no session file of
+# its own. A row indented with "└" is a claude process spawned from the
+# session above it (a hook, a `claude -p`, or the background daemon and the
+# spare sessions it pre-warms). Subagents never appear: they run inside their
+# parent's process, not beside it. CONTEXT is tokens in context at
 # the last turn over the assumed window (see CONTEXT_WINDOW_DEFAULT); the cell
 # turns red at CONTEXT_WARN_PCT or above when stdout is a terminal. STATUS is
 # idle, busy, or waiting (<reason>), plus zombie / stopped from the process
@@ -315,15 +318,21 @@ version_lag() {
 # harness-agnostic.
 
 # Read what the session wrote about itself. Sets: s_name s_name_derived
-# s_status s_session_id s_version. Everything is "-" when the file is absent
+# s_status s_session_id s_version s_job_id. Everything is "-" when absent
 # (a bare `claude -p` child, or a version that predates the file).
 #
 # status is one of idle, busy, or waiting; waiting comes with a waitingFor
 # string ("input needed", "dialog open", "sandbox request", ...), which is
 # folded into the status as "waiting (input needed)".
 read_session_file() {
-  local pid="$1" f="$CLAUDE_HOME/sessions/$pid.json" blob src waiting_for
+  local pid="$1" blob src waiting_for
+  # Separate statement on purpose: within a single `local`, a later assignment
+  # still sees the caller's $pid, not the one being declared here. It happens
+  # to agree today because the only caller's loop variable is also named pid,
+  # which is exactly the kind of coincidence that breaks quietly later.
+  local f="$CLAUDE_HOME/sessions/$pid.json"
   s_name='-'; s_name_derived=0; s_status='-'; s_session_id=''; s_version='-'
+  s_job_id=''
   [ -r "$f" ] || return 0
   blob="$(cat "$f" 2>/dev/null || true)"
   s_session_id="$(json_str sessionId "$blob")"
@@ -331,6 +340,9 @@ read_session_file() {
   waiting_for="$(json_str waitingFor "$blob")"
   [ "$s_status" = "waiting" ] && [ -n "$waiting_for" ] && s_status="waiting ($waiting_for)"
   s_version="$(json_str version "$blob")"; : "${s_version:=-}"
+  # Set only on a background session. Pairs with the owning session's
+  # parkedJobId; see JOB_OWNERS.
+  s_job_id="$(json_str jobId "$blob")"
   s_name="$(json_str name "$blob")";       : "${s_name:=-}"
   # A derived name ("dotfiles-59") is a placeholder; remember that so the
   # transcript's AI title can take its place.
@@ -343,10 +355,18 @@ read_session_file() {
 # t_ctx_used t_mode t_title t_age_min (minutes since the transcript last
 # changed). Empty when there is no transcript yet.
 read_transcript() {
-  local sid="$1" f last_asst usage in cc cr meta
+  local sid="$1" f cand last_asst usage in cc cr meta
   t_model=''; t_effort=''; t_ctx_used=''; t_mode=''; t_title=''; t_age_min=''
   [ -z "$sid" ] && return 0
-  f="$(ls "$CLAUDE_HOME"/projects/*/"$sid".jsonl 2>/dev/null | head -1)"
+  # A plain glob, not `ls ... | head -1`. A session with no transcript yet is
+  # normal, not an error: the daemon pre-warms spare sessions that register in
+  # sessions/ before they have written a transcript. `ls` exits 1 on those, and
+  # under `set -e` with `pipefail` that status propagated out of the assignment
+  # and killed the whole listing before it printed a single row.
+  f=''
+  for cand in "$CLAUDE_HOME"/projects/*/"$sid".jsonl; do
+    [ -f "$cand" ] && { f="$cand"; break; }
+  done
   [ -z "$f" ] && return 0
   t_age_min=$(( ($(date +%s) - $(stat -f %m "$f" 2>/dev/null || date +%s)) / 60 ))
 
@@ -382,6 +402,28 @@ read_transcript() {
   return 0
 }
 
+# Name the daemon scaffolding. Claude Code runs one background daemon per uid,
+# which pre-warms a pool of "spare" sessions so a background job can start
+# without paying process startup. None of these write a sessions/ file until a
+# job claims them, so they would otherwise render as a row of dashes.
+#
+# They are deliberately shown rather than hidden: they are real processes
+# holding real memory, and a spare that never gets claimed is worth seeing.
+#
+# Only ever consulted when the process has no session file of its own. A
+# claimed spare keeps `bg-spare` in its argv for life, so the command line
+# alone cannot tell a pre-warmed process from a working background session;
+# the session file is what distinguishes them.
+scaffolding_name() {
+  case "$1" in
+    *"daemon run"*)  printf '[daemon]' ;;
+    *--bg-pty-host*) printf '[pty-host]' ;;
+    *--bg-spare*)    printf '[spare]' ;;
+    *)               printf -- '-' ;;
+  esac
+  return 0
+}
+
 # Context window for a plain Anthropic session: 1M when the configured model
 # string says "[1m]", or when the session has already been observed above the
 # default (it evidently has the bigger window); else the default.
@@ -397,6 +439,12 @@ anthropic_window() {
 
 # Gather claude processes, excluding Claude Desktop (Electron app)
 pids=()
+# shellcheck disable=SC2009
+# pgrep is not a substitute here. Everything downstream reads the full command
+# line: detect_route reads the launcher chain out of it, scaffolding_name tells
+# a daemon from a pty-host from a spare, and the grep -v list below filters on
+# argv that pgrep -f would match but never hand back. The '[c]laude' class is
+# the usual trick for keeping this pipeline from matching itself.
 while IFS= read -r line; do
   pid=$(echo "$line" | awk '{print $2}')
   pids+=("$pid")
@@ -424,13 +472,40 @@ LSOF_TABLE=""
 if [ -n "${all_pids// /}" ]; then
   LSOF_TABLE="$(lsof -a -p "$(printf '%s' "$all_pids" | tr ' ' ',')" -d cwd -Fpn 2>/dev/null || true)"
 fi
+# jobId -> pid of the session that owns it, as a space-separated "job=pid"
+# list. A session that backgrounds a job records that job's id as parkedJobId;
+# the background session itself records the same id as jobId. In the process
+# table a background session hangs off the shared daemon, so this pairing is
+# the only thing that still knows which session the job actually belongs to.
+JOB_OWNERS=""
+for pid in "${pids[@]:-}"; do
+  [ -z "$pid" ] && continue
+  owned="$(json_str parkedJobId "$(cat "$CLAUDE_HOME/sessions/$pid.json" 2>/dev/null || true)")"
+  [ -n "$owned" ] && JOB_OWNERS="$JOB_OWNERS $owned=$pid"
+done
+
+# The pid owning job $1, or nothing when no listed session claims it.
+job_owner() {
+  local job="$1" item
+  [ -z "$job" ] && return 0
+  for item in $JOB_OWNERS; do
+    [ "${item%%=*}" = "$job" ] && { printf '%s' "${item#*=}"; return 0; }
+  done
+  return 0
+}
+
 cwd_of() {
   printf '%s\n' "$LSOF_TABLE" | awk -v want="$1" '
     /^p/ { p = substr($0, 2) }
     /^n/ && p == want { print substr($0, 2); exit }'
 }
 
-# Row layout (SEP-separated), one row per process, 1-based field numbers:
+# Row layout (SEP-separated), one row per process, 1-based field numbers.
+# F_CTX_USED and F_CTX_WINDOW have no reader today: the JSON output unpacks a
+# row positionally rather than by index. They stay because the value of this
+# block is that it describes every field, and a gap at 16 and 17 would make
+# the surrounding numbers look wrong.
+# shellcheck disable=SC2034
 readonly F_PID=1 F_PARENT=2 F_NAME=3 F_STATUS=4 F_CWD=5 F_BRANCH=6 F_UPTIME=7 \
          F_MEM=8 F_CPU=9 F_HARNESS=10 F_PROVIDER=11 F_MODEL=12 F_EFFORT=13 \
          F_CTX=14 F_MODE=15 F_CTX_USED=16 F_CTX_WINDOW=17 F_CTX_PCT=18 \
@@ -458,7 +533,10 @@ for pid in "${pids[@]:-}"; do
   cpu="${cpu:-0}%"
 
   branch=$(git_branch "$cwd")
-  display_cwd=$(echo "$cwd" | sed "s|^$HOME|~|")
+  # The ~ must be escaped and $HOME quoted: bare ~ would tilde-expand back to
+  # $HOME and quietly make this a no-op, and an unquoted pattern would treat a
+  # glob character in $HOME as a wildcard.
+  display_cwd="${cwd/#"$HOME"/\~}"
   ancestry="$(ancestry_of "$pid" "$PARENT_ANCESTRY_DEPTH")"
   parent=$(find_parent_session "$ancestry" "$all_pids")
 
@@ -466,6 +544,24 @@ for pid in "${pids[@]:-}"; do
   # itself recorded. The transcript's model is observed, so it wins when known.
   IFS='|' read -r provider route_model route_window <<< "$(detect_route "$cmd" "$ancestry")"
   read_session_file "$pid"
+
+  # Two corrections to raw process ancestry, so the tree shows ownership
+  # rather than an accident of process startup:
+  #
+  #  1. The daemon is a shared, per-uid service. It is spawned by whichever
+  #     session happened to need one first, and in the process table every
+  #     background session on the machine then hangs off that session. Cut
+  #     the link so the daemon sits at top level and stops adopting jobs that
+  #     have nothing to do with its spawner.
+  #  2. A background session belongs to the session that backgrounded it, not
+  #     to the pty-host it descends from. Prefer the parkedJobId pairing when
+  #     the owner is still listed. A job whose owner has exited, or was never
+  #     parked, keeps its process parent and stays under the daemon, which is
+  #     the honest answer for a job nothing claims.
+  case "$cmd" in *"daemon run"*) parent="" ;; esac
+  owner="$(job_owner "$s_job_id")"
+  [ -n "$owner" ] && [ "$owner" != "$pid" ] && parent="$owner"
+
   read_transcript "$s_session_id"
 
   # Refine the self-reported status with what the OS and the transcript say.
@@ -491,6 +587,7 @@ for pid in "${pids[@]:-}"; do
 
   name="$s_name"
   [ "$s_name_derived" = 1 ] && [ -n "$t_title" ] && name="$t_title"
+  [ "$name" = "-" ] && name="$(scaffolding_name "$cmd")"
 
   model="${t_model:-${route_model:--}}"
   effort="${t_effort:--}"
@@ -548,12 +645,19 @@ fi
 # filtered out is promoted to top level so it still shows. Each entry is
 # "depth<SEP>row".
 sorted_rows=()
+emitted=""
 emit_tree() {   # $1 = parent pid ("" for top level), $2 = depth
   local want="$1" depth="$2" row pid parent
   while IFS= read -r row; do
     [ -z "$row" ] && continue
-    sorted_rows+=("${depth}${SEP}${row}")
     pid="${row%%"$SEP"*}"
+    # Emit each pid once. Process ancestry cannot contain a cycle, but the
+    # parkedJobId re-parenting does not come from the process table, so two
+    # session files that park each other's jobs would otherwise recurse until
+    # the stack gives out.
+    in_list "$pid" "$emitted" && continue
+    emitted="$emitted $pid"
+    sorted_rows+=("${depth}${SEP}${row}")
     emit_tree "$pid" $((depth + 1))
   done < <(
     for row in "${rows[@]}"; do
@@ -564,6 +668,18 @@ emit_tree() {   # $1 = parent pid ("" for top level), $2 = depth
   )
 }
 emit_tree "" 0
+
+# A row is only reached through its parent, so a cycle would leave every
+# member of it unreachable from the top level. Show those at top level rather
+# than dropping them: a live process must never vanish from the listing
+# because of what a session file claims.
+for row in "${rows[@]}"; do
+  [ -z "$row" ] && continue
+  pid="${row%%"$SEP"*}"
+  in_list "$pid" "$emitted" && continue
+  emitted="$emitted $pid"
+  sorted_rows+=("0${SEP}${row}")
+done
 
 # ---------------------------------------------------------------- output
 
@@ -595,11 +711,11 @@ fi
 # Table. Columns are (header, source field, alignment).
 # Every column is sized to its contents; names and models vary a lot.
 cols_hdr=(NAME "WORKING DIRECTORY" BRANCH HARNESS PROVIDER MODEL EFFORT CONTEXT)
-cols_fld=($F_NAME $F_CWD $F_BRANCH $F_HARNESS $F_PROVIDER $F_MODEL $F_EFFORT $F_CTX)
+cols_fld=("$F_NAME" "$F_CWD" "$F_BRANCH" "$F_HARNESS" "$F_PROVIDER" "$F_MODEL" "$F_EFFORT" "$F_CTX")
 cols_aln=(L L L L L L L R)
 if [ "$long" -eq 1 ]; then
   cols_hdr+=(MODE PID STATUS UPTIME MEM CPU)
-  cols_fld+=($F_MODE $F_PID $F_STATUS $F_UPTIME $F_MEM $F_CPU)
+  cols_fld+=("$F_MODE" "$F_PID" "$F_STATUS" "$F_UPTIME" "$F_MEM" "$F_CPU")
   cols_aln+=(L R L R R R)
 fi
 ncols=${#cols_hdr[@]}
@@ -681,7 +797,7 @@ for ((c = 0; c < ncols; c++)); do w+=("${#cols_hdr[$c]}"); done
 for ((i = 0; i < ${#cells[@]}; i++)); do
   c=$((i % ncols))
   uncolor "${cells[$i]}"
-  [ ${#plain} -gt "${w[$c]}" ] && w[$c]=${#plain}
+  [ ${#plain} -gt "${w[$c]}" ] && w[c]=${#plain}
 done
 
 dashes() { printf '%*s' "$1" '' | tr ' ' '-'; }
