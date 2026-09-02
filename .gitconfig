@@ -16,11 +16,16 @@
 	co = checkout
 	unadd = reset HEAD
 [push]
-	default = tracking
+	default = simple
 	autoSetupRemote = true
 	recurseSubmodules = check
 [credential]
     helper = osxkeychain
+# Written by the Heroku CLI, which appends it to the end of this file. Moved up
+# here so the include below stays last; if it reappears at the bottom, a heroku
+# command put it back and this is the copy to keep.
+[credential "https://git.heroku.com"]
+	helper = !heroku git:credentials
 [init]
 	defaultBranch = main
 [pull]
