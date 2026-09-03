@@ -74,7 +74,7 @@ Deliberately opportunistic. Tier 0 is about five minutes and needs no project; r
 
 **Plan:** [command-suite-rename.md](command-suite-rename.md)
 
-**Status:** Ready to implement. AWAITING SCOTT'S EXPLICIT GO. Do not auto-start. Blocked on the batch landing above (the plan header's pre-step); acceptance testing should also come first per the ordering decision above.
+**Status:** Ready to implement. AWAITING SCOTT'S EXPLICIT GO. Do not auto-start. Blocked on the batch landing above (the plan header's pre-step); acceptance testing should also come first per the ordering decision above. **Hold reaffirmed 2026-09-02:** asked directly and the answer was "not yet"; do not ask again until he raises it or the acceptance testing above is done.
 
 ### Upstream doc-lifecycle skill suite (incubating in timercue)
 
@@ -160,7 +160,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Thread:** Tools
 
-**Goal:** A short post introducing `bin/claude-ps`, the `ps` for Claude Code sessions: agent name, working directory, branch, harness version (green/yellow/red against latest), provider, model, effort, context used with a red cell past 80%, and with `-l` the permission mode, PID, status (idle / busy / waiting / stale / zombie / stopped, with a coloured margin dot), uptime, memory, CPU. Subagents nest under their parent. Angle: everything it shows comes from what Claude Code already writes to disk (`~/.claude/sessions/<pid>.json`, the transcript) plus the process table; no daemon, no network, one bash script. Decide the venue (personal blog, LinkedIn, or the internal Facet channel) when writing; the content is the same.
+**Goal:** A short post introducing `bin/claude-ps`, the `ps` for Claude Code sessions: agent name, working directory, branch, harness version (green/yellow/red against latest), provider, model, effort, context used with a red cell past 80%, and with `-l` the permission mode, PID, status (idle / busy / waiting / stale / zombie / stopped, with a coloured margin dot), uptime, memory, CPU. Subagents nest under their parent. Angle: everything it shows comes from what Claude Code already writes to disk (`~/.claude/sessions/<pid>.json`, the transcript) plus the process table; no daemon, no network, one bash script. **Venue: LinkedIn** (Scott's call, 2026-09-02), chosen over a personal blog post or the internal Facet channel.
 
 **Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
 
