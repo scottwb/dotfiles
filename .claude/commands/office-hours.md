@@ -68,11 +68,28 @@ Scott answers by number, tersely, and may leave numbers out.
 
 ## Step 4: Record it the repo's way
 
-Where a decision goes is the **repo's** call, not this command's. Every repo
-tracks decisions, open questions and TODOs differently, so find the convention
-before writing anything: a question queue, a TODO file, the roadmap,
-`docs/plans/`, a decision log or ADR directory, an issue tracker, CLAUDE.md.
-Then use it the way it is already used.
+**Record the answer where it needs to be, so the question stops being asked.**
+That is the whole test. A decision recorded somewhere tidy that the next
+session will not read has not been recorded; a decision written into the thing
+it governs has.
+
+Where that is depends on what was decided, and it is the **repo's** call, not
+this command's. Every repo tracks decisions, open questions and TODOs
+differently, so find the convention before writing anything: a question queue,
+a TODO file, the roadmap, `docs/plans/`, a decision log or ADR directory, an
+issue tracker, CLAUDE.md. Then use it the way it is already used.
+
+In a repo running this suite, `/roadmap` and `/gameplan` set the shape:
+
+- **The roadmap** for what changes an item's priority, status, or existence.
+- **A plan doc** for what binds a plan's design or execution, recorded the way
+  that plan already records decisions.
+- **Both** when the answer does both, which is common: the plan carries the
+  decision and its reasoning, the roadmap carries the consequence.
+- **Neither** when the answer belongs in the thing itself. A settled naming
+  question goes in the code, a settled behavior question in the spec or the
+  README, a standing instruction in CLAUDE.md or memory. Do not file a note
+  about a decision in a plan when the decision *is* the file you could edit.
 
 - **Do not invent** a format, a file, or a directory because none was obvious.
   Look harder first; git history usually shows where past decisions landed.
