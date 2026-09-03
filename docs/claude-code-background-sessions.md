@@ -96,6 +96,30 @@ running subagents shows only its MCP servers and tool shells as children.
 
 Do not go looking for a subagent process. There isn't one.
 
+## How a session's title is stored
+
+Three places, and they are not interchangeable. This matters when hunting for a
+session by name, because the obvious search misses half of them.
+
+- **`ai-title`** events in the transcript, field `aiTitle`. The one-line title
+  Claude Code generates for itself.
+- **`custom-title`** events in the transcript, field `customTitle`. What
+  `/rename` writes. A session renamed by hand has **no** `aiTitle` matching its
+  displayed name, so grepping for `aiTitle` alone will not find it.
+- **`name`** in `~/.claude/sessions/<pid>.json`, alongside `nameSource`. The
+  live name, and only present while the session is running.
+
+So to find a dead session by the name you remember, grep the transcripts for
+`customTitle` as well as `aiTitle`. Verified on 2026-09-02 by failing to find
+"Dotfiles AI Audit" through `aiTitle` and then finding it as a `custom-title`.
+
+Consumers here already reflect this. `auditlog/parse.py` (`title_for`) reads
+both and prefers `ai-title` deliberately, because a hand-set title is often a
+label that just repeats the receiver rather than describing the conversation.
+`bin/claude-ps` takes the name from the session file and only falls back to the
+transcript's `ai-title` when `nameSource` is `derived`, which is why a renamed
+running session still displays correctly there.
+
 ## Not established
 
 - Whether an unclaimed spare can return to the pool after being claimed. Two
