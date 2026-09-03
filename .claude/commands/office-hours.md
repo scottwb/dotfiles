@@ -1,4 +1,4 @@
-Run a lightning round: surface every open question you need Scott to answer directly, as a numbered list he can clear in one pass.
+Run a Q&A lightning round: surface every open question you need Scott to answer directly, as a numbered list he can clear in one pass.
 
 Arguments: $ARGUMENTS (optional - a scope hint, e.g. "just this repo", "PR stuff only")
 
@@ -61,8 +61,9 @@ Scott answers by number, tersely, and may leave numbers out.
   question. Do not ask him to elaborate.
 - **An answer may carry an instruction** ("Nope. Make it my priority today.").
   Take both the decision and the instruction.
-- **"pass" or "skip" means not now, not never.** The question stays open and
-  comes back in a later round. Never read it as a no, and never quietly drop it.
+- **"pass" or "skip" means "not now; ask later", not "never ask again".** The
+  question stays open and comes back in a later round. Never read it as a no,
+  and never quietly drop it.
 - **A number he did not answer is a pass.** Same treatment.
 
 ## Step 4: Record it the repo's way
