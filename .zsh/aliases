@@ -38,3 +38,17 @@ alias dcsh='./.devcontainer/dc sh'
 alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartSynchronize"
 alias zipp='zip -er'
 alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
+
+# Load the Slack user token into the current shell for agent launches
+# (TouchID via 1Password once; children inherit it). Safe to keep in a public
+# repo: the alias holds only the op:// reference, never the secret.
+alias agent-env-slack='export SLACK_USER_TOKEN=$(op read --account facetdigital.1password.com "op://Employee/Slack User API Token - Facet/credential")'
+
+# Same shape for HubSpot. Donna's 5:27 pre-collection shells out to the Facet
+# admin workspace collector, which exits 3 without HUBSPOT_TOKEN. Referenced by
+# item ID, not name: op:// paths reject the parentheses in "HubSpot (SWB)" and
+# fail silently to an empty variable. The ID survives renames, not vault moves.
+alias agent-env-hubspot='export HUBSPOT_TOKEN=$(op read --account facetdigital.1password.com "op://Employee/xnaq6dm665fzfxg54owmxucxve/PAT")'
+
+# Both at once, for a normal Donna launch.
+alias agent-env='agent-env-slack; agent-env-hubspot'
