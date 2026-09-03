@@ -1,5 +1,45 @@
 # Plan: Audit log follow-ons, unattended batch
 
+## STATUS as of 2026-09-02: implementation done, waiting on Scott
+
+**Every step below is ticked: 25 of 25, none pending.** The suite is green at
+394 tests. Do not re-run the batch. What this plan is waiting for is the one
+thing an agent cannot do for it.
+
+**The blocker is manual testing, which has never happened.** `/yolo` stopped
+where it is designed to stop, and Scott confirmed on 2026-09-02 that he never
+tested it. Nothing else is outstanding.
+
+Current state:
+
+- **PR #4** is OPEN but still a **draft**, `master <- feature/audit-log`. It
+  will not merge while it is a draft.
+- The branch was **rebased onto master and force-pushed on 2026-09-02**. Every
+  commit SHA changed and master's newer work is now underneath. A local copy of
+  this branch from before that date is stale: `git reset --hard
+  origin/feature/audit-log` rather than trying to merge it.
+- `~/.ai-staff-audit-log` holds 165 pages generated during the 2026-08-16 to
+  2026-08-23 run. Render one fresh page and compare before reaching for the
+  Step 0 `rm -rf` plus `--all --force` regeneration.
+
+Two traps for whoever picks this up:
+
+- **Do not resume the session named "Dotfiles AI Audit"**
+  (`d030a0a5-45fc-4750-a0d1-62fbb0411541`). It ran from the main checkout at
+  `~/src/scottwb/dotfiles` on `master`, and it has been idle since 2026-08-23.
+  `/yolo` keys off the current directory's state, so resuming it there reads
+  **State 1 (fresh run)** and may start the batch over. Its final message
+  already handed off to this worktree; there is nothing left in it that is not
+  on disk here.
+- **Run `/yolo` from `~/src/scottwb/dotfiles-audit-log`,** not from the main
+  checkout, for the same reason. And run it on a plain Anthropic session: phase
+  gates halt under a routed launcher on purpose.
+
+Suggested order once testing passes: review the 50 commits (they have never
+been read as a whole, and the write guard that refuses to write inside the
+transcript store is the highest-consequence code here), then `/yolo
+audit-log-followons-batch` from this worktree, then `/phasegate`.
+
 ## Execution Instructions
 
 **RUN THIS UNATTENDED. Do not stop between steps to ask for approval.** Scott
