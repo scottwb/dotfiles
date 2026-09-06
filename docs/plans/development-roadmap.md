@@ -33,7 +33,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [patchbay-team-release.md](patchbay-team-release.md)
 
-**Status:** Ready to implement. Eight steps. Repo owner settled 2026-08-08: **`facetdigital/patchbay`**, so licensing and any future public release are a company decision.
+**Status:** Ready to implement. Eight steps. Repo owner settled 2026-08-08: **`facetdigital/patchbay`**, so licensing and any future public release are a company decision. **Softened to "maybe next" on 2026-09-02:** asked whether this is still the next thing once the audit-log work lands and the answer was a qualified maybe. Scott may want to work on `bin/agent` and `bin/claude-ps` first, so confirm before starting rather than treating this heading as a standing go-ahead.
 
 **Why this jumped the queue (2026-08-08):** the extraction triggers written down on 2026-08-03 were "the ccr question resolves in favour of Patchbay standing alone, **or** someone other than you wants it." The second one fired. Scott's devs at Facet want a simple, low-dependency way to keep working through Claude outages, needing nothing beyond a credential in an environment variable.
 
@@ -56,7 +56,7 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Plan:** [command-kit-overhaul.md](command-kit-overhaul.md)
 
-**Status:** Unblocked as of 2026-07-30. Both prerequisites landed: the suite baseline and the review fixes.
+**Status:** Unblocked as of 2026-07-30. Both prerequisites landed: the suite baseline and the review fixes. **Tier 0 agreed 2026-09-02, deferred to a later day:** the answer was "sure but not today", so offer it opportunistically rather than asking again for permission.
 
 Deliberately opportunistic. Tier 0 is about five minutes and needs no project; run it first. Tiers 1 through 3 need one real small feature in a low-stakes repo. Tier 4 needs a genuine phase boundary with a `PHASE GATE:` marker. Per the plan's own philosophy: no throwaway sandbox, test each behavior the next time real hobby-grade work offers the opportunity.
 
@@ -93,7 +93,7 @@ deferred but should follow the rename plan's verb-scope grammar. Also deferred t
 item: renaming `development-roadmap.md` to a numbered `04-` form, which touches every
 command that reads the roadmap path, so it must land as one suite-wide change.
 
-**Status:** Incubating. The lifecycle is being hand-executed first in
+**Status:** Incubating, and dormant. **Checked 2026-09-02:** no incubation work has happened since the doc structure landed on 2026-08-01, so nothing has moved toward stable skill drafts. Left open deliberately; revisit later. The lifecycle is being hand-executed first in
 `~/src/facetdigital/timercue` (the TimerCue app, formerly harvest-activity-guard) (doc structure landed 2026-08-01; skill
 notes accumulate in that repo's `docs/notes/skill-lab.md`). Draft skills will be
 built and tested in that repo's `.claude/` against the real build of Harvest Activity
@@ -164,7 +164,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
 
-**Status:** Queued 2026-08-19. Write after the `claude-ps` overhaul commit lands. If the tool gets generalised beyond Claude Code (see the seam comment in the script and the `pbay ps` note in [patchbay.md](../patchbay.md)), the post should wait for that name instead.
+**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". Write after the `claude-ps` overhaul commit lands. If the tool gets generalised beyond Claude Code (see the seam comment in the script and the `pbay ps` note in [patchbay.md](../patchbay.md)), the post should wait for that name instead.
 
 ### Patchbay v2: the `pbay` front door
 
@@ -172,7 +172,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Goal:** Replace the wrapper-per-combination shape with a single subcommand CLI over the harness x model x provider matrix: `pbay run claude glm`, `pbay ps`, `pbay doctor`, `pbay models --refresh`, `pbay config`, `pbay providers`. State in `~/.pbay/`, cache kept separable from config. Absorbs three items that would otherwise be built separately: the doctor script, the model-slug refresh, and the harness expansion. Includes the `ollama-tools` scope reduction (delete `claude-install`, demote its README's harness support to a mention) and `aider-run` migrating into `bin/`.
 
-**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet.
+**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
 
 **The trigger:** the first time you want aider or codex against a routed backend for real work. That is when the matrix becomes real. Today there is one harness, two backends, four launchers, and nothing chafing, so building the general form would be inventing requirements.
 
