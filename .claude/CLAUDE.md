@@ -129,6 +129,23 @@ Rules for this pattern:
 - **Still no secret at rest.** This carve-out permits passing secrets in. It does not permit
   writing them to a `.env`, a config file, or a repo, tracked or untracked.
 
+## Sending files between agent sessions
+
+Each session has an inbox at `~/.agent-file-drop/agents/<Session Name>/inbox/`.
+
+To hand a file to another session: copy it there, or move it if you are giving
+up ownership, then SendMessage the recipient the **full absolute path**. Quote
+the path; session names contain spaces. Create the inbox if it is not there.
+
+The receiver owns what it finds and may keep, move, ingest, modify or delete it.
+The sender never deletes what it delivered and never cleans up.
+
+To receive a file, tell the other agent your own inbox path.
+
+**A drop is a message.** The same scope rules apply as to anything else you tell
+another agent: do not put a file in an inbox whose owner should not be told what
+is in it.
+
 ## Error Handling
 - Provide helpful, explanatory error messages with context
 - Include usage messages when required args are missing
