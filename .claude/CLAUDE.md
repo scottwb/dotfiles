@@ -27,6 +27,7 @@ I have custom slash commands for a structured development workflow:
 | `/yolo` | To implement a whole trusted plan unattended; re-run after testing to merge and wrap up |
 | `/beastmode` | To chew through the whole roadmap unattended with review loops and phase gates |
 | `/phasegate` | After a phase's features are merged, to audit that the phase delivered its promises |
+| `/write-that-down` | Any time a session is holding knowledge the repo does not have; sweeps it in and commits it |
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
@@ -40,6 +41,8 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
 - If a plan exists and I say "let's do it" or "ready to implement" → suggest `/booyah`
 - After I test something and say it works → remind me to run `/booyah` to commit and continue
 - After `/yolo` manual testing passes → remind me that re-running `/yolo` merges and wraps up
+- If I say I'm done, wrapping up, or heading out, and the session produced decisions or corrections that are not in the repo → suggest `/write-that-down`
+- Do not wait for the end of a session to suggest it. Clears and compactions give no warning, so suggest it as soon as something perishable exists
 
 ## Scope
 - Make minimal, targeted changes; don't touch unrelated code

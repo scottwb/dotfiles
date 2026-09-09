@@ -57,6 +57,19 @@ crucially each command's **does NOT** list, are in
 Each rung trades granularity for autonomy. None of them trade away the
 verification.
 
+`/write-that-down` is not a rung. It runs at any point in any session and
+applies the same principle in the other direction. The ladder keeps an agent
+from claiming more than it did. `/write-that-down` keeps a session from
+*knowing* more than the repo does: whatever exists only in conversation context
+or in machine-local memory gets written down, and whatever the user had to
+correct gets codified where it would otherwise be re-learned. Context is not a
+place a repo's knowledge is allowed to live alone, and neither is one person's
+laptop.
+
+It differs from the ladder on approval, too. The rungs stop and wait for
+re-invocation; this one commits on its own, because a sweep that needs a second
+approval is one that silently does not happen when a session is cleared.
+
 ## The idea worth stealing: a capability floor
 
 This is the part that is not obvious, and as far as a 2026 survey of the

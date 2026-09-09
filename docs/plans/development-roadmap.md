@@ -187,6 +187,24 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 That makes the real question upstream of the build: **is the durable idea worth a competing tool at all?** ccr's ordered-fallback feature ("tries each backup model in order, returns on first success") is structurally the anti-pattern Servanda's capability floor exists to prevent, and no routing tool surveyed has any concept of refusing to substitute downward. A per-route `no_fallback: true` flag contributed upstream would be a small feature in ccr's existing config shape and would make the differentiator disappear in the best way. Not attempted, no issue filed, and the idea has been checked only against ccr's documentation rather than its code. See patchbay.md for the four options and their rough effort.
 
+### Add a peer-handoff step to `/write-that-down`
+
+**Thread:** Shell + Tools
+
+**Goal:** Let a session, when it wraps up, brief a coordinating session in another repo, so that what one session learned reaches the person or agent who needs to act on it rather than only reaching a file.
+
+**Status:** Queued 2026-09-09, deliberately not built. `/write-that-down` shipped with no peer concept on purpose: it is one global copy, repo-agnostic, and safe in a public repo, and a handoff step is the part that would have dragged a roster into it.
+
+**The design already worked out**, recorded here in prose because the branch it lived on is deleted and its commit is unreachable. Do not go looking for it in git.
+
+- **Gate it on an allowlist**, matched on the main worktree path, not the cwd, so linked worktrees resolve to the same entry. A repo not on the list skips the step entirely and records that it did. Never message a coordinator from a repo that is not listed.
+- **Resolve the recipient by exact name.** Look for an exactly matching session and never substitute a similarly named one; a near-match is a different session with a different scope. If no exact match exists, skip the send, print the brief in the summary so the user can relay it, and record the recipient as unreachable. Failing to reach someone must not silently drop the content.
+- **Brief at exec level:** what changed, what it means, what needs a decision. Not a file list, not a commit log. The recipient asks for detail if they want it.
+- **Identify yourself in the first line**, session name plus repo path, because a coordinator hears from several sessions and that is how they are told apart.
+- **One message, do not block on a reply**, and never include secrets, credentials, or client-identifying detail beyond the repo name.
+
+**The open question this raises:** where the allowlist lives. It cannot live in the command file if that file stays in a public repo, which is the constraint that killed the previous attempt. The filesystem is the obvious candidate, since the inbox convention already keeps the roster there, privately.
+
 ### Local model evaluation pass
 
 **Thread:** Tools
