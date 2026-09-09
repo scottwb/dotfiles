@@ -65,6 +65,12 @@ plugins/.last_inuse_sweep
 # unrelated repo whose baseline SHA does not even exist here.
 security/
 
+# Agent worktree runtime state. Same class as daemon/ and security/: worktree
+# metadata carries paths and branch names from WHATEVER repo the agent was
+# working in, so committing it would publish project paths into this PUBLIC
+# repo. Observed untracked on 2026-09-09.
+worktrees/
+
 # Backup files
 *.bak
 
