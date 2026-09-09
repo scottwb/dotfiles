@@ -148,6 +148,13 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Thread:** Shell + Tools
 
+**Loose ends recorded 2026-09-09** by the session that did the post-dormancy check, so the next session inherits them instead of re-deriving:
+
+- **The `gemini` alias is uncommitted and unfinished** (`bin/claude-run`, `bin/claude-gemini`). The slug `google/gemini-3.8-flash` is confirmed present in the ZDR-filtered catalog and dry-run resolves. Four gaps: `claude-gemini`'s header says `claude-gemino` and `Usage: claude-gpt`; the usage text has `?` placeholders for cost and latency; the 1050000 context is assumed, not measured, unlike `glm` and `gpt`; and there is no selftest coverage for the alias.
+- **`bin/claude-route-selftest` is red, 94/97**, and it is not the gemini work's fault. The three route-detection assertions launch a stub `claude` that just sleeps, and `claude-ps` became transcript-based in the rename, so a stub with no transcript is not listed at all. Fix is either a process-only fallback in `claude-ps` or rewriting those three assertions against a real session.
+- **`claude-ps` can misreport a session's model.** It showed a Fable 5.1 session as `openai/gpt-5.6-sol`, most likely a heuristic picking up model strings printed in that session's own tool output. Worth knowing the detection is foolable before trusting the column.
+- **`.claude/worktrees/` is untracked runtime state** from the agent worktree and probably wants a `.gitignore` line, same class as the `daemon/` and `security/` entries.
+
 **Goal:** The deferred pieces of [claude-route-launchers.md](claude-route-launchers.md), none of which blocked shipping it.
 
 **Status:** Queued 2026-08-01, none urgent. The launchers work; these make them easier to set up and keep current. **The doctor script moved out of this item on 2026-08-08** and into [patchbay-team-release.md](patchbay-team-release.md) Step 6, where per-dev keys make it load-bearing rather than a nicety.
