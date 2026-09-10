@@ -37,5 +37,11 @@ Related but living elsewhere in this repo:
   covers session history, caches, plugin state, and the security-guidance
   plugin's warning state, which records filenames from whatever repo a session
   ran in and therefore must never reach this public repo.
+- **Command precedence between here and a repo's own `.claude/commands/` is
+  UNVERIFIED.** Project-level is generally expected to win over user-level, but
+  that was assumed and asserted once on 2026-09-10 and never confirmed. It
+  matters whenever the same command name exists in both places. Do not state a
+  direction without checking; the scope label in the command listing is the
+  place to check it.
 - **This file is public.** Keep secrets out of everything in this directory.
   Credentials are resolved at runtime through the 1Password CLI, never stored.

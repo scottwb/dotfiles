@@ -48,6 +48,19 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
 - Make minimal, targeted changes; don't touch unrelated code
 - If I say "don't move anything else" - change only the specific thing requested
 - Keep changes scoped to what was asked; resist urge to "improve" adjacent code
+- **Announce before widening, not after.** When work has to touch a file outside
+  the one the request named, say so in one line first: the file, the reason, and
+  how big ("two lines in claude-ps, both gemini-only"). Show the diff early
+  rather than describing it. When a fix turns out larger than the ask, surface
+  that as a choice instead of absorbing it silently.
+
+  **Why:** Scott tracks a session by the files it touches, so an edit to a script
+  he believes is healthy reads as a regression hunt he did not ask for, and he
+  stops to check. On 2026-09-10 he interrupted twice, with "What are you doing? I
+  thought claude-ps was working fine" and later "i didn tmean to turn this into a
+  whole ordeal." Both times the work was correct and in scope; only the heads-up
+  was missing. He is happy to approve wide work; he objects to discovering it.
+  This is the announcement half of the rules above, not a limit on them.
 
 ## Verification
 - Verify assumptions before acting ("before we do that, can you be sure...")
