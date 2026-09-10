@@ -177,6 +177,7 @@ is in it.
 - When I ask "what do you think?" or "what do you propose?" - give concrete options
 - For complex decisions, offer multiple approaches with tradeoffs
 - When suggesting names, give 3-5 options to choose from
+- Propose the plainest mechanism that does the job. When the framing that motivated a step is superseded, drop the step instead of carrying it forward; a safeguard protecting something you are also copying out is ceremony
 
 ## Bug Testing Philosophy
 **NEVER create tests that pass to demonstrate a bug exists.** This is backwards and useless.
