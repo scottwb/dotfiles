@@ -266,6 +266,7 @@ detect_route() {
         alias=$(echo "$acmd" | sed -n 's/.*claude-run[[:space:]]\{1,\}\([^[:space:]-][^[:space:]]*\).*/\1/p')
         [ -n "$alias" ] && { resolve_route_alias "$alias"; return 0; }
         ;;
+      *claude-gemini*)     resolve_route_alias gemini; return 0 ;;
       *claude-glm*)        resolve_route_alias glm; return 0 ;;
       *claude-gpt*)        resolve_route_alias gpt; return 0 ;;
       *claude-ollama*)     resolve_route_alias glm; return 0 ;;
@@ -454,7 +455,7 @@ done < <(ps aux | grep -E '[c]laude' \
   | grep -v 'Claude Renderer' \
   | grep -v 'claude-ps' \
   | grep -v 'shell-snapshots' \
-  | grep -vE 'claude-(run|glm|gpt|ollama|openrouter|route-selftest)')
+  | grep -vE 'claude-(run|glm|gpt|gemini|ollama|openrouter|route-selftest)')
   # ^ The route launchers themselves. Every one has "claude" in its command
   #   line, so without this a single `claude-glm` reports as three or four
   #   rows: the wrapper, claude-run, and the session it started. They are the

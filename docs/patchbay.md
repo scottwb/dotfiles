@@ -7,7 +7,7 @@ A patchbay in a studio connects any source to any destination, one physical
 connection at a time, with no central switchboard deciding for you. That is the
 architecture: **harness x model x provider**, assembled per process, no daemon.
 
-**Status:** shipped and in use, 2026-08-01. Four launchers, one harness. The
+**Status:** shipped and in use, 2026-08-01. Five launchers, one harness. The
 `pbay` front door described at the bottom is not built and should not be built
 yet.
 
@@ -28,10 +28,11 @@ alternative, and where it goes.
 bin/claude-run          the workhorse: provider table, model table, environment
 bin/claude-glm          Ollama, local, glm-4.7-flash          free,  ~4 min to first token
 bin/claude-gpt          OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 sec
+bin/claude-gemini       OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, ~4 sec
 bin/claude-ollama       the Ollama default
 bin/claude-openrouter   the OpenRouter default
 bin/claude-ps           every running session: backend, model, context, status
-bin/claude-route-selftest   105 assertions, no session, no spend
+bin/claude-route-selftest   127 assertions, no session, no spend
 ```
 
 Plain `claude` is untouched and stays on the Max subscription. Routing is per

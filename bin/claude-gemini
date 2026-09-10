@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# claude-gemini - Launch Claude Code on google/gemini-3.8-flash via OpenRouter.
+#
+# Thin wrapper over claude-run (D9). All logic lives there.
+#
+# The API key is read from 1Password at launch and TouchID may prompt. Nothing
+# is stored on disk.
+#
+# Once inside a session, /model reaches OpenRouter's whole catalog, so there is
+# no need for a wrapper per model. Type the slug rather than picking from the
+# list: the picker shows only the first page (OpenRouter serves ~20 and sends no
+# has_more, so the client has no signal that more exist), but an explicit
+# `/model google/gemini-3.8-flash` reaches any model in the catalog.
+#
+# An earlier version of this comment said Zero Data Retention filters the
+# catalog. Measured 2026-09-10 and it does not: authenticated and public
+# /api/v1/models both return 436 models, nothing hidden. ZDR is enforced when a
+# request is routed, not when the catalog is listed.
+#
+# Usage: claude-gemini [claude args...]
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# NO `exec` (D6). claude-ps reports each session's route by walking process
+# ancestry; exec would replace this shell and erase the ancestor it matches on.
+"$SCRIPT_DIR/claude-run" gemini "$@"

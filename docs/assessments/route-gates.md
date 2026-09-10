@@ -895,3 +895,73 @@ OpenRouter got the harder read/edit/bash chain here. Whether `glm-4.7-flash`
 sustains a five-turn loop with correct state is untested. Not a gate, since
 Step 5's real use will surface it immediately, but it is an unexamined corner
 rather than a proven one.
+
+---
+
+## Addendum: the `gemini` route, measured 2026-09-10
+
+Not a gate. The `gemini` alias landed after both gates and needed the same
+numbers the gate table carries, so they were measured rather than assumed.
+Total spend for everything below: **$0.006**.
+
+### Context window: the assumed value was wrong
+
+The alias shipped in draft with `1050000`, copied from `gpt`. The real window is
+**1048576** (1024^2). Copying `gpt`'s number overran the true window by 1424
+tokens, which is the precise failure `CLAUDE_CODE_MAX_CONTEXT_TOKENS` exists to
+prevent.
+
+Source is OpenRouter's `/api/v1/models`. That endpoint is trustworthy here for a
+specific reason rather than on faith: it reports `openai/gpt-5.6-sol` as
+1050000, which is exactly what Gate B measured in-session. A source that
+reproduces a known in-session reading is corroborated, not assumed.
+
+### Cost: the price ratio is misleading
+
+| | `gemini` | `gpt` |
+|---|---|---|
+| Published price, $/Mtok in/out | 0.75 / 3.75 | 2.00 / 10.00 |
+| Price ratio alone suggests | 0.375x | 1x |
+| Output tokens, same prompt | 596 † | 314 |
+| **Measured cost, same prompt** | **$0.002285** | **$0.003272** |
+| **Real per-turn ratio** | **~0.70x** | 1x |
+
+† Gemini hit the 600-token cap, so its verbosity is a floor, not a settled
+number. The real ratio may be worse than 0.70x.
+
+**The lesson is the trap, not the number.** Gemini is 0.375x the price and ~1.9x
+the output, so most of the discount is spent on tokens rather than saved. An
+earlier draft of this work scaled `gpt`'s per-turn cost by the price sheet and
+landed at ~$0.02-0.04/turn, roughly half the real figure. Per-turn cost on a
+metered route has to be measured on a realistic prompt; the price sheet is an
+input to it, never a substitute.
+
+### Latency: indistinguishable from `gpt`
+
+Time to first token against the Anthropic-compatible endpoint, three alternating
+runs each on a warm connection:
+
+| | median TTFT | range |
+|---|---|---|
+| `gemini` | 1.81 s | 1.23 - 1.81 s |
+| `gpt` | 1.21 s | 1.20 - 1.62 s |
+
+Both sit near a second and a half, and the spread overlaps, so on this evidence
+they are the same. **Note this is not the ~4 s the tables report for `gpt`.**
+That figure is session start, which is dominated by Claude Code's own boot and
+is model-independent, so `gemini` inherits it unchanged. Two different
+measurements that were briefly conflated while writing this up; recorded here so
+the next reader does not have to rediscover the distinction.
+
+On the longer realistic turn `gemini` finished in 5.35 s against `gpt`'s 8.21 s
+despite emitting nearly twice the tokens. One sample each, so directional only.
+
+### Retracted: ZDR does not filter the catalog
+
+The plan and the roadmap both warned that Zero Data Retention filters the
+reachable model catalog, so an alias had to be checked against the account's
+list before being added. **Measured and false.** Authenticated and public
+`/api/v1/models` both return **436** models, with nothing hidden either way.
+ZDR is enforced when a request is routed, not when the catalog is listed, so
+there is no catalog check to perform before adding an alias.
+

@@ -99,11 +99,36 @@ assert_not_contains "base URL does not end in /v1" "$gpt_out" "openrouter.ai/api
 assert_contains  "model id is openai/gpt-5.6-sol"  "$gpt_out" "openai/gpt-5.6-sol"
 assert_contains  "context is 1050000"              "$gpt_out" "1050000"
 
+# ---------------------------------------------------------------- gemini / openrouter
+
+section "Alias 'gemini' resolves to OpenRouter"
+
+gemini_out="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" gemini 2>&1)"
+gemini_rc=$?
+
+assert_exit      "dry run exits 0"                 "0" "$gemini_rc"
+assert_contains  "provider is openrouter"          "$gemini_out" "openrouter"
+assert_contains  "base URL has no version suffix"  "$gemini_out" "https://openrouter.ai/api"
+assert_not_contains "base URL does not end in /v1" "$gemini_out" "openrouter.ai/api/v1"
+assert_contains  "model id is google/gemini-3.8-flash" "$gemini_out" "google/gemini-3.8-flash"
+
+# 1048576, from OpenRouter's /api/v1/models rather than from an in-session
+# reading like glm (Gate A) and gpt (Gate B). The same endpoint reports gpt as
+# 1050000, which is exactly what Gate B measured in-session, so it is a
+# corroborated source rather than an assumption.
+#
+# Asserting the exact value guards a specific mistake: 1048576 is 1024^2 and
+# gpt is 1050000, so the two OpenRouter routes do NOT share a window. Copying
+# gpt's number here, which an earlier draft did, overruns the real window by
+# 1424 tokens.
+assert_contains  "context is 1048576"                 "$gemini_out" "1048576"
+assert_not_contains "context is not gpt's 1050000"    "$gemini_out" "1050000"
+
 # ---------------------------------------------------------------- invariants
 
 section "Invariants that hold on every route"
 
-for out_name in glm_out gpt_out; do
+for out_name in glm_out gpt_out gemini_out; do
   eval "out=\$$out_name"
   alias_name="${out_name%_out}"
 
@@ -146,6 +171,7 @@ assert_exit     "unknown alias exits non-zero" "2" "$bogus_rc"
 assert_contains "unknown alias names the bad input" "$bogus_out" "no-such-alias"
 assert_contains "unknown alias lists known aliases" "$bogus_out" "glm"
 assert_contains "unknown alias lists known aliases" "$bogus_out" "gpt"
+assert_contains "unknown alias lists known aliases" "$bogus_out" "gemini"
 
 noargs_out="$("$CLAUDE_RUN" 2>&1)"
 noargs_rc=$?
@@ -369,6 +395,76 @@ for wrapper in claude-gpt claude-openrouter; do
   assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
 done
 
+for wrapper in claude-gemini; do
+  W="$SCRIPT_DIR/$wrapper"
+  if [ ! -x "$W" ]; then
+    bad "[$wrapper] exists and is executable" "missing or not executable: $W"
+    continue
+  fi
+  ok "[$wrapper] exists and is executable"
+
+  w_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" 2>&1)"
+  w_rc=$?
+  assert_exit     "[$wrapper] dry run exits 0"        "0" "$w_rc"
+  assert_contains "[$wrapper] resolves to openrouter" "$w_out" "openrouter"
+  assert_contains "[$wrapper] resolves the model"     "$w_out" "google/gemini-3.8-flash"
+  assert_contains "[$wrapper] carries the context"    "$w_out" "1048576"
+  assert_not_contains "[$wrapper] leaks no secret"    "$w_out" "sk-or-"
+
+  if grep -nE '^[[:space:]]*exec[[:space:]]' "$W" >/dev/null 2>&1; then
+    bad "[$wrapper] contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$W")"
+  else
+    ok "[$wrapper] contains no 'exec'"
+  fi
+
+  fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
+  assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
+done
+
+# ---------------------------------------------------------------- launcher/ps sync
+#
+# claude-ps filters the launcher processes out of its listing with a hardcoded
+# alternation of script names. That list and claude-run's KNOWN_ALIASES are two
+# copies of the same fact, and nothing forced them to agree: adding the `gemini`
+# alias left claude-ps's filter untouched, so a `claude-gemini` session reported
+# as two rows, the wrapper and the session itself.
+#
+# Static rather than behavioural on purpose. The behaviour would need a launched
+# session per alias, while the defect is pure drift between two lists, so
+# comparing the lists catches it at the source and costs nothing.
+
+section "claude-ps knows every launcher (drift guard)"
+
+ps_filter="$(grep -oE "claude-\\([a-z|-]+\\)" "$SCRIPT_DIR/claude-ps" | head -1)"
+known_aliases="$(grep -oE 'KNOWN_ALIASES="[^"]*"' "$CLAUDE_RUN" | head -1 | cut -d'"' -f2)"
+
+if [ -z "$ps_filter" ]; then
+  bad "claude-ps has a launcher exclusion list" "no 'claude-(...)' alternation found"
+elif [ -z "$known_aliases" ]; then
+  bad "claude-run declares KNOWN_ALIASES" "could not parse KNOWN_ALIASES from $CLAUDE_RUN"
+else
+  ok "claude-ps has a launcher exclusion list"
+
+  # Guard the guard. If either extraction ever goes empty or the alias list
+  # stops containing what we know is in it, the loop below would pass by
+  # doing nothing at all, which is the failure mode this whole section exists
+  # to prevent elsewhere.
+  case " $known_aliases " in
+    *" glm "*) ok "alias extraction returned a usable list" ;;
+    *) bad "alias extraction returned a usable list" "got: '$known_aliases'" ;;
+  esac
+
+  for a in $known_aliases; do
+    case "$ps_filter" in
+      *"($a|"*|*"|$a|"*|*"|$a)"*)
+        ok "claude-ps excludes the '$a' launcher" ;;
+      *)
+        bad "claude-ps excludes the '$a' launcher" \
+          "'$a' is a claude-run alias but is missing from claude-ps's filter: $ps_filter" ;;
+    esac
+  done
+fi
+
 # ---------------------------------------------------------------- route detection
 #
 # D6: claude-ps reads each session's route back out of process ancestry. This
@@ -378,6 +474,24 @@ done
 #
 # A stub `claude` stands in for a real session: it creates the exact ancestry
 # without minutes of model loading or a single token of spend.
+#
+# The route exercised is `gpt`, NOT `glm`, and that choice is load-bearing.
+# claude-run runs a per-provider preflight before it launches anything, so the
+# glm route exits 6 the moment Ollama is not listening and the stub never
+# starts. These three assertions then fail on a machine that is behaving
+# perfectly, and they fail in a way that reads like broken detection rather
+# than an absent server. That misdiagnosis cost a session on 2026-09-09, which
+# recorded the cause as claude-ps having gone transcript-based.
+#
+# The openrouter preflight, by contrast, returns early when ANTHROPIC_AUTH_TOKEN
+# is already set (resolve_openrouter_secret's override path), so a throwaway
+# value gets us past it with no 1Password read, no TouchID prompt, no network
+# call and no spend. The token below is deliberately not a real key.
+#
+# Nothing about D6 is provider-specific: the property under test is that the
+# launcher chain survives in process ancestry, which is why swapping the route
+# costs no coverage. The provider and model asserted below come from claude-ps
+# dry-running the alias itself, independently of how the stub was launched.
 
 section "claude-ps route detection (D6)"
 
@@ -389,11 +503,11 @@ else
   # Count routed rows BEFORE launching anything.
   #
   # Assertions here are relative to this baseline, never absolute. Scott may
-  # legitimately have a real claude-glm session open while the suite runs, and
+  # legitimately have a real claude-gpt session open while the suite runs, and
   # an absolute count ("exactly one ollama row") fails in that case for no good
   # reason. Learned the hard way on 2026-08-01, when a live routed session made
   # two assertions fail against correct code.
-  route_rows() { "$CLAUDE_PS" -n 2>/dev/null | grep -c 'glm-4.7-flash' || true; }
+  route_rows() { "$CLAUDE_PS" -n 2>/dev/null | grep -c 'openai/gpt-5.6-sol' || true; }
   baseline_rows="$(route_rows)"
   [ "$baseline_rows" -gt 0 ] && \
     printf '  \033[2m(%d routed session(s) already running; counting relative to that)\033[0m\n' \
@@ -408,7 +522,8 @@ sleep 25
 STUB
   chmod +x "$STUB_DIR/claude"
 
-  PATH="$STUB_DIR:$PATH" "$SCRIPT_DIR/claude-glm" >/dev/null 2>&1 &
+  ANTHROPIC_AUTH_TOKEN="selftest-placeholder-not-a-real-key" \
+    PATH="$STUB_DIR:$PATH" "$SCRIPT_DIR/claude-gpt" >/dev/null 2>&1 &
   STUB_LAUNCHER_PID=$!
 
   # Give the chain time to establish: wrapper -> claude-run -> stub.
@@ -416,8 +531,12 @@ STUB
 
   wc_out="$("$CLAUDE_PS" -n 2>&1)"
 
-  assert_contains "routed session shows its provider" "$wc_out" "Ollama (local)"
-  assert_contains "routed session shows its model"    "$wc_out" "glm-4.7-flash"
+  assert_contains "routed session shows its provider" "$wc_out" "OpenRouter"
+  assert_contains "routed session shows its model"    "$wc_out" "openai/gpt-5.6-sol"
+
+  # The placeholder credential must never reach the listing.
+  assert_not_contains "no placeholder credential in the listing" \
+    "$wc_out" "selftest-placeholder-not-a-real-key"
 
   # The launcher processes must not be listed as sessions.
   #
@@ -425,7 +544,7 @@ STUB
   # process filter picks them up and one launch reports as three or four rows.
   # Introduced by this launcher family: before it existed, nothing in bin/
   # matched. Caught by the PROVIDER column making the duplicates obvious.
-  routed_rows="$(printf '%s' "$wc_out" | grep -c 'glm-4.7-flash' || true)"
+  routed_rows="$(printf '%s' "$wc_out" | grep -c 'openai/gpt-5.6-sol' || true)"
   expected_rows=$((baseline_rows + 1))
   if [ "$routed_rows" -eq "$expected_rows" ]; then
     ok "one launch adds exactly one row"
@@ -434,7 +553,7 @@ STUB
       "expected $expected_rows (baseline $baseline_rows + 1), got $routed_rows; launcher processes may be counted as sessions"
   fi
   assert_not_contains "claude-run is not listed as a session" "$wc_out" "claude-run "
-  assert_not_contains "wrappers are not listed as sessions"   "$wc_out" "claude-glm "
+  assert_not_contains "wrappers are not listed as sessions"   "$wc_out" "claude-gpt "
 
   # A session with no launcher ancestor is reported as Anthropic. Strictly an
   # inference from absence (a process's environment is not readable on macOS),

@@ -102,9 +102,20 @@ either knowing about the other, and nothing global is flipped to switch.
 | `claude-glm` | local Ollama | `glm-4.7-flash` | free | **~4 min** |
 | `claude-ollama` | local Ollama | the Ollama default (currently `glm`) | free | ~4 min |
 | `claude-gpt` | OpenRouter | `openai/gpt-5.6-sol` | ~$0.06-0.10/turn | ~4 s |
+| `claude-gemini` | OpenRouter | `google/gemini-3.8-flash` | ~$0.04-0.07/turn † | ~4 s |
 | `claude-openrouter` | OpenRouter | the OpenRouter default (currently `gpt`) | ~$0.06-0.10/turn | ~4 s |
 
-All four are three-line wrappers over `bin/claude-run`, which owns the provider
+† Measured 2026-09-10 against OpenRouter's Anthropic-compatible endpoint, the
+same one `claude-run` points at. **Do not scale this by the price sheet.**
+Gemini 3.8 Flash bills at $0.75/$3.75 per Mtok against GPT-5.6 Sol's
+$2.00/$10.00, which suggests 0.375x, but on the same prompt it emitted ~1.9x
+the output tokens, so the measured per-turn ratio is **~0.70x**. Gemini also hit
+the token cap in that probe, so its verbosity is a floor, not a settled figure.
+Time to first token is indistinguishable from `claude-gpt` (~1.2-1.8 s at the
+API layer for both); the ~4 s in the column is session start, which is Claude
+Code's own boot and is model-independent.
+
+All five are three-line wrappers over `bin/claude-run`, which owns the provider
 table, the model table, and all environment construction. `bin/claude-ps`
 shows which backend every running session is on.
 
@@ -113,7 +124,7 @@ Inspect any launcher without starting anything:
 ```bash
 CLAUDE_ROUTE_DRYRUN=1 claude-gpt      # print the resolved plan, launch nothing
 CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-glm   # check the backend is ready, no session
-bin/claude-route-selftest             # 105 assertions, no session, no spend
+bin/claude-route-selftest             # 127 assertions, no session, no spend
 ```
 
 ### One-time setup

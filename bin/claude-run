@@ -55,7 +55,7 @@ readonly OP_REF="op://Employee/OpenRouter/API Key"
 # throwaway and experimental work, so skipping prompts is the useful default.
 CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---dangerously-skip-permissions}"
 
-readonly KNOWN_ALIASES="glm gpt"
+readonly KNOWN_ALIASES="glm gpt gemini"
 
 # ---------------------------------------------------------------- helpers
 
@@ -72,6 +72,7 @@ untouched and stays on the Max subscription.
 Aliases:
   glm    Ollama, local, glm-4.7-flash          free, ~4 min cold start, 198K window
   gpt    OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 s start, 1M window
+  gemini OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, ~4 s start, 1M window
 
 Options:
   CLAUDE_ROUTE_DRYRUN=1    print the resolved plan and exit without launching
@@ -88,16 +89,29 @@ USAGE
 # alias -> (provider, model id, context tokens)
 #
 # Context values are measured, not assumed:
-#   glm  202752  Gate A, via /api/ps on the loaded model. NOT `ollama show`,
-#                which reports the GGUF architecture ceiling and reads the same
-#                number whether or not num_ctx was ever applied.
-#   gpt  1050000 Gate B, confirmed in-session as contextWindow: 1050000.
+#   glm    202752  Gate A, via /api/ps on the loaded model. NOT `ollama show`,
+#                  which reports the GGUF architecture ceiling and reads the same
+#                  number whether or not num_ctx was ever applied.
+#   gpt    1050000 Gate B, confirmed in-session as contextWindow: 1050000.
+#   gemini 1048576 OpenRouter's own /api/v1/models, read 2026-09-10. Not an
+#                  in-session measurement like the two above, but the same
+#                  endpoint reports gpt as 1050000, matching Gate B exactly,
+#                  which is what makes it trustworthy here. Note this is
+#                  1024^2 and NOT the 1050000 gpt uses: assuming the two
+#                  OpenRouter routes shared a window would overrun the real
+#                  one by 1424 tokens, which is the exact failure this
+#                  variable exists to prevent.
 #
 # CLAUDE_CODE_MAX_CONTEXT_TOKENS matters because Claude Code assumes a
 # Claude-sized window for model names it does not recognize, and would
 # otherwise overrun the real one.
 resolve_model() {
   case "$1" in
+    gemini)
+      ROUTE_PROVIDER="openrouter"
+      ROUTE_MODEL="google/gemini-3.8-flash"
+      ROUTE_CONTEXT="1048576"
+      ;;
     glm)
       ROUTE_PROVIDER="ollama"
       ROUTE_MODEL="glm-4.7-flash"
