@@ -51,7 +51,7 @@ Settled 2026-08-08 before planning. Steps cite these.
 |---|---|
 | **T1** | Patchbay gets **its own repository, owned by `facetdigital`**. Not a curl-from-dotfiles arrangement, not a bundled single file, and not under `scottwb`. Settled 2026-08-08. Consequences: the code is Facet's, so licensing and any future public release are a company decision rather than Scott's alone, and contributions made from it (for instance the `no_fallback` idea for ccr) go out under Facet's name. |
 | **T2** | **Per-dev OpenRouter keys**, each with its own per-key credit limit. No shared key. Spend is attributable and blast radius is contained; the cost is that each dev does the account setup once. |
-| **T3** | **Everything ships and everything is documented**, including Ollama and `what-claude`. No fork, no stripped build. |
+| **T3** | **Everything ships and everything is documented**, including Ollama and `claude-ps`. No fork, no stripped build. |
 | **T4** | T3 is reconciled with "without having to know much about how it all works" through **document structure, not omission**: a quickstart at the top that is complete on its own, full reference below it. A dev who reads only the first screen must be able to succeed. |
 | **T5** | The new repo starts with **fresh git history**, not a filtered export of dotfiles. Cheap, and it removes any chance of publishing dotfiles history, which has previously carried client filenames through plugin state. Provenance is a README line pointing at the dotfiles plan and assessments. |
 | **T6** | Credential resolution order is **`OPENROUTER_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then `op://`**. The env var is the documented path for the team; 1Password becomes an optional convenience for whoever wants it. |
@@ -177,9 +177,10 @@ identifiers. Makes T5's leak-avoidance testable rather than aspirational.
 **Test:**
 ```bash
 bin/claude-route-selftest
-grep -rlE 'facetdigital|scottwb|op://Employee' \
-  bin/claude-run bin/claude-gpt bin/claude-openrouter bin/claude-glm \
-  bin/claude-ollama bin/what-claude bin/claude-route-selftest \
+# Globbed, not enumerated. The list drifted once already: bin/claude-gemini
+# was added on 2026-09-10 and an enumerated guard silently stopped covering
+# the whole family. A guard that can be outgrown by adding a file is not one.
+grep -rlE 'facetdigital|scottwb|op://Employee' bin/claude-* \
   && echo "FAIL: personal strings present" || echo "PASS: clean"
 ```
 
@@ -235,7 +236,7 @@ below it.
       limit and the gotcha that an account-level limit is not the same thing**.
       Scott hit exactly this during Gate B: the key endpoint reports
       `limit: null` when only the account is capped.
-- [ ] Document the rest below the fold: the Ollama half, `what-claude`, the
+- [ ] Document the rest below the fold: the Ollama half, `claude-ps`, the
       model table and how to extend it, the dry-run and preflight modes, and
       the no-`exec` constraint.
 - [ ] State the cost profile honestly: roughly $0.06 to $0.10 per turn, so a
@@ -304,7 +305,7 @@ Patchbay now lives in two places. Resolve it before they drift.
       optional companion, with the clone step alongside the existing
       `dotfiles-private` step it resembles.
 - [ ] Verify green: `claude-gpt` and `claude-glm` still work from a shell after
-      a fresh install, and `what-claude` still reports routes
+      a fresh install, and `claude-ps` still reports routes
 
 **Satisfies:** T1, and the "install process offers optional components" idea
 that prompted this work.
@@ -313,9 +314,9 @@ that prompted this work.
 
 **Test:**
 ```bash
-command -v claude-gpt claude-glm what-claude
+command -v claude-gpt claude-glm claude-ps
 CLAUDE_ROUTE_DRYRUN=1 claude-gpt | grep -E '^  (provider|model) '
-bin/what-claude | head -3
+bin/claude-ps | head -3
 ```
 
 **Commit message:** `Consume Patchbay from its own repo instead of vendoring it`

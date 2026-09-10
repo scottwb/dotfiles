@@ -1,5 +1,19 @@
 # Plan: Claude Code Route Launchers (OpenRouter + Ollama)
 
+**Status:** COMPLETE, shipped 2026-08-01. All ten steps landed, including the
+three gates (Gate 0 in [../assessments/mcp-schema-budget.md](../assessments/mcp-schema-budget.md),
+Gates A and B in [../assessments/route-gates.md](../assessments/route-gates.md)); 72 of 72
+checkboxes are ticked. Marked here on 2026-09-10: the plan was finished but never
+carried the completion line every other completed plan in this directory has, which
+made it read as in-flight. Follow-on work lives in the roadmap under "Route launcher
+follow-ons", not here.
+
+> **Naming note (2026-09-10):** this plan predates a rename. Every reference
+> below to `bin/what-claude` is now `bin/claude-ps` (renamed in `3975b5a`).
+> The text is left as written because this is the record of a completed plan,
+> not live instructions; the active plan that *is* followed,
+> [patchbay-team-release.md](patchbay-team-release.md), has been corrected.
+
 > **Note, 2026-09-02.** This plan repeatedly promises that `claude` and
 > `claudedsp` stay untouched, including in decision D1. The `claudedsp` alias
 > has since been retired: `bin/agent` launches with `--permission-mode auto`
