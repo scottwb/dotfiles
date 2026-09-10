@@ -160,6 +160,23 @@ is in it.
 - Separate concerns: data layer vs presentation layer vs business logic
 - Keep code encapsulated and extractable for future reuse
 - Maintain backward compatibility unless explicitly told otherwise
+- **Derive lists; do not hand-maintain two copies of the same fact.** A hardcoded
+  list that has to agree with another list will drift, silently, and the drift
+  surfaces as a bug rather than as a merge conflict. Prefer a glob over an
+  enumeration, reading the source list at runtime, or a check that fails when the
+  two disagree. A guard you can outgrow by adding a file is not a guard.
+
+  **Why:** four separate bugs on 2026-09-10 were this one shape. `claude-ps`'s
+  launcher exclusion list stopped covering a launcher added that morning, so one
+  session reported as two rows. Patchbay's de-personalization guard enumerated
+  the files it checked and quietly stopped covering the family. The roadmap's
+  loose-end notes carried diagnoses that had gone stale and sent a session
+  chasing the wrong cause. The alias table itself was the reason reaching an
+  arbitrary model needed a new feature at all.
+
+  **How to apply:** when adding an entry to any list, ask what else has to change
+  with it. If the answer is "another list somewhere", that pairing is the bug;
+  fix the pairing rather than the entry.
 
 ## Output & Feedback
 - Print debug trace logs for multi-step operations
