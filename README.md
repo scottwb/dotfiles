@@ -119,12 +119,40 @@ All five are three-line wrappers over `bin/claude-run`, which owns the provider
 table, the model table, and all environment construction. `bin/claude-ps`
 shows which backend every running session is on.
 
+### Any model, without an alias
+
+The table above is shorthand for the models worth a wrapper. Any model the
+backend serves can be named directly, with nothing pre-configured:
+
+```bash
+claude-run --provider openrouter --model google/gemini-3.7-flash --resume Dotfiles
+claude-run --model deepseek/deepseek-v4.1-flash        # --provider defaults to openrouter
+claude-run --model some/model --context 65536          # skip the lookup entirely
+claude-run --refresh --model some/new-model            # re-fetch the catalog first
+```
+
+Anything `claude-run` does not own is forwarded to `claude` untouched and in
+order, which is how `--resume Dotfiles` above reaches the session picker.
+
+**The context window is looked up, not guessed.** Windows in OpenRouter's
+catalog run from 32768 to 1048576, so inheriting one from an unrelated alias is
+a real hazard: pinning a 65536-window model at `gpt`'s 1050000 overruns it 16x.
+`claude-run` resolves the window from OpenRouter's own catalog, cached for 24h
+under `${XDG_CACHE_HOME:-~/.cache}/patchbay/`, and **fails rather than guessing**
+when it cannot. Pass `--context` to override or to work offline.
+
+**Flags go before the alias, if you use one at all.** `claude-run gpt --model X`
+is refused with an explanation rather than half-honoured, because the flag would
+otherwise forward to `claude` and leave the window on `gpt`'s. Parsing flags
+after the alias is not an option: `--resume gpt` would then read a session named
+`gpt` as the alias.
+
 Inspect any launcher without starting anything:
 
 ```bash
 CLAUDE_ROUTE_DRYRUN=1 claude-gpt      # print the resolved plan, launch nothing
 CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-glm   # check the backend is ready, no session
-bin/claude-route-selftest             # 127 assertions, no session, no spend
+bin/claude-route-selftest             # 156 assertions, no session, no spend
 ```
 
 ### One-time setup

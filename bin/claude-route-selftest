@@ -421,6 +421,114 @@ for wrapper in claude-gemini; do
   assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
 done
 
+# ---------------------------------------------------------------- arbitrary models
+#
+# Aliases are shorthand, not the only way to reach a model. --provider/--model
+# name any model the backend serves, with no entry in the model table.
+#
+# The window is the whole difficulty. Every alias carries a measured context,
+# but an arbitrary model has none, and OpenRouter's catalog spans 32768 to
+# 1048576. Inheriting whichever alias happened to be named is the bug this
+# section exists to prevent: before flags existed, the documented workaround was
+# CLAUDE_ROUTE_MODEL=... claude-run gpt, which silently kept gpt's 1050000 and
+# would overrun a 65536-window model by 16x.
+#
+# The catalog is read from a local cache, so these assertions do no network.
+# CLAUDE_ROUTE_CACHE_DIR points at a synthetic one: deterministic, offline, and
+# it keeps the suite's "no session, no spend" promise intact.
+
+section "Arbitrary models via --provider / --model"
+
+FAKE_CACHE="$(mktemp -d)"
+mkdir -p "$FAKE_CACHE/patchbay"
+# The nested "context_length" is a decoy. Real records carry one inside
+# top_provider as well, so a parser that takes the last match, or any match,
+# rather than the record's own reports the wrong window.
+printf '%s' '{"data":[{"id":"fake/tiny-model","context_length":4096,"architecture":{"context_length":999999}},{"id":"fake/big-model","context_length":1048576,"architecture":{}}]}' \
+  > "$FAKE_CACHE/patchbay/openrouter-models.json"
+
+run_fake() { CLAUDE_ROUTE_CACHE_DIR="$FAKE_CACHE" CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" "$@" 2>&1; }
+
+# --- no alias at all, explicit window
+fx_out="$(run_fake --provider openrouter --model fake/big-model --context 4242)"
+fx_rc=$?
+assert_exit     "flags alone resolve with no alias"  "0" "$fx_rc"
+assert_contains "flags select the provider"          "$fx_out" "openrouter"
+assert_contains "flags select the model"             "$fx_out" "fake/big-model"
+assert_contains "explicit --context wins"            "$fx_out" "4242"
+
+# --- --provider omitted entirely, which is how this gets typed in practice.
+# Every other assertion here passes --provider, which is exactly why the
+# unbound-variable crash on this path survived the first implementation.
+fnp_out="$(run_fake --model fake/big-model --context 5150)"
+fnp_rc=$?
+assert_exit     "--provider may be omitted"          "0" "$fnp_rc"
+assert_contains "omitted provider defaults to openrouter" "$fnp_out" "openrouter"
+assert_contains "omitted provider still resolves"    "$fnp_out" "5150"
+assert_not_contains "no unbound variable crash"      "$fnp_out" "unbound variable"
+
+# --- window comes from the catalog when --context is omitted
+fl_out="$(run_fake --provider openrouter --model fake/tiny-model)"
+assert_contains "catalog supplies the window"        "$fl_out" "4096"
+assert_not_contains "catalog window is not the decoy" "$fl_out" "999999"
+
+# --- THE REGRESSION, in its dangerous spelling.
+#
+# `claude-run gpt --model X` reads like it should work. It cannot be honoured
+# safely (see the guard in claude-run for why parsing flags after the alias is
+# not an option), and honouring it half-way is the worst outcome: claude would
+# take X while the window stayed on gpt's 1050000. It must fail loudly instead.
+fo_out="$(run_fake gpt --model fake/tiny-model)"
+fo_rc=$?
+assert_exit     "a flag after the alias is refused"  "2" "$fo_rc"
+assert_contains "the refusal explains the ordering"  "$fo_out" "before the alias"
+assert_not_contains "the refusal launches nothing"   "$fo_out" "1050000"
+
+# The safe spelling of the same intent resolves the window from the catalog.
+fo2_out="$(run_fake --model fake/tiny-model gpt)"
+assert_contains "flags before the alias re-resolve the window" "$fo2_out" "4096"
+assert_not_contains "an overridden model drops the alias window" "$fo2_out" "1050000"
+
+# Same trap through the older env-var spelling, which had no way to notice.
+fe_out="$(CLAUDE_ROUTE_CACHE_DIR="$FAKE_CACHE" CLAUDE_ROUTE_DRYRUN=1 \
+  CLAUDE_ROUTE_MODEL=fake/tiny-model "$CLAUDE_RUN" gpt 2>&1)"
+assert_contains "env-var override also re-resolves"  "$fe_out" "4096"
+assert_not_contains "env-var override drops the alias window" "$fe_out" "1050000"
+
+# --- everything claude-run does not own forwards to claude, in order
+ff_out="$(run_fake --provider openrouter --model fake/big-model --context 10 --resume Dotfiles)"
+assert_contains "claude flags forward"               "$ff_out" "--resume"
+assert_contains "claude flag arguments forward"      "$ff_out" "Dotfiles"
+
+# --- =-joined spelling
+feq_out="$(run_fake --provider=openrouter --model=fake/big-model --context=77)"
+assert_contains "--flag=value is accepted"           "$feq_out" "fake/big-model"
+assert_contains "--flag=value carries its value"     "$feq_out" "77"
+
+# --- ollama has no catalog, so an unknown model there must fail loudly
+fno_out="$(run_fake --provider ollama --model not-in-any-table)"
+fno_rc=$?
+assert_exit     "ollama + unknown model exits non-zero" "3" "$fno_rc"
+assert_contains "the failure names --context"        "$fno_out" "--context"
+
+# --- an unresolvable window must never be guessed
+fmiss_out="$(run_fake --provider openrouter --model fake/absent-from-catalog)"
+fmiss_rc=$?
+assert_exit     "unknown model exits non-zero"       "3" "$fmiss_rc"
+assert_contains "the failure names the model"        "$fmiss_out" "fake/absent-from-catalog"
+
+# --- backward compatibility: the positional form is untouched
+fbc_out="$(run_fake gpt --resume Dotfiles)"
+assert_contains "positional alias still resolves"    "$fbc_out" "openai/gpt-5.6-sol"
+assert_contains "positional alias keeps its window"  "$fbc_out" "1050000"
+assert_contains "positional alias still forwards"    "$fbc_out" "Dotfiles"
+
+# --- a non-alias positional is claude's when a model was named, not an error
+fpos_out="$(run_fake --provider openrouter --model fake/big-model --context 10 explain this)"
+assert_contains "a prompt positional forwards"       "$fpos_out" "explain"
+
+rm -rf "$FAKE_CACHE"
+
 # ---------------------------------------------------------------- launcher/ps sync
 #
 # claude-ps filters the launcher processes out of its listing with a hardcoded

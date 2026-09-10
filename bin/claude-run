@@ -57,22 +57,48 @@ CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---dangerously-skip
 
 readonly KNOWN_ALIASES="glm gpt gemini"
 
+# Catalog used to resolve the context window of a model that has no entry in
+# the model table. Windows in this catalog span 32768 to 1048576, so guessing
+# one, or inheriting whichever alias was named, risks overrunning the real
+# window by an order of magnitude.
+#
+# The endpoint is trusted for a specific reason rather than on faith: it reports
+# openai/gpt-5.6-sol as 1050000, which is exactly what Gate B measured
+# in-session, so it reproduces a known-good reading.
+readonly CATALOG_URL="https://openrouter.ai/api/v1/models"
+readonly CATALOG_TTL_MINUTES=1440          # 24h
+readonly CATALOG_FETCH_TIMEOUT=15
+CLAUDE_ROUTE_CACHE_DIR="${CLAUDE_ROUTE_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}"
+
 # ---------------------------------------------------------------- helpers
 
 err()  { printf '\033[31mERROR\033[0m: %s\n' "$1" >&2; }
 info() { printf '\033[34mi\033[0m %s\n' "$1" >&2; }
+warn() { printf '\033[33mWARNING\033[0m: %s\n' "$1" >&2; }
 
 usage() {
   cat >&2 <<'USAGE'
-Usage: claude-run <alias> [claude args...]
+Usage: claude-run [claude-run flags] [alias] [claude args...]
 
 Launches Claude Code against a non-Anthropic backend. Plain `claude` is
 untouched and stays on the Max subscription.
 
-Aliases:
+claude-run's own flags must come before the alias. Everything after is
+forwarded to claude untouched.
+
+Aliases (shorthand for a measured model + window):
   glm    Ollama, local, glm-4.7-flash          free, ~4 min cold start, 198K window
   gpt    OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 s start, 1M window
   gemini OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, ~4 s start, 1M window
+
+Any model, no alias needed:
+  --provider <name>   ollama | openrouter
+  --model <id>        provider-specific model id
+  --context <tokens>  context ceiling; looked up from the catalog when omitted
+  --refresh           re-fetch the model catalog before resolving
+
+  Anything claude-run does not own is forwarded to claude untouched:
+    claude-run --provider openrouter --model google/gemini-3.7-flash --resume Dotfiles
 
 Options:
   CLAUDE_ROUTE_DRYRUN=1    print the resolved plan and exit without launching
@@ -304,6 +330,102 @@ resolve_openrouter_secret() {
   return 0
 }
 
+# ---------------------------------------------------------------- catalog
+#
+# Only ever consulted for a model with no entry in the model table. An alias
+# carries a measured window, so the common path never touches this at all.
+
+catalog_path() { printf '%s/patchbay/openrouter-models.json' "$CLAUDE_ROUTE_CACHE_DIR"; }
+
+# Fresh means "modified within the TTL". `find -mmin +N` prints the file only
+# when it is older than N minutes, so empty output means fresh. Portable across
+# BSD and GNU find, unlike stat's format flags.
+catalog_is_fresh() {
+  local f; f="$(catalog_path)"
+  [ -f "$f" ] || return 1
+  [ -z "$(find "$f" -mmin "+$CATALOG_TTL_MINUTES" 2>/dev/null)" ]
+}
+
+catalog_fetch() {
+  local f tmp; f="$(catalog_path)"
+  mkdir -p "$(dirname "$f")" || return 1
+  tmp="${f}.$$"
+  if curl -fsS --max-time "$CATALOG_FETCH_TIMEOUT" "$CATALOG_URL" > "$tmp" 2>/dev/null \
+     && [ -s "$tmp" ]; then
+    mv "$tmp" "$f"
+    return 0
+  fi
+  rm -f "$tmp"
+  return 1
+}
+
+# The record-level context_length for $1, or nothing.
+#
+# Records are minified onto one line, so split them apart first. Splitting on
+# '},{"id":' is safe because no nested object in a record begins with "id".
+# The trailing comma in the match matters: without it, "google/gemini-3.8-flash"
+# also matches "google/gemini-3.8-flash:batch". head -1 on the context_length
+# matters too, because top_provider carries a second one.
+catalog_context_for() {
+  local model="$1" f rec ctx
+  f="$(catalog_path)"
+  [ -f "$f" ] || return 1
+  rec="$(sed 's/},{"id":/}\n{"id":/g' "$f" | grep -F "\"id\":\"${model}\"," | head -1)"
+  [ -z "$rec" ] && return 1
+  ctx="$(printf '%s' "$rec" | grep -oE '"context_length":[0-9]+' | head -1 | sed 's/.*://')"
+  [ -z "$ctx" ] && return 1
+  printf '%s' "$ctx"
+  return 0
+}
+
+# Resolve ROUTE_CONTEXT for a model the table does not know.
+#
+# Never guesses. A window that cannot be established is a hard failure with the
+# fix named, because the alternative is a silent overrun that surfaces much
+# later as a confusing truncation.
+resolve_context_from_catalog() {
+  local model="$1" ctx
+
+  if [ "$ROUTE_PROVIDER" != "openrouter" ]; then
+    err "No context window known for '${model}' on provider '${ROUTE_PROVIDER}'."
+    info "Only openrouter publishes a catalog to look this up in."
+    info "Pass it explicitly:  --context <tokens>"
+    return 3
+  fi
+
+  ctx="$(catalog_context_for "$model")" && [ -n "$ctx" ] && { ROUTE_CONTEXT="$ctx"; return 0; }
+
+  # Dry run resolves from cache only. Fetching here would break the property
+  # that a plan can be inspected with no network, no server and no key.
+  if [ -n "${CLAUDE_ROUTE_DRYRUN:-}" ]; then
+    err "No cached context window for '${model}'."
+    info "The dry run deliberately does no network, so it cannot refresh the catalog."
+    info "Pass it explicitly:  --context <tokens>"
+    info "Or refresh the catalog first:  claude-run --refresh ${ROUTE_ALIAS_DISPLAY}"
+    return 3
+  fi
+
+  info "Resolving the context window for '${model}' from the OpenRouter catalog..."
+  if catalog_fetch; then
+    ctx="$(catalog_context_for "$model")" && [ -n "$ctx" ] && { ROUTE_CONTEXT="$ctx"; return 0; }
+    err "'${model}' is not in the OpenRouter catalog."
+    info "Check the slug at ${CATALOG_URL}"
+    info "Or pass the window explicitly:  --context <tokens>"
+    return 3
+  fi
+
+  # A stale cache beats no answer, but say so rather than pretending.
+  if [ -f "$(catalog_path)" ]; then
+    warn "Could not refresh the model catalog; falling back to the cached copy."
+    ctx="$(catalog_context_for "$model")" && [ -n "$ctx" ] && { ROUTE_CONTEXT="$ctx"; return 0; }
+  fi
+
+  err "Could not resolve a context window for '${model}'."
+  info "The catalog could not be fetched and no cached copy has this model."
+  info "Pass it explicitly:  --context <tokens>"
+  return 3
+}
+
 # ---------------------------------------------------------------- preflight
 #
 # Ollama only. Three checks, cheapest first, each with its own exit code so a
@@ -408,24 +530,111 @@ PLAN
 
 [ $# -eq 0 ] && { usage; exit 2; }
 
-ROUTE_ALIAS="$1"
-shift
+# Parse claude-run's own flags off the front. Everything else, including every
+# flag claude-run does not own, is forwarded to claude in order.
+#
+# --model overlaps claude's own flag of the same name, and that is deliberate
+# rather than a collision: claude-run always passes --model to claude, so
+# consuming it here and re-emitting it means the same thing either way.
+FLAG_PROVIDER=""; FLAG_MODEL=""; FLAG_CONTEXT=""; FLAG_REFRESH=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help|help)  usage; exit 0 ;;
+    --provider)      FLAG_PROVIDER="${2:-}"; shift 2 || exit 2 ;;
+    --provider=*)    FLAG_PROVIDER="${1#*=}"; shift ;;
+    --model)         FLAG_MODEL="${2:-}";    shift 2 || exit 2 ;;
+    --model=*)       FLAG_MODEL="${1#*=}";   shift ;;
+    --context)       FLAG_CONTEXT="${2:-}";  shift 2 || exit 2 ;;
+    --context=*)     FLAG_CONTEXT="${1#*=}"; shift ;;
+    --refresh)       FLAG_REFRESH=1;         shift ;;
+    --)              shift; break ;;
+    *)               break ;;
+  esac
+done
 
-case "$ROUTE_ALIAS" in
-  -h|--help|help) usage; exit 0 ;;
-esac
+# The first non-flag token is the alias, but only when it actually names one.
+# When a model was given explicitly, an unrecognised positional belongs to
+# claude (a prompt, say) rather than being a typo worth failing on.
+# Initialised here, not just in resolve_model. Under `set -u` an arbitrary
+# model has no alias to populate them, and reading one unset aborts the script
+# with "unbound variable" rather than any message a user could act on.
+ROUTE_PROVIDER="${ROUTE_PROVIDER:-}"
+ROUTE_MODEL="${ROUTE_MODEL:-}"
+ROUTE_CONTEXT="${ROUTE_CONTEXT:-}"
 
-if ! resolve_model "$ROUTE_ALIAS"; then
-  err "Unknown alias: ${ROUTE_ALIAS}"
+ROUTE_ALIAS=""
+HAVE_ALIAS=0
+if [ $# -gt 0 ]; then
+  case "$1" in
+    -*) : ;;
+    *)
+      if resolve_model "$1" 2>/dev/null; then
+        ROUTE_ALIAS="$1"; HAVE_ALIAS=1; shift
+      elif [ -z "$FLAG_MODEL" ] && [ -z "${CLAUDE_ROUTE_MODEL:-}" ]; then
+        err "Unknown alias: $1"
+        printf '\nKnown aliases: %s\n\n' "$KNOWN_ALIASES" >&2
+        usage
+        exit 2
+      fi
+      ;;
+  esac
+fi
+
+# Used only in messages, where "the alias" may not exist.
+ROUTE_ALIAS_DISPLAY="${ROUTE_ALIAS:-${FLAG_MODEL:-${CLAUDE_ROUTE_MODEL:-}}}"
+
+if [ "$HAVE_ALIAS" -eq 0 ] && [ -z "$FLAG_MODEL" ] && [ -z "${CLAUDE_ROUTE_MODEL:-}" ]; then
+  err "Nothing to run: name an alias, or pass --model."
   printf '\nKnown aliases: %s\n\n' "$KNOWN_ALIASES" >&2
   usage
   exit 2
 fi
 
-# Per-run overrides, applied after the table so they win.
-ROUTE_PROVIDER="${CLAUDE_ROUTE_PROVIDER:-$ROUTE_PROVIDER}"
-ROUTE_MODEL="${CLAUDE_ROUTE_MODEL:-$ROUTE_MODEL}"
-ROUTE_CONTEXT="${CLAUDE_ROUTE_CONTEXT:-$ROUTE_CONTEXT}"
+# claude-run's flags are parsed only ahead of the alias, and the leftovers are
+# forwarded verbatim. That is deliberate: parsing them anywhere would mean
+# guessing which forwarded flags take a value, and `--resume gpt` would then
+# read a session named "gpt" as the alias.
+#
+# The cost is that `claude-run gpt --model X` looks like it should work and
+# does not: the flag would forward, claude would see --model twice and take X,
+# while CLAUDE_CODE_MAX_CONTEXT_TOKENS still carried gpt's window. Refuse it
+# rather than let that through silently.
+for arg in "$@"; do
+  case "$arg" in
+    --model|--model=*|--provider|--provider=*|--context|--context=*|--refresh)
+      err "claude-run's own flags must come before the alias, not after it."
+      info "Found '${arg}' among the arguments meant for claude."
+      info "Write:  claude-run ${arg} ... ${ROUTE_ALIAS_DISPLAY}"
+      info "Or drop the alias entirely:  claude-run --provider <p> --model <id> ..."
+      exit 2
+      ;;
+  esac
+done
+
+# Per-run overrides, applied after the table so they win. Flags beat the
+# environment, which beats the table.
+ROUTE_PROVIDER="${FLAG_PROVIDER:-${CLAUDE_ROUTE_PROVIDER:-$ROUTE_PROVIDER}}"
+ROUTE_MODEL="${FLAG_MODEL:-${CLAUDE_ROUTE_MODEL:-$ROUTE_MODEL}}"
+
+# A model without an alias needs a provider; openrouter is the only one with a
+# catalog, and the only one an arbitrary slug is likely to mean.
+[ -z "$ROUTE_PROVIDER" ] && ROUTE_PROVIDER="openrouter"
+
+[ -n "$FLAG_REFRESH" ] && { catalog_fetch || warn "Could not refresh the model catalog."; }
+
+# The window. An overridden model invalidates whatever the table said, because
+# the table's number was measured for a different model: keeping it is how a
+# 65536-window model silently inherits a 1050000 ceiling.
+MODEL_FROM_TABLE=1
+{ [ -n "$FLAG_MODEL" ] || [ -n "${CLAUDE_ROUTE_MODEL:-}" ]; } && MODEL_FROM_TABLE=0
+
+if [ -n "$FLAG_CONTEXT" ]; then
+  ROUTE_CONTEXT="$FLAG_CONTEXT"
+elif [ -n "${CLAUDE_ROUTE_CONTEXT:-}" ]; then
+  ROUTE_CONTEXT="${CLAUDE_ROUTE_CONTEXT}"
+elif [ "$MODEL_FROM_TABLE" -eq 0 ] || [ "$HAVE_ALIAS" -eq 0 ]; then
+  resolve_context_from_catalog "$ROUTE_MODEL" || exit 3
+fi
 
 if ! resolve_provider "$ROUTE_PROVIDER"; then
   err "Unknown provider: ${ROUTE_PROVIDER}"

@@ -32,8 +32,13 @@ bin/claude-gemini       OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, 
 bin/claude-ollama       the Ollama default
 bin/claude-openrouter   the OpenRouter default
 bin/claude-ps           every running session: backend, model, context, status
-bin/claude-route-selftest   127 assertions, no session, no spend
+bin/claude-route-selftest   156 assertions, no session, no spend
 ```
+
+Aliases are shorthand, not the only door. `claude-run --provider openrouter
+--model <any-slug>` reaches anything the backend serves with nothing
+pre-configured, resolving the context window from OpenRouter's catalog (cached
+24h) and failing rather than guessing when it cannot.
 
 Plain `claude` is untouched and stays on the Max subscription. Routing is per
 process, so a routed session and a plain one run side by side and nothing global
