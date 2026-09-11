@@ -103,6 +103,24 @@ Decision context: spec-kit, superpowers, and SDD-style frameworks were evaluated
 2026-08-01 and rejected wholesale; steal patterns only (constitution, clarify
 discipline, spec-per-feature granularity stays with /gameplan).
 
+### Memory-durability hook: move to Option D (detect the effect, not the command)
+
+**Thread:** Servanda
+
+**Goal:** A hook that fires when a session writes to `~/.claude/projects/*/memory/*` and reminds it that the file is gitignored, unbacked, and invisible to a fresh clone or a fresh-context run, so anything that must survive gets written into the repo instead.
+
+**Status:** Needs a gameplan. **AWAITING SCOTT'S EXPLICIT GO, and do not auto-start.** Relayed to this repo on 2026-09-10 by the Greenthumb session as a decision Scott made in a greenthumb office-hours round that day. Recorded here so the decision is not lost, but a peer's relay is not the same as Scott saying go in this repo, and the implementation edits `settings.json`, which is config.
+
+**The decision:** Option D. Detect the *effect* rather than the command: after any matched tool call, check whether a memory file's mtime changed in the last ~120s.
+
+**Why the current shape fails.** The hook matches `Write|Edit` tool calls. Observation across two live sessions on 2026-09-08 and 09 (Greenthumb's and Donna's) found that almost all memory writes go through Bash instead: `sed -i`, `echo >>`, redirects, `cd` plus a relative path. The hook would have fired zero times across the exact work it exists to protect. Option D was tested informally on 2026-09-09 and caught Bash appends, `sed -i`, new files, and `cd` plus relative writes, while staying silent when nothing changed. It needs no command parser and tolerates no false positives. It is post-hoc rather than preventive, but a fresh session still sees the reminder and can act on the next turn.
+
+**Options already rejected**, so they are not re-proposed: (a) keep matching `Write|Edit`, which the observation above disproves; (b) narrow-match Bash with a command parser, which is the thing Option D exists to avoid; (c) drop the hook entirely and rely on the memory-versus-repo block in `CLAUDE.md`, which auto-loads on fresh sessions and did the real work unaided on 2026-09-08 and 09. Option (c) is the honest fallback if Option D proves noisy, and is worth re-reading before building.
+
+**Correct the handoff's premise before planning.** The relay said the hook already lives in `~/.claude` and is therefore user-global. It does not, as of 2026-09-10. It is in `~/src/scottwb/greenthumb/.claude/settings.json`, greenthumb-scoped, and dotfiles' own `settings.json` has **no** `hooks` key at all. Its message text is also greenthumb-specific, naming "the nightly greenthumb brief". So the work is three things, not one: move it to user-global, generalize the message off greenthumb, and switch the detection to Option D. Scope the gameplan accordingly.
+
+**Source material:** `~/src/scottwb/greenthumb/docs/plans/memory-durability-hook.md` is the historical record and explicitly must not be built from; greenthumb's `docs/open-questions.md` records the decision as answered. Greenthumb offered its 2026-09-08 install test matrix on request; otherwise design fresh.
+
 ### Split the acceptance checklist into record plus regression suite
 
 **Thread:** Servanda
