@@ -122,15 +122,15 @@ PATH=/usr/bin:/bin OPENROUTER_API_KEY= ANTHROPIC_AUTH_TOKEN= bin/claude-run gpt 
 
 ### Step 2: Demote the 1Password defaults from requirement to default
 
-- [ ] Write the failing test first: assert that `CLAUDE_ROUTE_OP_ACCOUNT` and
+- [x] Write the failing test first: assert that `CLAUDE_ROUTE_OP_ACCOUNT` and
       `CLAUDE_ROUTE_OP_REF` override the built-in values, and that the built-in
       values are no longer `readonly`. Fails today because both are `readonly`
       and unoverridable.
-- [ ] Change `OP_ACCOUNT` and `OP_REF` (`bin/claude-run:50-51`) to
+- [x] Change `OP_ACCOUNT` and `OP_REF` (`bin/claude-run:50-51`) to
       `${CLAUDE_ROUTE_OP_ACCOUNT:-...}` and `${CLAUDE_ROUTE_OP_REF:-...}`.
-- [ ] Replace the hardcoded defaults with generic placeholders. Scott's real
+- [x] Replace the hardcoded defaults with generic placeholders. Scott's real
       values move to his own environment, set wherever his shell config lives.
-- [ ] Update the comment that currently justifies hardcoding, citing T7: the
+- [x] Update the comment that currently justifies hardcoding, citing T7: the
       "no shared-team concern" premise no longer holds for this file.
 - [ ] Verify green: `bin/claude-route-selftest`, and Scott's own `claude-gpt`
       still resolves from 1Password with his env set

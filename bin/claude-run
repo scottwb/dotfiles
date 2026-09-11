@@ -18,6 +18,8 @@
 #
 # Overrides (all optional):
 #   OPENROUTER_API_KEY       the OpenRouter key; beats ANTHROPIC_AUTH_TOKEN and 1Password
+#   CLAUDE_ROUTE_OP_REF      op:// item holding the key; unset means 1Password is not used
+#   CLAUDE_ROUTE_OP_ACCOUNT  1Password account for that item, when you have several
 #   CLAUDE_ROUTE_PROVIDER    force the provider for this run
 #   CLAUDE_ROUTE_MODEL       force the model id
 #   CLAUDE_ROUTE_CONTEXT     force the context-token ceiling
@@ -41,16 +43,23 @@ readonly OLLAMA_PORT_DEFAULT="11434"
 # server should fail immediately with a useful message, not hang.
 readonly OLLAMA_PREFLIGHT_TIMEOUT="2"
 
-# D11: the OpenRouter key is resolved at launch through the 1Password CLI, with
-# TouchID gating so a background process cannot silently grab it. The reference
-# and account are hardcoded here on purpose, per the global convention: these
-# are paths, not secrets, and this repo is public but contains no secret. There
-# is deliberately NO .env file, and op:// refs must never be stored in one.
+# D11: when no env var carries the OpenRouter key, it can be resolved at launch
+# through the 1Password CLI, with TouchID gating so a background process cannot
+# silently grab it. There is deliberately NO .env file, and op:// refs must
+# never be stored in one.
 #
-# --account is passed explicitly because several 1Password accounts exist and
-# the OP_ACCOUNT environment variable would collide across them.
-readonly OP_ACCOUNT="facetdigital.1password.com"
-readonly OP_REF="op://Employee/OpenRouter/API Key"
+# T7: the item and account are per-dev settings, not hardcoded constants. The
+# global convention of hardcoding op:// refs as readonly consts rests on "no
+# shared-team concern", and that premise is false for a tool other people run:
+# a baked-in path is one person's vault. Each dev who wants 1Password sets
+# CLAUDE_ROUTE_OP_REF (and CLAUDE_ROUTE_OP_ACCOUNT) in their own shell config.
+# Unset means 1Password is not consulted at all.
+#
+# --account is passed when set because a dev with several 1Password accounts
+# needs it, and the OP_ACCOUNT environment variable would collide across them.
+OP_ACCOUNT="${CLAUDE_ROUTE_OP_ACCOUNT:-}"
+OP_REF="${CLAUDE_ROUTE_OP_REF:-}"
+readonly OP_EXAMPLE_REF="op://<vault>/<item>/<field>"
 
 # D1: overridable const rather than a hardcoded flag. Routed sessions are for
 # throwaway and experimental work, so skipping prompts is the useful default.
@@ -309,23 +318,28 @@ resolve_openrouter_secret() {
   [ -n "$ROUTE_AUTH_TOKEN" ] && return 0   # override already supplied
 
   # Lead with the env var. With no credential at all, the likely mistake is a
-  # key that was never exported, not a missing 1Password install.
-  if ! command -v op >/dev/null 2>&1; then
+  # key that was never exported, not a missing 1Password install. An `op` on
+  # PATH with no item configured is the same case: never prompt TouchID for a
+  # vault path that is not this dev's.
+  if [ -z "$OP_REF" ] || ! command -v op >/dev/null 2>&1; then
     err "No OpenRouter API key found."
     info "Set it:  export OPENROUTER_API_KEY=sk-or-v1-...   (create one at https://openrouter.ai/settings/keys)"
     info "Optional, instead: resolve it from 1Password. Install the CLI (brew install 1password-cli),"
-    info "enable 1Password > Settings > Developer > 'Integrate with 1Password CLI',"
-    info "and store the key at:  ${OP_REF}"
+    info "enable 1Password > Settings > Developer > 'Integrate with 1Password CLI', then"
+    info "export CLAUDE_ROUTE_OP_REF='${OP_REF:-$OP_EXAMPLE_REF}'   (and CLAUDE_ROUTE_OP_ACCOUNT if you have several accounts)"
     info "Inspect without the key:  CLAUDE_ROUTE_DRYRUN=1 claude-run ${ROUTE_ALIAS}"
     return 4
   fi
 
+  local op_args=(read)
+  [ -n "$OP_ACCOUNT" ] && op_args+=(--account "$OP_ACCOUNT")
+
   info "Resolving the OpenRouter key from 1Password (TouchID may prompt)..."
-  ROUTE_AUTH_TOKEN="$(op read --account "$OP_ACCOUNT" "$OP_REF" 2>/dev/null)"
+  ROUTE_AUTH_TOKEN="$(op "${op_args[@]}" "$OP_REF" 2>/dev/null)"
 
   if [ -z "$ROUTE_AUTH_TOKEN" ]; then
     err "Could not read the OpenRouter key from 1Password."
-    info "Account:   ${OP_ACCOUNT}"
+    info "Account:   ${OP_ACCOUNT:-(the op default)}"
     info "Reference: ${OP_REF}"
     info "Check that you are signed in ('op signin') and that the item exists at that path."
     info "Or skip 1Password:  export OPENROUTER_API_KEY=sk-or-v1-..."
@@ -521,6 +535,7 @@ claude-run: resolved launch plan (dry run, nothing launched)
   model              ${ROUTE_MODEL}
   context tokens     ${ROUTE_CONTEXT}
   permission mode    ${CLAUDE_ROUTE_PERMISSION_MODE}
+  1password item     ${OP_REF:-(not configured)}${OP_ACCOUNT:+ (account ${OP_ACCOUNT})}
 
   environment:
 PLAN

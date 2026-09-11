@@ -72,7 +72,8 @@ printf '\n\033[1mclaude-route-selftest\033[0m  (dry run only, nothing is launche
 # exports ANTHROPIC_AUTH_TOKEN to its children, and a dev may have
 # OPENROUTER_API_KEY in their shell; either would silently change what the
 # assertions below observe. Every test that wants a credential sets its own.
-unset OPENROUTER_API_KEY ANTHROPIC_AUTH_TOKEN
+# The same goes for the 1Password location, which a dev sets in their shell.
+unset OPENROUTER_API_KEY ANTHROPIC_AUTH_TOKEN CLAUDE_ROUTE_OP_ACCOUNT CLAUDE_ROUTE_OP_REF
 
 # ---------------------------------------------------------------- glm / ollama
 
@@ -313,12 +314,51 @@ ollama_tok="$(CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" glm 2>&1)"
 assert_contains "the ollama literal is exempt, not redacted" \
   "$ollama_tok" "ANTHROPIC_AUTH_TOKEN=ollama"
 
-# The op:// reference is a path, not a secret, and belongs in the source per
-# the global convention: hardcoded readonly consts, no .env file.
-assert_contains "op:// reference is hardcoded in the source" \
-  "$(cat "$CLAUDE_RUN")" "op://"
-assert_contains "1Password account is hardcoded in the source" \
-  "$(cat "$CLAUDE_RUN")" "facetdigital.1password.com"
+# T7: the 1Password location is a per-dev default, not a hardcoded constant.
+# A shared tool cannot bake in one person's vault, so both halves must be
+# overridable from the environment and neither may be readonly.
+assert_not_contains "1Password account is not readonly" "$(cat "$CLAUDE_RUN")" "readonly OP_ACCOUNT"
+assert_not_contains "1Password item is not readonly"    "$(cat "$CLAUDE_RUN")" "readonly OP_REF"
+
+opovr_dry="$(CLAUDE_ROUTE_DRYRUN=1 CLAUDE_ROUTE_OP_ACCOUNT=example.1password.com \
+  CLAUDE_ROUTE_OP_REF='op://Vault/Item/x' "$CLAUDE_RUN" gpt 2>&1)"
+assert_contains "CLAUDE_ROUTE_OP_REF overrides the 1Password item"        "$opovr_dry" "op://Vault/Item/x"
+assert_contains "CLAUDE_ROUTE_OP_ACCOUNT overrides the 1Password account" "$opovr_dry" "example.1password.com"
+
+# The launch path, against a stub `op` that records how it was called. This
+# proves the overrides actually reach `op read`, with no vault and no TouchID.
+OP_STUB_DIR="$(mktemp -d)"
+cat > "$OP_STUB_DIR/op" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$(dirname "$0")/op.args"
+printf 'sk-or-v1-FROM-OP-STUB'
+STUB
+chmod +x "$OP_STUB_DIR/op"
+
+opread_out="$(PATH="$OP_STUB_DIR:/usr/bin:/bin" CLAUDE_ROUTE_PREFLIGHT_ONLY=1 \
+  CLAUDE_ROUTE_OP_ACCOUNT=example.1password.com CLAUDE_ROUTE_OP_REF='op://Vault/Item/x' \
+  "$CLAUDE_RUN" gpt 2>&1)"
+opread_rc=$?
+opread_args="$(cat "$OP_STUB_DIR/op.args" 2>/dev/null)"
+assert_exit         "a configured 1Password item satisfies preflight" "0" "$opread_rc"
+assert_contains     "op read receives the overridden item"    "$opread_args" "op://Vault/Item/x"
+assert_contains     "op read receives the overridden account" "$opread_args" "example.1password.com"
+assert_not_contains "the key read from op is never echoed"    "$opread_out" "FROM-OP-STUB"
+
+# A dev who happens to have `op` installed but never configured an item must
+# not get a TouchID prompt for a vault path that is not theirs. Unconfigured
+# means unconsulted: they get the missing-credential guidance instead.
+rm -f "$OP_STUB_DIR/op.args"
+opunset_out="$(PATH="$OP_STUB_DIR:/usr/bin:/bin" "$CLAUDE_RUN" gpt 2>&1)"
+opunset_rc=$?
+assert_exit     "unconfigured 1Password exits as a missing credential" "4" "$opunset_rc"
+if [ -f "$OP_STUB_DIR/op.args" ]; then
+  bad "unconfigured 1Password is never consulted" "op was called: $(tr '\n' ' ' < "$OP_STUB_DIR/op.args")"
+else
+  ok "unconfigured 1Password is never consulted"
+fi
+assert_contains "unconfigured 1Password says how to configure it" "$opunset_out" "CLAUDE_ROUTE_OP_REF"
+rm -rf "$OP_STUB_DIR"
 
 # An override must satisfy the launch path without consulting the vault, which
 # is what lets this run unattended and in CI.
@@ -341,7 +381,7 @@ else
   noop_rc=$?
   assert_exit     "missing op exits non-zero"         "4" "$noop_rc"
   assert_contains "missing op gives install guidance" "$noop_out" "brew install 1password-cli"
-  assert_contains "missing op names the op:// ref"    "$noop_out" "op://Employee/OpenRouter"
+  assert_contains "missing op names the item setting" "$noop_out" "CLAUDE_ROUTE_OP_REF"
 
   # With no credential at all, the most likely mistake is a teammate who has
   # not set the env var, not one who has not installed 1Password. The message
