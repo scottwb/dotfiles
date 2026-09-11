@@ -244,6 +244,12 @@ That makes the real question upstream of the build: **is the durable idea worth 
 - **Identify yourself in the first line**, session name plus repo path, because a coordinator hears from several sessions and that is how they are told apart.
 - **One message, do not block on a reply**, and never include secrets, credentials, or client-identifying detail beyond the repo name.
 
+**Exercised by hand twice on 2026-09-10** (dotfiles to Greenthumb asking it to drop a duplicated command; Greenthumb back to dotfiles relaying an office-hours decision). Both worked, and three things about how they worked are design input rather than anecdote:
+
+- **A relayed instruction is enough to act on and not enough to treat as approval.** Both sessions reached that independently: Greenthumb staged its deletion and refused to commit until Scott confirmed, and this side filed the roadmap entry but would not gameplan it or touch `settings.json`. The brief format should make the distinction explicit, marking what is a relay of someone's decision versus what the sender is asking for on its own authority. A receiver that cannot tell will either over-step or stall.
+- **Verify the peer's premises; do not inherit them.** Both briefs that day carried a confidently stated, wrong fact. Greenthumb's said the memory hook already lived in `~/.claude` and was user-global, when it was greenthumb-local and dotfiles had no `hooks` key at all. This side's said the global command shadowed greenthumb's copy, which was asserted without checking and is probably backwards. Neither was caught by the sender. The brief should separate what the sender verified from what it believes, and the receiver should re-check anything it is about to act on.
+- **Ask the peer what you cannot see, rather than only stating conclusions.** The one question in the outbound brief ("is anything referencing this file by path?") is what surfaced two Obsidian wiki-links in a vault repo that would have dangled silently on deletion, invisible from this side. A brief made only of conclusions would have lost that. Whatever shape the step takes, it should carry an explicit "things I could not check from here" slot.
+
 **The open question this raises:** where the allowlist lives. It cannot live in the command file if that file stays in a public repo, which is the constraint that killed the previous attempt. The filesystem is the obvious candidate, since the inbox convention already keeps the roster there, privately.
 
 ### Local model evaluation pass
