@@ -152,29 +152,34 @@ Inspect any launcher without starting anything:
 ```bash
 CLAUDE_ROUTE_DRYRUN=1 claude-gpt      # print the resolved plan, launch nothing
 CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-glm   # check the backend is ready, no session
-bin/claude-route-selftest             # 156 assertions, no session, no spend
+bin/claude-route-selftest             # 174 assertions, no session, no spend
 ```
 
 ### One-time setup
 
 Ollama needs nothing beyond a running server (`ollama serve`) and the model
-pulled. OpenRouter needs three things:
+pulled. OpenRouter needs two things:
 
-1. **A 1Password item** at `op://Employee/OpenRouter/API Key`, in the
-   `facetdigital.1password.com` account. The reference is hardcoded in
-   `bin/claude-run`; that is a path, not a secret. There is no `.env` file.
-2. **The 1Password CLI**, with shell integration enabled:
-   ```bash
-   brew install 1password-cli
-   ```
-   Then 1Password > Settings > Developer > "Integrate with 1Password CLI".
-   TouchID prompts on the first `op read` per session.
-3. **A per-key credit limit** at `openrouter.ai/settings/keys`. Set it on the
+1. **An API key**, looked for in this order:
+   - `OPENROUTER_API_KEY` in the environment. The simplest path, and it needs
+     nothing else installed.
+   - `ANTHROPIC_AUTH_TOKEN`, as a one-off override.
+   - 1Password, when `CLAUDE_ROUTE_OP_REF` names the item holding the key,
+     plus `CLAUDE_ROUTE_OP_ACCOUNT` if you have several accounts. This repo
+     sets both in `.zsh/environment`; they are paths, not secrets, and there
+     is no `.env` file. With `CLAUDE_ROUTE_OP_REF` unset, 1Password is never
+     consulted. It needs the 1Password CLI with shell integration enabled:
+     ```bash
+     brew install 1password-cli
+     ```
+     Then 1Password > Settings > Developer > "Integrate with 1Password CLI".
+     TouchID prompts on the first `op read` per session.
+2. **A per-key credit limit** at `openrouter.ai/settings/keys`. Set it on the
    key itself, not just the account: an account-level limit caps total spend
    across every key, so a runaway session drains the whole budget before
    stopping. Verify with:
    ```bash
-   KEY=$(op read --account facetdigital.1password.com "op://Employee/OpenRouter/API Key")
+   KEY=${OPENROUTER_API_KEY:-$(op read --account "$CLAUDE_ROUTE_OP_ACCOUNT" "$CLAUDE_ROUTE_OP_REF")}
    curl -fsS https://openrouter.ai/api/v1/key -H "Authorization: Bearer $KEY" \
      | jq '.data | {limit, limit_remaining, usage}'
    unset KEY

@@ -8,8 +8,9 @@
 # window, with the first token arriving in about four seconds. Use claude-glm
 # when cost matters more than responsiveness.
 #
-# The API key is read from 1Password at launch and TouchID may prompt. Nothing
-# is stored on disk.
+# The API key comes from OPENROUTER_API_KEY, or from 1Password at launch when
+# CLAUDE_ROUTE_OP_REF is set, in which case TouchID may prompt. Nothing is
+# stored on disk.
 #
 # Once inside a session, /model reaches OpenRouter's whole catalog, so there is
 # no need for a wrapper per model. Note the catalog is filtered by the account's
