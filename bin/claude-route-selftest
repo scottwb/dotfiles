@@ -684,7 +684,7 @@ if [ ! -x "$CLAUDE_PS" ]; then
 else
   # Count routed rows BEFORE launching anything.
   #
-  # Assertions here are relative to this baseline, never absolute. Scott may
+  # Assertions here are relative to this baseline, never absolute. You may
   # legitimately have a real claude-gpt session open while the suite runs, and
   # an absolute count ("exactly one ollama row") fails in that case for no good
   # reason. Learned the hard way on 2026-08-01, when a live routed session made
@@ -759,6 +759,44 @@ STUB
   else
     bad "the route disappears when the session does" \
       "expected $baseline_rows, got $after_rows"
+  fi
+fi
+
+# ---------------------------------------------------------------- de-personalization
+#
+# These scripts ship to other people. The next person to hardcode something
+# convenient (a vault path, an account, a name) would reintroduce the exact
+# problem the team release removed, silently, so this makes it loud.
+#
+# Globbed, not enumerated. The launcher list drifted once already: claude-gemini
+# was added on 2026-09-10 and an enumerated check would have quietly stopped
+# covering it. A guard that can be outgrown by adding a file is not one.
+#
+# The pattern is assembled from split literals so this file does not trip its
+# own check. The planted-string assertion below proves the split still matches.
+
+section "De-personalization: no launcher names one person"
+
+personal_pat="facet""digital|scott""wb|Sco""tt|op://Emp""loyee"
+launcher_files=("$SCRIPT_DIR"/claude-*)
+
+if [ ! -e "${launcher_files[0]}" ]; then
+  bad "the launcher glob matches files" "nothing matched $SCRIPT_DIR/claude-*"
+else
+  ok "the launcher glob matches files (${#launcher_files[@]} scanned)"
+
+  # Guard the guard: a pattern that matches nothing would pass by doing nothing.
+  if printf '%s\n' "op://Emp""loyee/x" | grep -qE "$personal_pat"; then
+    ok "the personal-string pattern detects a planted value"
+  else
+    bad "the personal-string pattern detects a planted value" "pattern: $personal_pat"
+  fi
+
+  personal_hits="$(grep -nE "$personal_pat" "${launcher_files[@]}" 2>/dev/null || true)"
+  if [ -n "$personal_hits" ]; then
+    bad "no launcher file carries personal identifiers" "$personal_hits"
+  else
+    ok "no launcher file carries personal identifiers"
   fi
 fi
 

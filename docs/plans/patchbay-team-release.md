@@ -158,16 +158,16 @@ CLAUDE_ROUTE_PREFLIGHT_ONLY=1 bin/claude-gpt; echo "exit=$?"
 The guard that makes the other steps stick. Without it, the next person to
 hardcode something convenient reintroduces the problem silently.
 
-- [ ] Write the failing test first: add a check asserting that no shippable
+- [x] Write the failing test first: add a check asserting that no shippable
       Patchbay file contains `facetdigital`, `scottwb`, `Scott`, or
       `op://Employee`. Fails today on three assertions in the selftest itself
       (lines 274 and 297) plus `bin/claude-run`.
-- [ ] Fix the three selftest assertions that pin Scott's values: assert the
+- [x] Fix the three selftest assertions that pin Scott's values: assert the
       *shape* of a resolved `op://` reference and the *presence* of an account
       override, not the literal strings.
-- [ ] Scope the check to shippable files only. The dotfiles plan and
+- [x] Scope the check to shippable files only. The dotfiles plan and
       assessments legitimately name Scott and stay behind.
-- [ ] Verify green: `bin/claude-route-selftest`
+- [x] Verify green: `bin/claude-route-selftest`
 
 **Satisfies:** the requirement that no shipped file carries personal
 identifiers. Makes T5's leak-avoidance testable rather than aspirational.
