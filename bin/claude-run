@@ -17,6 +17,7 @@
 #   CLAUDE_ROUTE_DRYRUN=1 claude-run <alias>     # print the plan, launch nothing
 #
 # Overrides (all optional):
+#   OPENROUTER_API_KEY       the OpenRouter key; beats ANTHROPIC_AUTH_TOKEN and 1Password
 #   CLAUDE_ROUTE_PROVIDER    force the provider for this run
 #   CLAUDE_ROUTE_MODEL       force the model id
 #   CLAUDE_ROUTE_CONTEXT     force the context-token ceiling
@@ -102,6 +103,7 @@ Any model, no alias needed:
 
 Options:
   CLAUDE_ROUTE_DRYRUN=1    print the resolved plan and exit without launching
+  OPENROUTER_API_KEY       the OpenRouter key; 1Password is only the fallback
 
 Examples:
   claude-run glm
@@ -168,13 +170,14 @@ resolve_provider() {
       ;;
     openrouter)
       ROUTE_BASE_URL="https://openrouter.ai/api"
-      # Left empty here on purpose. The secret is resolved on the launch path
-      # only (see resolve_openrouter_secret), so a dry run never triggers a
-      # TouchID prompt and never has a secret to leak.
+      # T6 resolution order: OPENROUTER_API_KEY, then ANTHROPIC_AUTH_TOKEN,
+      # then 1Password. The env var is the documented path for the team; an
+      # existing ANTHROPIC_AUTH_TOKEN keeps a one-off override available.
       #
-      # An existing ANTHROPIC_AUTH_TOKEN wins, which keeps a one-off override
-      # available for testing without touching the vault.
-      ROUTE_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
+      # When neither is set this stays empty on purpose. The 1Password read
+      # happens on the launch path only (see resolve_openrouter_secret), so a
+      # dry run never triggers a TouchID prompt and never has a secret to leak.
+      ROUTE_AUTH_TOKEN="${OPENROUTER_API_KEY:-${ANTHROPIC_AUTH_TOKEN:-}}"
       ;;
     *)
       return 1
@@ -280,7 +283,7 @@ redact_env() {
   printf '%s' "$ROUTE_ENV" | while IFS= read -r line; do
     case "$line" in
       "ANTHROPIC_AUTH_TOKEN=")
-        printf '%s\n' "ANTHROPIC_AUTH_TOKEN=<resolved from 1Password at launch>"
+        printf '%s\n' "ANTHROPIC_AUTH_TOKEN=<resolved at launch: OPENROUTER_API_KEY, else 1Password>"
         ;;
       "ANTHROPIC_AUTH_TOKEN=ollama")
         # Not a secret. Ollama accepts any credential and never validates it.
@@ -305,11 +308,14 @@ redact_env() {
 resolve_openrouter_secret() {
   [ -n "$ROUTE_AUTH_TOKEN" ] && return 0   # override already supplied
 
+  # Lead with the env var. With no credential at all, the likely mistake is a
+  # key that was never exported, not a missing 1Password install.
   if ! command -v op >/dev/null 2>&1; then
-    err "1Password CLI ('op') not found; the openrouter route needs it to resolve the API key."
-    info "Install:  brew install 1password-cli"
-    info "Then enable 1Password > Settings > Developer > 'Integrate with 1Password CLI'."
-    info "Confirm the item exists at:  ${OP_REF}"
+    err "No OpenRouter API key found."
+    info "Set it:  export OPENROUTER_API_KEY=sk-or-v1-...   (create one at https://openrouter.ai/settings/keys)"
+    info "Optional, instead: resolve it from 1Password. Install the CLI (brew install 1password-cli),"
+    info "enable 1Password > Settings > Developer > 'Integrate with 1Password CLI',"
+    info "and store the key at:  ${OP_REF}"
     info "Inspect without the key:  CLAUDE_ROUTE_DRYRUN=1 claude-run ${ROUTE_ALIAS}"
     return 4
   fi
@@ -322,6 +328,7 @@ resolve_openrouter_secret() {
     info "Account:   ${OP_ACCOUNT}"
     info "Reference: ${OP_REF}"
     info "Check that you are signed in ('op signin') and that the item exists at that path."
+    info "Or skip 1Password:  export OPENROUTER_API_KEY=sk-or-v1-..."
     return 8
   fi
 

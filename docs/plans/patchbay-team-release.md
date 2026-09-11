@@ -90,17 +90,17 @@ The current missing-credential path tells the user to install the 1Password
 CLI. For a team whose documented path is an env var, that is actively wrong
 guidance for their single most likely mistake.
 
-- [ ] Write the failing test first: extend `bin/claude-route-selftest` to assert
+- [x] Write the failing test first: extend `bin/claude-route-selftest` to assert
       that (a) `OPENROUTER_API_KEY` alone satisfies the openrouter route, and
       (b) with no credential at all, the error names `OPENROUTER_API_KEY`
       before it mentions 1Password. Both fail today: the variable is unread,
       and the error leads with `brew install 1password-cli`.
-- [ ] Implement the T6 resolution order in `resolve_openrouter_secret`:
+- [x] Implement the T6 resolution order in `resolve_openrouter_secret`:
       `OPENROUTER_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then `op://`.
-- [ ] Rewrite the missing-credential error: lead with the env var and how to
+- [x] Rewrite the missing-credential error: lead with the env var and how to
       set it, mention `op` second as an optional convenience, and keep the
       existing dry-run hint.
-- [ ] Verify green: `bin/claude-route-selftest`
+- [x] Verify green: `bin/claude-route-selftest`
 
 **Satisfies:** T6, and the requirement that a dev needs only an env var.
 
