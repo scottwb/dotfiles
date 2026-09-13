@@ -17,7 +17,10 @@ Draw on these sources, in this order of weight:
 4. **The repo's own open-question tracking,** in whatever form it takes: a
    question queue, a TODO file, the roadmap, `docs/plans/`, a decision log, an
    issue tracker. This is where earlier rounds left their leftovers, so read it
-   before assuming a question is new.
+   before assuming a question is new. **Verify each leftover against the row or
+   quote that raised it before serving it: one whose source is already resolved,
+   or that has no source at all, is closed with a pointer, not asked.** (A round
+   on 2026-09-13 served three already-answered items and one with no source.)
 5. **The rest of the repository.** Open PRs, and git history when a question
    hinges on what actually happened.
 
