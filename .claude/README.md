@@ -8,6 +8,7 @@ of them.
 |---|---|---|
 | **Servanda**, the workflow command kit | `commands/`, `COMMANDS.md` | [docs/servanda.md](docs/servanda.md) |
 | **/office-hours**, a standalone lightning round for open questions | `commands/office-hours.md` | itself |
+| **/shortlist**, the next 10 small actions across a repo's work tracking | `commands/shortlist.md` | itself |
 | Session settings and permissions | `settings.json` | inline `x-instructions` key |
 | Global agent instructions | `CLAUDE.md` | itself |
 | Skills | `skills/` | each skill's own `SKILL.md` |
