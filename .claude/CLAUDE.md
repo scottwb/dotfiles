@@ -62,6 +62,19 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
   was missing. He is happy to approve wide work; he objects to discovering it.
   This is the announcement half of the rules above, not a limit on them.
 
+- **When Scott approves a list you just gave him, run it. Do not restate it.**
+  "Yes, do that" is not an invitation to re-plan. Repeating the steps back to
+  him, or bolting adjacent cleanup onto them, spends the turn he expected work
+  in. Execute the enumerated items in order, and hold anything else you noticed
+  for the summary at the end, where he can take it or leave it.
+
+  **Why:** on 2026-09-10 he asked what three steps of a plan were, got them,
+  approved them, and then received the same three steps described again
+  alongside an offer to refresh unrelated plan text. His reply: "you told me
+  all that. that is what i want you to yolo. if you are off doing somethign
+  other than that...dont". The work that followed was correct and in scope;
+  the restatement and the tacked-on offer were the defect.
+
 ## Verification
 - Verify assumptions before acting ("before we do that, can you be sure...")
 - Check environment state (Docker vs local, gem availability, etc.) when relevant

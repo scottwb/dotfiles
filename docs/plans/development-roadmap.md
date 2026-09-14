@@ -131,6 +131,26 @@ discipline, spec-per-feature granularity stays with /gameplan).
 
 **Source material:** `~/src/scottwb/greenthumb/docs/plans/memory-durability-hook.md` is the historical record and explicitly must not be built from; greenthumb's `docs/open-questions.md` records the decision as answered. Greenthumb offered its 2026-09-08 install test matrix on request; otherwise design fresh.
 
+### Evals as a Servanda verification tier
+
+**Thread:** Servanda
+
+**Goal:** Every feature or epic ships with one or more evals as part of its definition of done, and an eval result sits beside tests and review as a verification tier in the implement commands.
+
+**Status:** Needs a gameplan. **AWAITING SCOTT'S EXPLICIT GO, and do not auto-start.** Relayed on 2026-09-13 by the Donna session as decisions Scott made that day. Recorded so they survive, but a peer's relay is not Scott saying go in this repo, and this one shipped two mis-attributions that were retracted the same day (see the peer-handoff item below).
+
+**Scott-direct, per the relay:**
+
+- `/gameplan` gains an eval step. A feature plan names a few coarse STAGES plus the final outcome, and per stage: what it covers (skills, prompts, scripts), a rubric fixed before the run, and an acceptance range. Explicitly NOT per item, in his words "don't go down to how did the model do on each photo". Item level is for debugging only.
+- Each plan names the models to run. First results are human-reviewed against Fable, the current benchmark. The point of scoring by stage is that a later decision can assign different models to different stages.
+- Eval is a verification tier beside tests and review in `/booyah`, `/yolo` and `/beastmode`. It needs a rerun rule like tests, balanced against cost: a dozen frontier-model evals on every check-in is too much.
+- **`/implement-phase` wins.** Keep Step 5 of [command-suite-rename.md](command-suite-rename.md) as written; a `/beastmode` scope argument and stop-at-passed-gate flag are dropped, and that plan is not to be edited to make room for them. It stays on hold regardless.
+- Cross-repo end-to-end integration testing is Scott's own later effort. Do not build cross-repo orchestration into Servanda now.
+
+**A proposal he has NOT ruled on**, so do not carry it as settled: deterministic checks on every change; a stage eval rerun on one cheap model when a file it declares coverage of changes; the full model matrix at milestone gates, on model releases, or on demand; the Fable baseline recorded once and reused until the feature changes; every run recording cost against a budget cap.
+
+**The eval kit is "gauntlet"**, its own repo, prototyped in greenthumb, and it builds on Patchbay rather than reimplementing harness, model and provider switching. What it will want from here: a scriptable way to launch a run with a given harness, model and provider in a given worktree; per-run tokens, dollars and time; and the audit tier left unmapped on routed sessions so judges and the Fable baseline run on a plain Anthropic session. **That last one already holds** (the D12 block in `bin/claude-run`), verified 2026-09-13. Gauntlet is also the strongest case yet for the `pbay` front door, which stays blocked.
+
 ### Split the acceptance checklist into record plus regression suite
 
 **Thread:** Servanda
@@ -260,6 +280,12 @@ That makes the real question upstream of the build: **is the durable idea worth 
 - **Verify the peer's premises; do not inherit them.** Both briefs that day carried a confidently stated, wrong fact. Greenthumb's said the memory hook already lived in `~/.claude` and was user-global, when it was greenthumb-local and dotfiles had no `hooks` key at all. This side's said the global command shadowed greenthumb's copy, which was asserted without checking and is probably backwards. Neither was caught by the sender. The brief should separate what the sender verified from what it believes, and the receiver should re-check anything it is about to act on.
 - **Ask the peer what you cannot see, rather than only stating conclusions.** The one question in the outbound brief ("is anything referencing this file by path?") is what surfaced two Obsidian wiki-links in a vault repo that would have dangled silently on deletion, invisible from this side. A brief made only of conclusions would have lost that. Whatever shape the step takes, it should carry an explicit "things I could not check from here" slot.
 
+**Two more live runs on 2026-09-13**, both inbound from the Donna session, both wrong in the same direction, and both retracted by the sender within the hour once asked. They are the sharpest argument yet for what the brief format has to carry:
+
+- **A relay can promote a passing remark into a ruling.** Scott said Patchbay "is not its own repo at this time and it lives in dotfiles for now" while classifying it in a repo manifest. That reached this repo as "Patchbay stays in this repo, not its own repo", presented as a decision, and it contradicted a plan that was one command from creating the repo. The fix is quotation: a brief should carry the principal's own words for anything attributed to them, because the paraphrase is where a remark becomes a mandate.
+- **A relay can attribute a peer's own refinement to the principal.** A `/beastmode` scope argument and stop-at-gate flag arrived under a "relaying Scott's direct decisions" header and were the greenthumb session's own idea. Per-item attribution, not per-message, is what would have caught it.
+- **What worked was refusing to act and asking the principal.** Both errors surfaced because this side replied with the conflict and held. Holding cost one round trip; acting would have created a company repo on a misquote.
+
 **The open question this raises:** where the allowlist lives. It cannot live in the command file if that file stays in a public repo, which is the constraint that killed the previous attempt. The filesystem is the obvious candidate, since the inbox convention already keeps the roster there, privately.
 
 ### Local model evaluation pass
@@ -269,6 +295,8 @@ That makes the real question upstream of the build: **is the durable idea worth 
 **Goal:** Work out which local models are genuinely usable for agentic coding, rather than assuming.
 
 **Status:** Queued. Live candidates are `glm-4.7-flash`, `qwen3.5-27b`, and a possible `qwen3.6:27b` pull. `gemma4` has an open tool-parser issue and `qwen3-coder` has the worst Claude-Code-specific bug reports, so both start behind.
+
+**Do not inventory local models with `ollama list`** (Greenthumb, 2026-09-12). With no server running, the CLI tries to start one, and on Scott's Mac that raised an Ollama.app "install command line tool" popup even though the CLI is already at `/opt/homebrew/bin/ollama`. A read-only inventory should read `~/.ollama/models/manifests` instead. The launchers are unaffected: none of them shells out to the `ollama` binary, and the preflight talks to the HTTP API through `curl` (verified 2026-09-13). Greenthumb also dropped model and harness research (Ollama local, OpenRouter ZDR, EC2) at `~/.agent-file-drop/agents/Dotfiles/inbox/20260912-model-harness-research.from-greenthumb.md`, which is **unread** and lives outside the repo, so read it before it is lost or treat it as gone.
 
 One measurement already exists and should shape the rest: Gate A found `glm-4.7-flash` cold-starts in minutes, dominated by fixed cost rather than prompt size, against OpenRouter's roughly four seconds. Any evaluation that only scores output quality will miss the property that actually decides whether a local model gets used.
 
