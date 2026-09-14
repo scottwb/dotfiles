@@ -33,7 +33,17 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [patchbay-team-release.md](patchbay-team-release.md)
 
-**Status:** Ready to implement. Eight steps. Repo owner settled 2026-08-08: **`facetdigital/patchbay`**, so licensing and any future public release are a company decision. **Softened to "maybe next" on 2026-09-02:** asked whether this is still the next thing once the audit-log work lands and the answer was a qualified maybe. Scott may want to work on `bin/agent` and `bin/claude-ps` first, so confirm before starting rather than treating this heading as a standing go-ahead.
+**Status: ON HOLD at Step 4 (2026-09-13, Scott's call).** Steps 1 through 3 are
+committed and stand on their own: the launchers now resolve a key from
+`OPENROUTER_API_KEY` first, the 1Password item is a per-dev setting rather than a
+hardcoded vault path, and the selftest fails if any `bin/claude-*` file names one
+person. Step 4 creates the repo, and it stops there. No reason was given and no
+resume date was set, so this is a hold rather than a cancellation of T1: Patchbay
+lives in dotfiles for now and the team release waits with it. **MIT** and
+**private** were already chosen for the repo; the plan records them so a resume
+does not re-open them.
+
+**Earlier status, still true of Steps 4 through 8.** Eight steps. Repo owner settled 2026-08-08: **`facetdigital/patchbay`**, so licensing and any future public release are a company decision. **Softened to "maybe next" on 2026-09-02:** asked whether this is still the next thing once the audit-log work lands and the answer was a qualified maybe. Scott may want to work on `bin/agent` and `bin/claude-ps` first, so confirm before starting rather than treating this heading as a standing go-ahead.
 
 **Why this jumped the queue (2026-08-08):** the extraction triggers written down on 2026-08-03 were "the ccr question resolves in favour of Patchbay standing alone, **or** someone other than you wants it." The second one fired. Scott's devs at Facet want a simple, low-dependency way to keep working through Claude outages, needing nothing beyond a credential in an environment variable.
 

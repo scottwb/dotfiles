@@ -21,6 +21,23 @@ Step 4 is the first outward-facing action. Do not run it unattended.
 
 ---
 
+## Status: ON HOLD at Step 4 (2026-09-13)
+
+Steps 1 through 3 are done and committed. **Step 4 onward is on hold by
+Scott's decision, with no reason given and no resume date.** Treat it as a
+hold, not a cancellation: T1 stands, Patchbay simply lives in dotfiles for
+now, and the Facet dev team release waits with it.
+
+Step 4 was one command from running when the hold landed. Scott had already
+chosen **MIT** and **private** for the repo, so record those rather than
+re-deciding them later. The tree that Step 4 builds was assembled locally,
+verified (clean of personal strings, one commit of history, selftest green
+from a fresh clone outside dotfiles), then deleted unpushed. Nothing was
+created on GitHub. Rebuilding it costs minutes, so the hold costs nothing.
+
+**Carry into any resume:** the plan says seven `bin/` scripts, and there are
+eight. `bin/claude-gemini` arrived on 2026-09-10, after the plan was written.
+
 ## Summary
 
 Ship Patchbay to the Facet dev team as an OpenRouter fallback for Claude
@@ -132,7 +149,7 @@ PATH=/usr/bin:/bin OPENROUTER_API_KEY= ANTHROPIC_AUTH_TOKEN= bin/claude-run gpt 
       values move to his own environment, set wherever his shell config lives.
 - [x] Update the comment that currently justifies hardcoding, citing T7: the
       "no shared-team concern" premise no longer holds for this file.
-- [ ] Verify green: `bin/claude-route-selftest`, and Scott's own `claude-gpt`
+- [x] Verify green: `bin/claude-route-selftest`, and Scott's own `claude-gpt`
       still resolves from 1Password with his env set
 
 **Satisfies:** T6, T7, and the requirement that no file carries Scott's vault
