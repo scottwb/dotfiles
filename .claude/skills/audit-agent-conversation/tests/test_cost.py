@@ -95,12 +95,17 @@ class TestRateTable(unittest.TestCase):
             cost.rates_for("claude-haiku-4-5-20251001"),
         )
 
+    # Published exceptions to the 0.1x cache-read rule. Fable 5.1 reads cache at
+    # $0.25 per MTok against a $10 input rate.
+    CACHE_READ_EXCEPTIONS = {"claude-fable-5-1": 0.025}
+
     def test_cache_multiples_hold_for_every_model(self):
         table = cost._load()["models"]
         for name, r in sorted(table.items()):
+            read_multiple = self.CACHE_READ_EXCEPTIONS.get(name, 0.1)
             self.assertAlmostEqual(r["cache_write_5m"], r["input"] * 1.25, 6, name)
             self.assertAlmostEqual(r["cache_write_1h"], r["input"] * 2.0, 6, name)
-            self.assertAlmostEqual(r["cache_read"], r["input"] * 0.1, 6, name)
+            self.assertAlmostEqual(r["cache_read"], r["input"] * read_multiple, 6, name)
 
 
 class TestUnpricedModels(unittest.TestCase):

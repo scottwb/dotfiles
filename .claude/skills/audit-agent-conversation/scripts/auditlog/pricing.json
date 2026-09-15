@@ -4,7 +4,7 @@
     "Rates go stale. They live here rather than in code so updating them is a",
     "data edit, and so a page can state which day its figures were checked.",
     "Cache writes bill at a multiple of base input: 1.25x on the 5-minute TTL,",
-    "2x on the 1-hour TTL. Cache reads bill at 0.1x.",
+    "2x on the 1-hour TTL. Cache reads bill at 0.1x, except claude-fable-5-1 at 0.025x.",
     "Reasoning tokens are a SUBSET of output tokens and bill at the output rate.",
     "They are never a separate line item; see cost.REASONING_IS_SUBSET_OF_OUTPUT.",
     "",
@@ -24,6 +24,13 @@
   "verified": "2026-08-15",
   "source": "claude-api skill, published list rates",
   "models": {
+    "claude-fable-5-1": {
+      "input": 10.00,
+      "output": 50.00,
+      "cache_write_5m": 12.50,
+      "cache_write_1h": 20.00,
+      "cache_read": 0.25
+    },
     "claude-fable-5": {
       "input": 10.00,
       "output": 50.00,
@@ -91,6 +98,7 @@
   "aliases": {
     "claude-opus-5[1m]": "claude-opus-5",
     "claude-sonnet-5[1m]": "claude-sonnet-5",
+    "claude-fable-5-1[1m]": "claude-fable-5-1",
     "claude-fable-5[1m]": "claude-fable-5",
     "claude-haiku-4-5": "claude-haiku-4-5-20251001"
   },
