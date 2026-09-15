@@ -752,7 +752,7 @@ def page(session, from_name="scott", to_name=None, channel=None):
     <p>This session ran on a Claude subscription, so <strong>nothing was billed per
        token</strong>. The figure is what the identical traffic would cost through the
        public API at <code>%(model)s</code> list rates, checked %(verified)s. Cache writes
-       bill at a multiple of base input and cache reads at 0.1&times;.</p>
+       bill at a multiple of base input and cache reads at %(read_multiple)s&times;.</p>
     <div class="tablewrap"><table><thead><tr>
       <th>Component</th><th>Tokens</th><th>Rate / Mtok</th><th>Cost</th>
     </tr></thead><tbody>
@@ -775,6 +775,10 @@ def page(session, from_name="scott", to_name=None, channel=None):
         ),
         "reasoning": usd(breakdown.reasoning),
         "output": usd(breakdown.output),
+        # Read off this model's own rates, not asserted: Fable 5.1 is 0.025x.
+        # An unpriced breakdown has zero rates and replaces this note below.
+        "read_multiple": "%g" % (breakdown.rates["cache_read"] / breakdown.rates["input"])
+        if priced else "0",
     }
 
     if not priced:

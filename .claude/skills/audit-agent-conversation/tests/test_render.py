@@ -94,6 +94,9 @@ class TestReferencePage(unittest.TestCase):
     def test_cost_note_states_nothing_was_billed(self):
         self.assertIn("subscription", self.html)
 
+    def test_cost_note_states_this_models_cache_read_multiple(self):
+        self.assertIn("cache reads at 0.1&times;", self.html)
+
     def test_stat_grid_uses_derived_counts(self):
         """The prototype hardcoded a literal 1 for both of these."""
         self.assertEqual(self.session.side_effects.commits, 1)
@@ -121,6 +124,27 @@ class TestReferencePage(unittest.TestCase):
 
     def test_tool_output_is_escaped_not_injected(self):
         self.assertNotIn("<script>alert", self.html)
+
+
+class TestCacheReadMultipleIsTheModelsOwn(unittest.TestCase):
+    """Fable 5.1 reads cache at 0.025x input; the note must not say 0.1x."""
+
+    FABLE_5_1 = "017f2581-33bc-40ba-b7be-e71e68a58ec9"
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+
+        if not os.path.isfile(fixtures.path(cls.FABLE_5_1)):
+            raise unittest.SkipTest("Fable 5.1 session not present")
+        cls.session, cls.html = RenderedPage.build(cls.FABLE_5_1)
+
+    def test_the_fixture_really_is_fable_5_1(self):
+        self.assertEqual(self.session.model, "claude-fable-5-1")
+
+    def test_cost_note_states_fable_5_1s_multiple(self):
+        self.assertIn("cache reads at 0.025&times;", self.html)
+        self.assertNotIn("cache reads at 0.1&times;", self.html)
 
 
 class TestDerivedContentDoesNotLeakAcrossSessions(unittest.TestCase):
