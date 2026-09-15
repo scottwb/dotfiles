@@ -143,9 +143,24 @@ class TestUnpricedModels(unittest.TestCase):
     def test_a_priced_model_still_reports_priced(self):
         self.assertTrue(cost.compute(fixtures.GOLDEN_TOKENS, "claude-opus-5").priced)
 
-    def test_a_genuinely_unknown_model_still_raises(self):
-        with self.assertRaises(cost.UnknownModel):
-            cost.compute(fixtures.GOLDEN_TOKENS, "claude-not-a-real-model")
+    def test_an_unknown_model_costs_as_unpriced_rather_than_raising(self):
+        """A model newer than the table must not block the page.
+
+        No dollar figure, never a zero one, and a reason that says the table
+        is what needs updating.
+        """
+        breakdown = cost.compute(fixtures.GOLDEN_TOKENS, "claude-not-a-real-model")
+        self.assertFalse(breakdown.priced)
+        self.assertTrue(breakdown.unknown)
+        self.assertIn("pricing.json", breakdown.unpriced_reason)
+        self.assertEqual(breakdown.tokens["output"], fixtures.GOLDEN_TOKENS["output"])
+
+    def test_a_model_with_no_list_price_is_not_flagged_unknown(self):
+        """Ollama has no price to add, so it must not nag to update the table."""
+        self.assertFalse(cost.compute(fixtures.GOLDEN_TOKENS, "glm-4.7-flash").unknown)
+
+    def test_a_priced_model_is_not_flagged_unknown(self):
+        self.assertFalse(cost.compute(fixtures.GOLDEN_TOKENS, "claude-opus-5").unknown)
 
     def test_unpriced_page_shows_no_dollar_figure(self):
         import json

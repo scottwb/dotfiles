@@ -36,16 +36,20 @@ _table = None
 
 
 class UnknownModel(Exception):
-    """Raised when a model has no entry in the rate table.
+    """Raised by `rates_for` when a model has no entry in the rate table.
 
-    Deliberately fatal. Falling back to a default rate, or to zero, would
-    produce a confidently wrong dollar figure, which is worse than no figure.
+    Falling back to a default rate, or to zero, would produce a confidently
+    wrong dollar figure, which is worse than no figure. So `rates_for` never
+    guesses; `compute` catches the case first and returns an unpriced
+    Breakdown flagged `unknown`, so a model newer than the table renders its
+    page without money on it and the caller can warn that the table needs
+    updating.
 
     Distinct from an UNPRICED model (see `unpriced_reason`), which is a model
     that genuinely has no Anthropic list price: a local Ollama model, a routed
-    non-Anthropic backend, or the harness's own synthetic messages. Those render
-    with the cost figures suppressed and a note explaining why. An unknown model
-    is a loud error because it usually means the table needs updating.
+    non-Anthropic backend, or the harness's own synthetic messages. Both render
+    with the cost figures suppressed; only an unknown model has a fix, which
+    is adding its rates to pricing.json.
     """
 
 
@@ -156,13 +160,15 @@ class Breakdown(object):
         "input_tokens_total",
         "priced",
         "unpriced_reason",
+        "unknown",
     )
 
-    def __init__(self, model, tokens, rates, unpriced=None):
+    def __init__(self, model, tokens, rates, unpriced=None, unknown=False):
         self.model = model
         self.tokens = dict(tokens)
         self.priced = rates is not None
         self.unpriced_reason = unpriced
+        self.unknown = unknown
         rates = rates if rates is not None else dict.fromkeys(BILLABLE_KEYS, 0.0)
         self.rates = dict(rates)
 
@@ -202,14 +208,32 @@ class Breakdown(object):
         ]
 
 
+def is_unknown(model):
+    """True when `model` is neither priced nor listed as unpriced in the table.
+
+    That is the state a new model release leaves the tool in until someone
+    adds its rates, so it is worth a warning; a local model is not.
+    """
+    table = _load()
+    resolved = _resolve(model)
+    return resolved not in table["models"] and resolved not in table.get("unpriced", {})
+
+
 def compute(tokens, model):
     """Cost `tokens` (a deduplicated bundle) at `model`'s list rates.
 
     A model with no list price returns a Breakdown with `priced` False and
     `unpriced_reason` set, so the caller can render the page without money on
-    it. An unknown model still raises.
+    it. A model missing from the table gets the same treatment, flagged
+    `unknown` so the caller can say the table needs updating.
     """
     reason = unpriced_reason(model)
     if reason is not None:
         return Breakdown(model, tokens, None, unpriced=reason)
+    if is_unknown(model):
+        return Breakdown(
+            model, tokens, None, unknown=True,
+            unpriced="is not in this tool's rate table yet; add its list rates "
+                     "to pricing.json",
+        )
     return Breakdown(model, tokens, rates_for(model))

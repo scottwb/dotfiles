@@ -778,23 +778,30 @@ def page(session, from_name="scott", to_name=None, channel=None):
     }
 
     if not priced:
-        # A local Ollama model, a routed non-Anthropic backend, or the harness's
-        # own synthetic messages. The token counts are real; there is simply no
-        # list price to convert them with, and inventing one would be worse than
-        # showing none.
+        # A local Ollama model, a routed non-Anthropic backend, the harness's
+        # own synthetic messages, or a model newer than the rate table. The
+        # token counts are real; there is no list price here to convert them
+        # with, and inventing one would be worse than showing none.
+        if breakdown.unknown:
+            closing = ("Rather than guess at a price, this page shows no dollar "
+                       "figure until one is added.")
+        else:
+            closing = ("There is no published per-token price to convert them "
+                       "with, so this page shows no dollar figure rather than a "
+                       "made-up one.")
         cost_note = """
 <details class="costnote">
   <summary>No cost figure for this session &mdash; why</summary>
   <div class="costbody">
     <p>This session ran on <code>%(model)s</code>, which %(reason)s. The token
        counts in the tiles above were read from the transcript and are real.
-       There is no published per-token price to convert them with, so this page
-       shows no dollar figure rather than a made-up one.</p>
+       %(closing)s</p>
   </div>
 </details>
 """ % {
             "model": html.escape(session.model or "an unknown model"),
             "reason": html.escape(breakdown.unpriced_reason or "has no list price"),
+            "closing": closing,
         }
 
     prompt_body = md.render(session.opening.text if session.opening else "")

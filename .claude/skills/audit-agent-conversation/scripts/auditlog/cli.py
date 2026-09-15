@@ -18,7 +18,7 @@ import re
 import sys
 import tempfile
 
-from . import parse, render, resolve
+from . import cost, parse, render, resolve
 
 #: Line prefixes, per the repo convention: green check for success, info "i"
 #: for informational. Every line the tool prints starts with one, so a run reads
@@ -977,6 +977,21 @@ def main(argv=None):
     return render_one(path, args, report_out)
 
 
+def warn_if_model_is_missing_from_rate_table(session, report_out):
+    """Say so when a page went out with no cost because pricing.json is stale.
+
+    Printed even under --quiet: --quiet hides routine rows, not a problem the
+    reader has to fix. A session with no recorded model is priced at the
+    renderer's default, which is always in the table, so it never warns.
+    """
+    if session.model and cost.is_unknown(session.model):
+        report_out.raw(
+            "   warning: model %r is not in pricing.json, so its page shows no "
+            "cost figure. Add the model's list rates to pricing.json."
+            % session.model
+        )
+
+
 def render_one(path, args, report_out, records=None):
     """Render one transcript and place its page. Returns an exit code.
 
@@ -1031,6 +1046,7 @@ def render_one(path, args, report_out, records=None):
 
     if args.stdout:
         sys.stdout.write(html)
+        warn_if_model_is_missing_from_rate_table(session, report_out)
         return 0
 
     if args.output:
@@ -1095,6 +1111,7 @@ def render_one(path, args, report_out, records=None):
                        sender, receiver, description.title or "(untitled)")
         if skipped:
             report_out.raw("   %d unparseable lines skipped" % skipped)
+    warn_if_model_is_missing_from_rate_table(session, report_out)
     return 0
 
 

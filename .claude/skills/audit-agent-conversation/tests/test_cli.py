@@ -647,3 +647,58 @@ class TestSweepErrorRows(unittest.TestCase):
         self.assertEqual(code, 4)
         self.assertIn("could not render", buffer.getvalue())
         self.assertNotIn(cli.ERROR, buffer.getvalue())
+
+
+class TestModelMissingFromTheRateTable(unittest.TestCase):
+    """A model newer than pricing.json renders without money, and says so.
+
+    Simulated by taking the session's own model out of the loaded table, which
+    is exactly the state a new model release leaves the tool in.
+    """
+
+    def setUp(self):
+        import copy
+        from auditlog import cost, parse
+
+        fixtures.require_corpus(self)
+        self.outdir = tempfile.mkdtemp(prefix="auditlog-unknown-model-")
+        self.cost = cost
+        self.saved = cost._load()
+        self.model = parse.load_session(fixtures.path(fixtures.BRIEF_AUG13)).model
+        trimmed = copy.deepcopy(self.saved)
+        trimmed["models"].pop(cost._resolve(self.model))
+        cost._table = trimmed
+
+    def tearDown(self):
+        self.cost._table = self.saved
+        shutil.rmtree(self.outdir, ignore_errors=True)
+
+    def _run_quietly(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main([fixtures.path(fixtures.BRIEF_AUG13),
+                             "--output-dir", self.outdir, "--quiet"])
+        finally:
+            sys.stderr = stderr
+        return code, buffer.getvalue()
+
+    def test_the_page_is_written_without_a_cost_figure(self):
+        code, _ = self._run_quietly()
+        self.assertEqual(code, 0)
+        written = os.listdir(self.outdir)
+        self.assertEqual(len(written), 1)
+        with open(os.path.join(self.outdir, written[0])) as handle:
+            body = handle.read()
+        self.assertIn("No cost figure for this session", body)
+        self.assertIn("pricing.json", body)
+
+    def test_the_terminal_warns_even_under_quiet(self):
+        """--quiet hides the WROTE row, not a problem the reader has to fix."""
+        _, err = self._run_quietly()
+        self.assertIn("warning", err)
+        self.assertIn(self.model, err)
+        self.assertIn("pricing.json", err)

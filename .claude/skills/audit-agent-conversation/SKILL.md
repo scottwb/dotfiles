@@ -282,8 +282,10 @@ with its own name rather than described with a guess.
 ## Maintenance
 
 Rates go stale. They live in `scripts/auditlog/pricing.json`, keyed by model id,
-with the date they were last checked. An unknown model is a loud error rather
-than a silent zero. The same file's `providers` map names who served each
+with the date they were last checked. A model missing from the table never
+costs a silent zero: its page renders with the cost figures suppressed and a
+note saying why, and the CLI prints a warning (even under `--quiet`) to add the
+model's rates. The same file's `providers` map names who served each
 unpriced model; priced models are Anthropic's own and need no entry.
 
 Agent names live in `scripts/auditlog/participants.json`, mapping project
