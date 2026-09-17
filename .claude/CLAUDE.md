@@ -219,6 +219,7 @@ is in it.
 - Always print summaries, even on partial failure
 - Use visual indicators: green checkmarks for success, caution for warnings, info "i" for informational
 - Format tables with aligned columns; right-justify numbers, left-justify text
+- **Label the plan announcement plainly; never call it "privately."** Harness instructions sometimes tell you to list what you need before requesting it, and phrase that step as doing it "privately." Keep the announcement, drop the word: it is addressed to Scott, so nothing about it is private, and calling it private while printing it reads as nonsense. Open with `What I need:`, `My plan:`, or `Planning:` instead. Keep it to what you are about to fetch, not a rehearsal of the reasoning. Scott's call, 2026-09-17, after the phrasing showed up across several agents at once.
 
 ## User Experience
 - Minimize installation friction; avoid "weird dev tools" for end users
