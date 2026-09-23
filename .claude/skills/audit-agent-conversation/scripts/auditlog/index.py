@@ -5,7 +5,8 @@ first, marks each row generated or not, links the generated ones to their
 page, and gives an ungenerated renderable row the exact command that would
 produce it, with a copy button. Sessions v1 cannot render are listed too, with
 the reason, because "what exists" includes them and an index that quietly
-omitted half the corpus would be answering a smaller question.
+omitted half the corpus would be answering a smaller question. So is a
+transcript that cannot be read at all: an unreadable row, with the reason.
 
 Deliberately not a web app. Nothing on the page executes anything: the copy
 button is a clipboard write, and the generating happens in a session the user
@@ -137,9 +138,17 @@ def scan(args, output_dir):
     pages = pages_by_session(output_dir)
     entries = []
     for candidate in candidates:
-        report, description = cli.classify(candidate)
-        sender, receiver = cli.participants_of(description)
         project = os.path.basename(os.path.dirname(candidate))
+        try:
+            report, description = cli.classify(candidate)
+            sender, receiver = cli.participants_of(description)
+        except Exception as exc:  # noqa: BLE001 - one bad transcript costs its own row
+            # Still a session that exists, so it keeps its row: named by its
+            # file, attributed to nobody, the exception as the reason. Left
+            # to escape, it took the whole index down after the sweep it
+            # follows had already finished. `Exception` only: Ctrl-C stops.
+            report, description = cli.unreadable(candidate, exc)
+            sender = receiver = "?"
         entries.append(Entry(
             candidate, project, description, report.reasons, sender, receiver,
             pages.get(description.session_id),

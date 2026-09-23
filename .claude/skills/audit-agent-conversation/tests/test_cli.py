@@ -955,3 +955,130 @@ class TestPermanentlyUnpricedPageIsNotNagged(unittest.TestCase):
         self.assertNotIn("no cost figure", second)
         self.assertNotIn("repair", second)
         self.assertNotIn("warning", second)
+
+
+class TestWalkingPastASessionThatCannotBeDescribed(unittest.TestCase):
+    """A bare `--project NAME` walks newest first to the first session v1 can
+    render, describing each one it passes over so its skip row can name it.
+
+    The second phase gate found that walk dying with `AttributeError: 'dict'
+    object has no attribute 'replace'` when the session it was about to skip
+    carried a dict where its timestamp should be. `render_one` had been
+    guarded, `first_renderable` had not, so one bad transcript hid every good
+    session behind it. The bad session here is also multi-turn, which is the
+    realistic shape: the walk exists to pass over sessions like it, and the
+    crash landed while describing one for its skip row.
+
+    A fake root under a temporary directory; the real store is never read.
+    """
+
+    GOOD = "aaaaaaaa-0000-0000-0000-000000000001"
+    BAD = "bbbbbbbb-0000-0000-0000-000000000002"
+    PROJECT = "-Users-someone-src-greenthumb"
+
+    def setUp(self):
+        from auditlog import resolve
+
+        self.tmp = tempfile.mkdtemp(prefix="auditlog-walk-undescribable-")
+        self.projects = os.path.join(self.tmp, "projects")
+        self.outdir = os.path.join(self.tmp, "out")
+        self.project = os.path.join(self.projects, self.PROJECT)
+        os.makedirs(self.project)
+        self._real_root = resolve.PROJECTS_ROOT
+        resolve.PROJECTS_ROOT = self.projects
+
+    def tearDown(self):
+        from auditlog import resolve
+
+        resolve.PROJECTS_ROOT = self._real_root
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def iso(n):
+        return "2026-08-15T12:00:%02d.000Z" % n
+
+    def _write(self, session_id, stamp_of, title, turns=1, age=0, insert=None):
+        """A session whose every timestamp is `stamp_of(n)`; `age` seconds
+        back-dates its mtime so the walk sees a younger file first; `insert`
+        is an extra raw line placed after the first record."""
+        import json
+        import time
+
+        from tests.test_index import _record_lines
+
+        lines = _record_lines(title=title, turns=turns)
+        n = 0
+        for line in lines:
+            if line.get("type") in ("user", "assistant"):
+                line["sessionId"] = session_id
+            if "timestamp" in line:
+                line["timestamp"] = stamp_of(n)
+                n += 1
+        if insert is not None:
+            lines.insert(1, insert)
+        path = os.path.join(self.project, session_id + ".jsonl")
+        with open(path, "w") as fh:
+            fh.write("\n".join(json.dumps(x) for x in lines))
+        stamp = time.time() - age
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def _walk(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main(["--project", "greenthumb", "--output-dir",
+                             self.outdir, "-v", "--no-header"])
+        finally:
+            sys.stderr = stderr
+        out = buffer.getvalue()
+        wrote = [l for l in out.splitlines() if l.startswith(cli.OK)]
+        skipped = [l for l in out.splitlines() if "SKIPPED" in l]
+        return code, out, wrote, skipped
+
+    def _assert_reached_the_good_session(self, code, out, wrote, skipped):
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(wrote), 1, out)
+        self.assertIn(self.GOOD[:8], wrote[0])
+        self.assertEqual(len(skipped), 1, out)
+        self.assertIn(self.BAD[:8], skipped[0])
+
+    def test_a_dict_timestamp_on_a_skipped_session_does_not_stop_the_walk(self):
+        self._write(self.GOOD, self.iso, "Good one", age=60)
+        self._write(self.BAD, lambda n: {"seconds": n}, "Bad one", turns=3)
+        self._assert_reached_the_good_session(*self._walk())
+
+    def test_a_non_string_timestamp_is_skipped_exactly_like_a_garbage_string(self):
+        """The trigger is the type, not the value: a garbage STRING already
+        degrades to an undated skip row, and the dict case must produce that
+        same row, not a different one."""
+        self._write(self.GOOD, self.iso, "Good one", age=60)
+        self._write(self.BAD, lambda n: "not-a-time-%d" % n, "Bad one", turns=3)
+        string_run = self._walk()
+        self._assert_reached_the_good_session(*string_run)
+        string_row = string_run[3][0]
+        self.assertIn("unknown", string_row)
+        self.assertIn("Agent (3 turns)", string_row)
+
+        shutil.rmtree(self.outdir)
+        self._write(self.BAD, lambda n: {"seconds": n}, "Bad one", turns=3)
+        dict_run = self._walk()
+        self._assert_reached_the_good_session(*dict_run)
+        self.assertEqual(dict_run[3][0], string_row)
+
+    def test_an_unreadable_transcript_is_a_skip_row_with_its_reason_beneath(self):
+        """A transcript `describe` raises on for a reason no type check on the
+        timestamp catches: one of its lines is a JSON list. It is passed over
+        with its reason on the line beneath, the way a failed render is
+        reported in a sweep, and it costs nothing beyond its own row."""
+        self._write(self.GOOD, self.iso, "Good one", age=60)
+        bad_path = self._write(self.BAD, self.iso, "Bad one", insert=[1, 2])
+        code, out, wrote, skipped = self._walk()
+        self._assert_reached_the_good_session(code, out, wrote, skipped)
+        self.assertIn("unreadable", skipped[0])
+        self.assertIn("| ?", skipped[0])
+        self.assertIn("could not read %s: 'list' object has no attribute 'get'"
+                      % os.path.basename(bad_path), out)

@@ -21,6 +21,7 @@ import shlex
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 
 from auditlog import cli, index, resolve
@@ -390,3 +391,161 @@ class TestCopyableCommand(FakeFleet):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UndescribableFleet(unittest.TestCase):
+    """One project, one good session, and one the index cannot describe.
+
+    The second phase gate found `--all --index` finishing its sweep and then
+    dying with a traceback before the index was written, on a transcript whose
+    `timestamp` was a dict rather than a string. `render_one` had been
+    guarded, so the sweep survived it; `index.scan` had not, so the index the
+    run exists to build never landed, which is exactly the harm the first
+    gate's finding 2 named. A fake root under a temporary directory; the real
+    store is never read or written.
+    """
+
+    GOOD = "aaaaaaaa-0000-0000-0000-000000000001"
+    BAD = "bbbbbbbb-0000-0000-0000-000000000002"
+    PROJECT = "-Users-someone-src-greenthumb"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="auditlog-undescribable-")
+        self.projects = os.path.join(self.tmp, "projects")
+        self.outdir = os.path.join(self.tmp, "out")
+        self.project = os.path.join(self.projects, self.PROJECT)
+        os.makedirs(self.project)
+        self._real_root = resolve.PROJECTS_ROOT
+        resolve.PROJECTS_ROOT = self.projects
+
+    def tearDown(self):
+        resolve.PROJECTS_ROOT = self._real_root
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def iso(n):
+        return "2026-08-15T12:00:%02d.000Z" % n
+
+    def _lines(self, stamp_of, title):
+        """A one-turn session whose every timestamp is `stamp_of(n)`."""
+        lines = _record_lines(title=title)
+        n = 0
+        for line in lines:
+            if "timestamp" in line:
+                line["timestamp"] = stamp_of(n)
+                n += 1
+        return lines
+
+    def _write(self, session_id, lines, age=0):
+        """Write a transcript; `age` seconds back-dates its mtime, so the
+        sweep and the index see a younger file first."""
+        path = os.path.join(self.project, session_id + ".jsonl")
+        for line in lines:
+            if isinstance(line, dict) and line.get("type") in ("user", "assistant"):
+                line["sessionId"] = session_id
+        with open(path, "w") as fh:
+            fh.write("\n".join(json.dumps(x) for x in lines))
+        stamp = time.time() - age
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def _entries(self):
+        args = cli.build_parser().parse_args(["--index", "--output-dir", self.outdir])
+        return index.scan(args, self.outdir)
+
+    def _sweep_and_index(self):
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main(["--all", "--index", "--output-dir", self.outdir,
+                             "--no-header"])
+        finally:
+            sys.stderr = stderr
+        target = os.path.join(self.outdir, index.FILENAME)
+        page = None
+        if os.path.exists(target):
+            with open(target) as fh:
+                page = fh.read()
+        return code, buffer.getvalue(), page
+
+
+class TestATimestampOfTheWrongType(UndescribableFleet):
+    def setUp(self):
+        UndescribableFleet.setUp(self)
+        self._write(self.GOOD, self._lines(self.iso, "Good one"), age=60)
+        self._write(self.BAD, self._lines(lambda n: {"seconds": n}, "Bad one"))
+
+    def test_all_index_still_writes_the_index(self):
+        code, out, page = self._sweep_and_index()
+        self.assertIsNotNone(page, out)
+        self.assertIn(index.MARKER, page)
+        self.assertIn(self.GOOD[:8], page)
+        self.assertIn(self.BAD[:8], page)
+        self.assertEqual(code, 0, out)
+
+    def test_a_non_string_timestamp_lists_the_way_a_garbage_string_does(self):
+        """The trigger is the type, not the value. A timestamp that is a
+        string but not a time has always listed as undated and renderable;
+        a dict or an int must land in exactly the same place, and the string
+        case must not move."""
+        STRING = "cccccccc-0000-0000-0000-000000000003"
+        NUMBER = "dddddddd-0000-0000-0000-000000000004"
+        self._write(STRING, self._lines(lambda n: "not-a-time-%d" % n, "Garbage"))
+        self._write(NUMBER, self._lines(lambda n: n, "Number"))
+        by_id = {e.description.session_id: e for e in self._entries()}
+        self.assertEqual(sorted(by_id), sorted([self.GOOD, self.BAD, STRING, NUMBER]))
+        self.assertIsNotNone(by_id[self.GOOD].description.started)
+        for session_id in (STRING, self.BAD, NUMBER):
+            entry = by_id[session_id]
+            self.assertIsNone(entry.description.started, session_id)
+            self.assertTrue(entry.renderable, session_id)
+            self.assertIsNotNone(entry.command, session_id)
+
+
+class TestATranscriptThatCannotBeDescribed(UndescribableFleet):
+    """A transcript `describe` raises on for a reason no type check on the
+    timestamp catches: one of its lines is a JSON list, not an object. It is
+    listed as unreadable, with the reason, and costs nothing beyond its own
+    row. An index that quietly omitted it would be answering a smaller
+    question, which is the whole point of the page."""
+
+    REASON = "'list' object has no attribute 'get'"
+
+    def setUp(self):
+        UndescribableFleet.setUp(self)
+        self._write(self.GOOD, self._lines(self.iso, "Good one"), age=60)
+        lines = self._lines(self.iso, "Bad one")
+        lines.insert(2, [1, 2])
+        self.bad_path = self._write(self.BAD, lines)
+
+    def test_the_index_is_still_written_and_the_row_is_visible(self):
+        code, out, page = self._sweep_and_index()
+        self.assertIsNotNone(page, out)
+        self.assertIn(self.GOOD[:8], page)
+        self.assertIn(self.BAD[:8], page)
+        self.assertIn("unreadable", page)
+        self.assertIn(html.escape(self.REASON), page)
+        # The sweep's own verdict on the bad transcript is unchanged: a failed
+        # render is exit 4, and the index being built does not launder it.
+        self.assertEqual(code, 4, out)
+
+    def test_the_unreadable_row_costs_only_itself(self):
+        by_id = {e.description.session_id: e for e in self._entries()}
+        self.assertEqual(sorted(by_id), sorted([self.GOOD, self.BAD]))
+        good, bad = by_id[self.GOOD], by_id[self.BAD]
+        self.assertTrue(good.renderable)
+        self.assertFalse(bad.renderable)
+        self.assertIsNone(bad.command)
+        self.assertIsNone(bad.description.started)
+        self.assertIn(self.REASON, bad.reason)
+        # Nobody could read it, so nobody is named as having taken part.
+        self.assertEqual((bad.sender, bad.receiver), ("?", "?"))
+
+    def test_the_index_stays_self_contained_and_byte_reproducible(self):
+        first = index.page(self._entries(), self.outdir)
+        self.assertEqual(first, index.page(self._entries(), self.outdir))
+        found = [label for pattern, label in DEPENDENCY_PATTERNS
+                 if re.search(pattern, first, re.I)]
+        self.assertEqual(found, [])
+        self.assertNotIn("http://", first)
+        self.assertNotIn("https://", first)

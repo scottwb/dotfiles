@@ -349,8 +349,15 @@ def check_supported(records, path=None, size_bytes=None):
 # --------------------------------------------------------------- timestamps
 
 def parse_timestamp(value):
-    """Parse a transcript's UTC ISO 8601 timestamp into an aware datetime."""
-    if not value:
+    """Parse a transcript's UTC ISO 8601 timestamp into an aware datetime.
+
+    None for anything that is not a non-empty string, as well as for a string
+    that is not a time. A dict or an int where the timestamp should be is no
+    more a time than `"not-a-time"` is, and the second gate found the two
+    treated differently: the string degraded to "undated", the dict raised
+    inside `describe` and took the index down with it.
+    """
+    if not isinstance(value, str) or not value:
         return None
     try:
         return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))

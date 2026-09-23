@@ -415,6 +415,39 @@ def classify(candidate):
             parse.describe(records, candidate))
 
 
+def unreadable(candidate, exc):
+    """`(report, description)` for a transcript `classify` raised on.
+
+    The shape `classify` would have returned, so a caller reports the session
+    in the same row it reports every other one, with the exception as the
+    reason rather than swallowed. The description comes from the filename
+    alone: nothing in the file could be trusted to name it, and the caller
+    attributes it to nobody, because a guessed participant on a session
+    nobody could read is a false attribution.
+    """
+    stem = os.path.basename(candidate)
+    if stem.endswith(".jsonl"):
+        stem = stem[:-len(".jsonl")]
+    reason = parse.Unsupported(
+        "unreadable",
+        "this transcript could not be read: %s" % exc,
+        short="unreadable: %s" % exc,
+    )
+    return (parse.SupportReport(candidate, [reason]),
+            parse.Description(candidate, stem, None, None, "(unreadable)"))
+
+
+def unreadable_row(candidate, exc):
+    """The skip row for a transcript that could not be read, with the reason
+    on the line beneath, the way `render_failure` reports a sweep's failure.
+    One string, so the report counts it as one session passed over."""
+    report, description = unreadable(candidate, exc)
+    row = table_row("SKIPPED", description.short_id, when_of(description),
+                    reason_text(description, report.reasons), "?", "?",
+                    description.title)
+    return "%s\n   could not read %s: %s" % (row, os.path.basename(candidate), exc)
+
+
 def first_renderable(candidates):
     """The first session in `candidates` that v1 can render, and the skips.
 
@@ -424,6 +457,11 @@ def first_renderable(candidates):
 
     Announcing each skip is what makes walking honest rather than magic: the
     tool never quietly decides a session did not count.
+
+    A transcript that cannot be classified at all is one more skip, with the
+    exception as its reason, not the end of the walk: unguarded, one corrupt
+    file hid every good session behind it. Only `Exception` is caught, so
+    Ctrl-C still stops the run.
 
     Returns `(path_or_None, skip_rows)`.
     """
@@ -435,10 +473,14 @@ def first_renderable(candidates):
                 "pass --date" % MAX_SKIPS
             )
             return None, skips
-        report, description = classify(candidate)
-        if report.ok:
-            return candidate, skips
-        skips.append(skip_row(description, report.reasons))
+        try:
+            report, description = classify(candidate)
+            if report.ok:
+                return candidate, skips
+            row = skip_row(description, report.reasons)
+        except Exception as exc:  # noqa: BLE001 - one bad transcript costs its own row
+            row = unreadable_row(candidate, exc)
+        skips.append(row)
     return None, skips
 
 

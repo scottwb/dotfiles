@@ -89,17 +89,17 @@ and SKILL.md tells them to paste it.
 
 ### Step 2: Guard the describe stage on the index and walking paths
 
-- [ ] Write the failing test first: build a fake transcript root holding one
+- [x] Write the failing test first: build a fake transcript root holding one
       good session and one whose `timestamp` is a dict, then assert that
       `--all --index` still writes the index, and that a bare
       `--project <name>` still reaches the good session. Both fail today with
       `AttributeError: 'dict' object has no attribute 'replace'`, raised inside
       `describe` after the sweep has already finished.
-- [ ] Implement: `parse_timestamp` returns None for a non-string; the
+- [x] Implement: `parse_timestamp` returns None for a non-string; the
       per-candidate body of `index.scan` and of `first_renderable` treats a
       transcript it cannot describe as an unreadable entry or a skip row rather
       than letting it escape.
-- [ ] Verify green: the whole suite. Confirm a garbage timestamp *string* still
+- [x] Verify green: the whole suite. Confirm a garbage timestamp *string* still
       degrades exactly as it does today, since the trigger is the type.
 
 **Satisfies:** second gate finding 2 (medium) and its fix-list item 2. It also
