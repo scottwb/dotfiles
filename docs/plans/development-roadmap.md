@@ -28,26 +28,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### The index's copyable command, and the describe guards
-
-**Thread:** AI Staff
-
-**Goal:** The two findings from the second audit-log phase gate. The index page's copy button has never emitted a command that parses: every project directory name starts with a dash, so argparse rejects `--project -Users-...`, and a regression test added last commit pinned the broken form. Separately, a transcript whose `timestamp` is not a string still kills `--all --index` after the sweep and before the index is written, because the guard landed on `render_one` and this crash lives one call site over.
-
-**Plan:** [audit-log-index-command-and-guards.md](audit-log-index-command-and-guards.md)
-
-**Gate report:** [phasegate-audit-log-gate-fixes.md](../assessments/phasegate-audit-log-gate-fixes.md), verdict PASS_WITH_FINDINGS
-
-**Status:** Ready to implement. Two steps, one commit each, both test-first. Both defects are the same shape: something was tested for the shape it had rather than the job it does. Gate items 3 to 6 stay open in the report.
-
----
-
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
-
 ### Patchbay team release
 
 **Thread:** Tools
@@ -73,6 +53,12 @@ does not re-open them.
 **What is already true, and reduces the work considerably:** the env-var credential path already functions with no `op` on `PATH`, runtime dependencies are already just `bash`, `curl`, `sed`, `grep`, `ps` and `claude`, and the `ollama` binary is not a runtime dependency at all. What blocks sharing is narrower than it looked: the 1Password vault path is hardcoded, the selftest enforces that hardcoding, and the missing-credential error tells the user to install 1Password, which is the wrong guidance for their most likely mistake.
 
 **This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. Step 8 corrects the doc.
+
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
 
 ### Audit log generator follow-ons
 
@@ -506,6 +492,22 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 ---
 
 ## Completed
+
+### The index's copyable command, and the describe guards (2026-09-23)
+
+**Thread:** AI Staff
+
+**Plan:** [audit-log-index-command-and-guards.md](audit-log-index-command-and-guards.md)
+
+**Gate report:** [phasegate-audit-log-gate-fixes.md](../assessments/phasegate-audit-log-gate-fixes.md)
+
+Merged via PR #7, two commits, both findings of the second phase gate. Suite 428 to 437 tests.
+
+**The index's copy button had never emitted a command that runs.** Every project directory name begins with a dash, argparse reads a dash-led token after `--project` as an option rather than its value, and the line exited 2. It emits `--project=` now, value still quoted. The lesson is in how it survived: the regression test written with the quoting fix asserted the command was byte-identical to what the index had always emitted, which fused "no quoting was added" to "the line still does not parse", so the fix could only pass by keeping the bug. The test now checks the property it was protecting, and a new one feeds the emitted argv to the CLI's own parser. Verified against the real store by copying a `TO DO` row's command out of the HTML and running it.
+
+**A session that could not be described still killed the index.** The earlier guard landed on `render_one`, while `index.scan` and the walking `--project` path called describe unguarded, so `--all --index` finished its sweep and died before writing anything. That was the harm the first gate's finding 2 named, surviving one call site over. Both paths now turn an undescribable transcript into a row, with `?` for participants rather than a guessed attribution on a file nobody could read.
+
+**Both defects were the same shape:** something tested for the form it had rather than the job it does. Gate items 3 to 6 stay open in the report, along with items 7 to 9 carried from the first gate.
 
 ### Audit log gate fixes: findings 1 to 5 (2026-09-23)
 
