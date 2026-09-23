@@ -54,7 +54,9 @@ class UnknownModel(Exception):
     that genuinely has no Anthropic list price: a local Ollama model, a routed
     non-Anthropic backend, or the harness's own synthetic messages. Both render
     with the cost figures suppressed; only an unknown model has a fix, which
-    is adding its rates to pricing.json.
+    is adding its rates to pricing.json. Which of the two a model is comes
+    from `provider_for`: only a model Anthropic could have published rates
+    for is ever "unknown". Everything else the table has not seen is unpriced.
     """
 
 
@@ -99,8 +101,37 @@ def unpriced_reason(model):
     `<synthetic>` messages all appear in real transcripts and none of them have
     an Anthropic per-token price. Refusing to render those sessions would be
     wrong; quoting $0.00 for them would be worse.
+
+    A reason recorded in the table's `unpriced` map wins. For a model the
+    table has never seen, the reason is derived from `provider_for` rather
+    than from a second list: a routed slug is unpriced because the batch
+    carries no OpenRouter pricing by decision, and a model whose provider
+    cannot be told is unpriced because nobody can say what its rate would be.
+    None means the model could carry Anthropic list rates and the table simply
+    lacks them; that is the one case worth telling the reader to fix.
     """
-    return _load().get("unpriced", {}).get(_resolve(model))
+    table = _load()
+    resolved = _resolve(model)
+    if resolved in table["models"]:
+        return None
+    recorded = table.get("unpriced", {}).get(resolved)
+    if recorded is not None:
+        return recorded
+    return _derived_unpriced_reason(model)
+
+
+def _derived_unpriced_reason(model):
+    """The reason for a model in neither the priced nor the unpriced list."""
+    provider = provider_for(model)
+    if provider == "Anthropic":
+        return None
+    if provider is None:
+        return ("has no list price this tool can apply: its provider is unknown, "
+                "so no per-token rate can be looked up for it")
+    if provider == "OpenRouter":
+        return ("is reached through a routed non-Anthropic backend (OpenRouter) "
+                "and carries no Anthropic list price")
+    return "is served by %s and carries no Anthropic list price" % provider
 
 
 #: Anthropic's own model ids all start with this. Every priced model in the
@@ -149,10 +180,11 @@ def rates_for(model):
     try:
         return table["models"][resolved]
     except KeyError:
-        if resolved in table.get("unpriced", {}):
+        reason = unpriced_reason(model)
+        if reason is not None:
             raise UnknownModel(
                 "model %r has no list price (%s); call compute() rather than "
-                "rates_for()" % (model, table["unpriced"][resolved])
+                "rates_for()" % (model, reason)
             )
         known = ", ".join(sorted(table["models"]))
         raise UnknownModel(
@@ -231,14 +263,16 @@ class Breakdown(object):
 
 
 def is_unknown(model):
-    """True when `model` is neither priced nor listed as unpriced in the table.
+    """True when `model` should have list rates and the table lacks them.
 
-    That is the state a new model release leaves the tool in until someone
-    adds its rates, so it is worth a warning; a local model is not.
+    That is the state a new Anthropic model release leaves the tool in until
+    someone adds its rates, so it is worth a warning. A local model, a routed
+    OpenRouter slug, or a model whose provider cannot be told is not: there
+    are no Anthropic list rates to add for those, so `unpriced_reason` gives
+    them an honest reason instead and this returns False.
     """
-    table = _load()
     resolved = _resolve(model)
-    return resolved not in table["models"] and resolved not in table.get("unpriced", {})
+    return resolved not in _load()["models"] and unpriced_reason(model) is None
 
 
 def compute(tokens, model):

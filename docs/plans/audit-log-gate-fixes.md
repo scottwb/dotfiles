@@ -183,16 +183,16 @@ that line into a terminal.
 
 ### Step 4: Derive unknown-versus-unpriced from what provider_for knows
 
-- [ ] Write the failing test first: in `tests/test_cost.py`, assert that a
+- [x] Write the failing test first: in `tests/test_cost.py`, assert that a
       routed slug the table does not list (`x-ai/grok-4.6`) computes as
       unpriced, is NOT flagged `unknown`, and gives a reason naming a routed
       backend rather than telling the reader to add rates; and that an
       Anthropic-prefixed miss (`claude-not-a-real-model`) still is flagged
       `unknown` and still says `pricing.json`. The slug half fails today.
-- [ ] Implement: have `is_unknown` consult `provider_for`, so only models that
+- [x] Implement: have `is_unknown` consult `provider_for`, so only models that
       could carry Anthropic list rates warn about the table; everything else is
       unpriced with an honest reason.
-- [ ] Verify green: new tests pass; the CLI warning test and the missing-model
+- [x] Verify green: new tests pass; the CLI warning test and the missing-model
       page test still pass.
 
 **Satisfies:** gate fix-list item 4 (medium). Three live OpenRouter models in
