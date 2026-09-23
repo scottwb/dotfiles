@@ -212,15 +212,15 @@ contradicting the batch's own decision to carry no OpenRouter pricing.
 
 ### Step 5: Stop cost-less pages persisting silently
 
-- [ ] Write the failing test first: in `tests/test_cli.py`, assert the
+- [x] Write the failing test first: in `tests/test_cli.py`, assert the
       missing-model warning names `--force` as the way to replace the page once
       the model is priced, and that a second sweep over an already-written
       cost-suppressed page still says so rather than reporting a bare `EXISTS`.
       It fails today: the warning never mentions `--force`.
-- [ ] Implement: name `--force` in the warning, and carry the
+- [x] Implement: name `--force` in the warning, and carry the
       suppressed-cost fact into the row a later run prints for that page, so a
       sweep can be told what to repair.
-- [ ] Verify green: new tests pass; the existing EXISTS-is-not-an-error test
+- [x] Verify green: new tests pass; the existing EXISTS-is-not-an-error test
       still passes unchanged.
 
 **Satisfies:** gate fix-list item 5 (medium). One renderable `claude-opus-5-5`

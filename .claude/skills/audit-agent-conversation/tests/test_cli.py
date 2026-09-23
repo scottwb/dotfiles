@@ -807,7 +807,7 @@ class TestModelMissingFromTheRateTable(unittest.TestCase):
         self.cost._table = self.saved
         shutil.rmtree(self.outdir, ignore_errors=True)
 
-    def _run_quietly(self):
+    def _run_quietly(self, *extra):
         import io
         import sys
 
@@ -815,10 +815,20 @@ class TestModelMissingFromTheRateTable(unittest.TestCase):
         stderr, sys.stderr = sys.stderr, buffer
         try:
             code = cli.main([fixtures.path(fixtures.BRIEF_AUG13),
-                             "--output-dir", self.outdir, "--quiet"])
+                             "--output-dir", self.outdir, "--quiet"] + list(extra))
         finally:
             sys.stderr = stderr
         return code, buffer.getvalue()
+
+    def _page(self):
+        written = os.listdir(self.outdir)
+        self.assertEqual(len(written), 1)
+        with open(os.path.join(self.outdir, written[0]), "rb") as handle:
+            return written[0], handle.read()
+
+    def _price_the_model(self):
+        """What a later pricing.json refresh does: the model is in the table."""
+        self.cost._table = self.saved
 
     def test_the_page_is_written_without_a_cost_figure(self):
         code, _ = self._run_quietly()
@@ -836,3 +846,112 @@ class TestModelMissingFromTheRateTable(unittest.TestCase):
         self.assertIn("warning", err)
         self.assertIn(self.model, err)
         self.assertIn("pricing.json", err)
+
+    def test_the_warning_names_force_as_the_way_to_replace_the_page(self):
+        """Adding the rates is half the fix; the page on disk stays cost-less
+        until it is re-rendered, and the only way past an existing page is
+        --force. A warning that stops at pricing.json leaves the operator to
+        discover that on their own, or never."""
+        _, err = self._run_quietly()
+        self.assertIn("--force", err)
+
+    def test_a_second_run_once_the_model_is_priced_says_the_page_can_be_repaired(self):
+        """The page was written cost-less; the model has since been priced.
+
+        A bare EXISTS here is the defect: it tells the operator the work is
+        done when the page on disk is permanently wrong. The row must say the
+        page carries no cost figure and that --force repairs it. Still exit 0
+        and still leave the page alone: a sweep is a no-op, not a failure.
+        """
+        self._run_quietly()
+        name, before = self._page()
+        self._price_the_model()
+
+        code, err = self._run_quietly()
+
+        self.assertEqual(code, 0)
+        self.assertEqual(self._page(), (name, before), "the page was touched")
+        self.assertIn("EXISTS", err)
+        self.assertIn("no cost figure", err)
+        self.assertIn("--force", err)
+        self.assertIn(self.model, err)
+        self.assertNotIn("error", err.lower())
+
+    def test_a_second_run_while_the_model_is_still_unknown_still_warns(self):
+        """Nothing has changed since the page was written, so the first run's
+        warning is still the truth and a second sweep must not drop it."""
+        self._run_quietly()
+        code, err = self._run_quietly()
+        self.assertEqual(code, 0)
+        self.assertIn("EXISTS", err)
+        self.assertIn("no cost figure", err)
+        self.assertIn("pricing.json", err)
+        self.assertIn("--force", err)
+
+    def test_force_repairs_the_page_once_the_model_is_priced(self):
+        """The flow the messages point at actually works end to end."""
+        self._run_quietly()
+        self._price_the_model()
+        code, err = self._run_quietly("--force")
+        self.assertEqual(code, 0)
+        _, body = self._page()
+        self.assertNotIn(b"No cost figure for this session", body)
+        self.assertNotIn("no cost figure", err)
+        self.assertNotIn("warning", err)
+
+
+class TestPermanentlyUnpricedPageIsNotNagged(unittest.TestCase):
+    """A page for a model with no list price at all is cost-less for good.
+
+    A local Ollama model or a routed OpenRouter slug has no rates to add, so
+    there is nothing to repair and a later run must not say there is. Only a
+    model that COULD carry Anthropic list rates gets the repair message.
+    Simulated by moving the session's model from the priced table into the
+    `unpriced` map, which is exactly how a routed backend is recorded there.
+    """
+
+    def setUp(self):
+        import copy
+        from auditlog import cost, parse
+
+        fixtures.require_corpus(self)
+        self.outdir = tempfile.mkdtemp(prefix="auditlog-unpriced-model-")
+        self.cost = cost
+        self.saved = cost._load()
+        self.model = parse.load_session(fixtures.path(fixtures.BRIEF_AUG13)).model
+        resolved = cost._resolve(self.model)
+        trimmed = copy.deepcopy(self.saved)
+        trimmed["models"].pop(resolved)
+        trimmed.setdefault("unpriced", {})[resolved] = \
+            "reached through a routed non-Anthropic backend"
+        trimmed.setdefault("providers", {})[resolved] = "OpenRouter"
+        cost._table = trimmed
+
+    def tearDown(self):
+        self.cost._table = self.saved
+        shutil.rmtree(self.outdir, ignore_errors=True)
+
+    def _run_quietly(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main([fixtures.path(fixtures.BRIEF_AUG13),
+                             "--output-dir", self.outdir, "--quiet"])
+        finally:
+            sys.stderr = stderr
+        return code, buffer.getvalue()
+
+    def test_neither_run_asks_for_a_repair(self):
+        _, first = self._run_quietly()
+        self.assertNotIn("warning", first)
+        self.assertNotIn("pricing.json", first)
+
+        code, second = self._run_quietly()
+        self.assertEqual(code, 0)
+        self.assertIn("EXISTS", second)
+        self.assertNotIn("no cost figure", second)
+        self.assertNotIn("repair", second)
+        self.assertNotIn("warning", second)

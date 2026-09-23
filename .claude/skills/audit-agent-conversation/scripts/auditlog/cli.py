@@ -451,18 +451,38 @@ def latest_renderable(project_path):
 
 _PAGE_SESSION = re.compile(r"audit-agent-conversation session:([0-9a-fA-F-]+)")
 
+#: What the marker line carries when the page was rendered with its cost
+#: suppressed. Written by `render.page`; read here and nowhere else.
+_PAGE_COST_NONE = re.compile(r"audit-agent-conversation session:[0-9a-fA-F-]* cost:none")
+
 #: Enough of a page to find the marker it declares itself with.
 PAGE_HEAD_BYTES = 300
 
 
-def page_session_id(path):
-    """Which session produced the page at `path`, or None if it does not say."""
+def page_head(path):
+    """The first lines of the page at `path`: enough to read its marker."""
     try:
         with open(path, "r", errors="replace") as handle:
-            match = _PAGE_SESSION.search(handle.read(PAGE_HEAD_BYTES))
+            return handle.read(PAGE_HEAD_BYTES)
     except OSError:
-        return None
+        return ""
+
+
+def page_session_id(path):
+    """Which session produced the page at `path`, or None if it does not say."""
+    match = _PAGE_SESSION.search(page_head(path))
     return match.group(1) if match else None
+
+
+def page_has_no_cost(path):
+    """Was the page at `path` written with its cost figure suppressed?
+
+    The page says so itself, on the marker line, so this costs one short
+    read. A page written before the marker carried that fact reads as
+    priced: there is no cheap way to tell, and guessing would nag about
+    pages that are fine.
+    """
+    return _PAGE_COST_NONE.search(page_head(path)) is not None
 
 
 def disambiguate(target, session_id):
@@ -977,6 +997,21 @@ def main(argv=None):
     return render_one(path, args, report_out)
 
 
+def missing_rates_warning(model):
+    """The one message for a page with no cost because pricing.json is stale.
+
+    Names both halves of the fix. Adding the rates prices future pages; the
+    page already on disk stays cost-less until it is rendered again, and an
+    existing page is only ever replaced under --force. Leaving that half
+    out is how a page written during the gap stays wrong for good.
+    """
+    return (
+        "   warning: model %r is not in pricing.json, so its page shows no "
+        "cost figure. Add the model's list rates to pricing.json, then re-run "
+        "with --force to replace the page." % model
+    )
+
+
 def warn_if_model_is_missing_from_rate_table(session, report_out):
     """Say so when a page went out with no cost because pricing.json is stale.
 
@@ -985,11 +1020,33 @@ def warn_if_model_is_missing_from_rate_table(session, report_out):
     renderer's default, which is always in the table, so it never warns.
     """
     if session.model and cost.is_unknown(session.model):
-        report_out.raw(
-            "   warning: model %r is not in pricing.json, so its page shows no "
-            "cost figure. Add the model's list rates to pricing.json."
-            % session.model
+        report_out.raw(missing_rates_warning(session.model))
+
+
+def repair_advice(session, target):
+    """Why the page already at `target` should be replaced, or None.
+
+    Only one thing about an existing page is worth interrupting a sweep for:
+    it was written with its cost suppressed and a cost is now, or could be,
+    available. Which of those it is comes from the rate table as it stands
+    today, not from anything stored with the page:
+
+    * the model is priced now: the gap has closed, say --force repairs it;
+    * the model is still unknown: the original warning is still the truth;
+    * the model has no list price at all (local, routed, synthetic): the page
+      is correct as written and there is nothing to repair, so stay quiet.
+    """
+    if not (session.model and page_has_no_cost(target)):
+        return None
+    if cost.is_unknown(session.model):
+        return missing_rates_warning(session.model)
+    if cost.unpriced_reason(session.model) is None:
+        return (
+            "   model %r is now in pricing.json, but this page was written "
+            "before it was and shows no cost figure. Re-run with --force to "
+            "replace it." % session.model
         )
+    return None
 
 
 def render_one(path, args, report_out, records=None):
@@ -1114,10 +1171,16 @@ def _render_parsed(path, records, skipped, args, report_out):
     if os.path.exists(target) and not args.force:
         # Not an error: the page you asked for is already there. Report it the
         # same way as any other session passed over, and exit 0 so re-running a
-        # batch is a cheap no-op rather than a failure.
+        # batch is a cheap no-op rather than a failure. The one thing worth
+        # saying about it is that it could be repaired; a bare EXISTS over a
+        # cost-less page reads as "done" when the page is wrong for good.
+        advice = repair_advice(session, target)
         report_out.row("EXISTS", description.short_id, when_of(description),
-                       "use --force to replace", sender, receiver,
-                       description.title or "(untitled)")
+                       "no cost figure; --force to repair" if advice
+                       else "use --force to replace",
+                       sender, receiver, description.title or "(untitled)")
+        if advice:
+            report_out.raw(advice)
         return 0
 
     # Write to a sibling temp file and rename into place, so an interrupted run
