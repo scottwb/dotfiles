@@ -28,26 +28,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Audit log gate fixes (findings 1 to 5)
-
-**Thread:** AI Staff
-
-**Goal:** Land the five ranked findings from the 2026-09-23 phase gate on the audit log generator: a full rate-table refresh against the published pricing page (the Sonnet 5 row carried Sonnet 4.6's $3 / $15 against a published $2 / $10, and Claude Opus 5.5 was missing entirely), a sweep that aborts on any exception raised outside `render.page`, unvalidated transcript fields reaching the index page's copyable shell command, "add rates to pricing.json" said about routed models that will never have Anthropic rates, and cost-suppressed pages that persist silently with no way offered to repair them.
-
-**Plan:** [audit-log-gate-fixes.md](audit-log-gate-fixes.md)
-
-**Gate report:** [phasegate-audit-log-phase.md](../assessments/phasegate-audit-log-phase.md), verdict PASS_WITH_FINDINGS
-
-**Status:** Ready to implement. Five steps, one commit each, every step test-first because the gate demonstrated each defect against real data. Fix-list items 6 to 10 stay open in the report and are deliberately out of this plan. A second gate runs over these fixes once merged.
-
----
-
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
-
 ### Patchbay team release
 
 **Thread:** Tools
@@ -73,6 +53,12 @@ does not re-open them.
 **What is already true, and reduces the work considerably:** the env-var credential path already functions with no `op` on `PATH`, runtime dependencies are already just `bash`, `curl`, `sed`, `grep`, `ps` and `claude`, and the `ollama` binary is not a runtime dependency at all. What blocks sharing is narrower than it looked: the 1Password vault path is hardcoded, the selftest enforces that hardcoding, and the missing-credential error tells the user to install 1Password, which is the wrong guidance for their most likely mistake.
 
 **This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. Step 8 corrects the doc.
+
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
 
 ### Audit log generator follow-ons
 
@@ -506,6 +492,22 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 ---
 
 ## Completed
+
+### Audit log gate fixes: findings 1 to 5 (2026-09-23)
+
+**Thread:** AI Staff
+
+**Plan:** [audit-log-gate-fixes.md](audit-log-gate-fixes.md)
+
+**Gate report:** [phasegate-audit-log-phase.md](../assessments/phasegate-audit-log-phase.md)
+
+Merged via PR #6, five commits, one per ranked finding from the first gate, each starting with a test that reproduced the defect the gate had demonstrated against real data. Suite 401 to 428 tests.
+
+**The two high findings.** The rate table priced Sonnet 5 at $3 / $15, which is Sonnet 4.6's rates copied across against a published $2 / $10; the whole table was re-read from the published pricing page rather than a cached copy, which is what let the error through, and Claude Opus 5.5 was added along with Mythos 5.1, Opus 4.5 and Sonnet 4.5. Opus 5.5's 0.05x cache read is a second exception after Fable 5.1's 0.025x, so that multiple moved into the data and the hardcoded exception list in the test is gone. Separately, a sweep survived only a failed render: a transcript whose `usage` was a string killed a real six-session sweep after two, and every stage of `render_one` is now covered by the same ERROR row.
+
+**The three mediums.** The index page's copy button interpolated transcript fields raw, so a crafted session id produced a copyable line carrying `; echo PWNED`, which the page invites you to paste into a terminal; ids are now UUID-checked with a quoted file-stem fallback and project names go through `shlex.quote`. Routed OpenRouter slugs were told to add Anthropic list rates that deliberately do not exist, now derived from `provider_for` rather than a second list. And a page written while its model was unpriced said nothing about it; it now marks itself so a later run offers the `--force` repair, while a permanently unpriced page stays quiet.
+
+**Scott widened item 1 on the day:** refresh every row, not the one that was wrong, and add Opus 5.5, released 2026-09-22. That absorbed the first gate's item 6. Items 7 to 10 stay open in the gate report.
 
 ### Inter-agent conversation audit log generator (2026-09-23)
 
