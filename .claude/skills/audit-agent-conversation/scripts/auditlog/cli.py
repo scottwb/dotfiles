@@ -997,11 +997,60 @@ def render_one(path, args, report_out, records=None):
 
     Shared by the single-session path and the `--all` sweep so both report the
     same way and neither can drift from the other's safety checks.
+
+    Whatever one transcript raises, at whichever stage, is that session's
+    failure and nobody else's. The catch is here, around everything, rather
+    than around `render.page` alone: the first version guarded only the
+    renderer, and a real six-session sweep then died after two on a record
+    whose `usage` was a string, which raises in `load_session` before the
+    renderer is reached. No rows for the rest, no tally, and under `--index`
+    no index. Only `Exception` is caught, so Ctrl-C and `sys.exit` still stop
+    the run.
     """
-    if records is None:
-        records, skipped = parse.load_records(path)
-    else:
-        skipped = 0
+    try:
+        if records is None:
+            records, skipped = parse.load_records(path)
+        else:
+            skipped = 0
+        return _render_parsed(path, records, skipped, args, report_out)
+    except Exception as exc:  # noqa: BLE001 - fail loudly, never half-write
+        return render_failure(path, exc, args, report_out, records)
+
+
+def render_failure(path, exc, args, report_out, records):
+    """Report one session's failure the way the rest of the run is reported.
+
+    Outside a sweep, the long message on stderr. In a sweep, a row like any
+    other outcome, so it is visible in the same column a reader is already
+    scanning rather than only in the tally at the end; the exception itself
+    would not fit a 38-character cell, so it follows on its own line.
+
+    The row is built from whatever the transcript still yields. `describe`
+    needs only the records and is cheap, and when even that fails the
+    filename is all there is to name the session by. A second failure while
+    reporting the first would take the sweep down with it, which is the
+    thing this function exists to prevent.
+    """
+    if not args.all:
+        sys.stderr.write("error: could not render %s: %s\n" % (path, exc))
+        return 4
+    try:
+        description = parse.describe(records or [], path)
+        sender, receiver = resolve_participants(
+            description, args.from_name, args.to_name
+        )
+        ident, when = description.short_id, when_of(description)
+        title = description.title or "(untitled)"
+    except Exception:  # noqa: BLE001 - the report must not be the second failure
+        ident, when, title = os.path.basename(path)[:8], "unknown", "(unreadable)"
+        sender = receiver = "?"
+    report_out.row("ERROR", ident, when, "render failed", sender, receiver, title)
+    report_out.raw("   could not render %s: %s" % (os.path.basename(path), exc))
+    return 4
+
+
+def _render_parsed(path, records, skipped, args, report_out):
+    """`render_one` once the records are in hand. Raises freely."""
     if not records:
         if args.all:
             # Nothing parsed, so there is no description to name it by; the
@@ -1026,23 +1075,7 @@ def render_one(path, args, report_out, records=None):
 
     session = parse.load_session(path, records=records)
     sender, receiver = resolve_participants(session, args.from_name, args.to_name)
-
-    try:
-        html = render.page(session, from_name=sender, to_name=receiver)
-    except Exception as exc:  # noqa: BLE001 - fail loudly, never half-write
-        if args.all:
-            # In a sweep a failure is a row like any other outcome, so it is
-            # visible in the same column a reader is already scanning rather
-            # than only in the tally at the end. The exception itself would
-            # not fit a 38-character cell, so it follows on its own line.
-            description = parse.describe(records, path)
-            report_out.row("ERROR", description.short_id, when_of(description),
-                           "render failed", sender, receiver,
-                           description.title or "(untitled)")
-            report_out.raw("   could not render %s: %s" % (os.path.basename(path), exc))
-            return 4
-        sys.stderr.write("error: could not render %s: %s\n" % (path, exc))
-        return 4
+    html = render.page(session, from_name=sender, to_name=receiver)
 
     if args.stdout:
         sys.stdout.write(html)

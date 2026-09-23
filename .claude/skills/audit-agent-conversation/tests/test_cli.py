@@ -649,6 +649,140 @@ class TestSweepErrorRows(unittest.TestCase):
         self.assertNotIn(cli.ERROR, buffer.getvalue())
 
 
+class TestSweepSurvivesAnyPerSessionException(unittest.TestCase):
+    """A transcript that breaks before the renderer cannot abort an --all sweep.
+
+    `TestSweepErrorRows` monkeypatches the renderer, so it only ever proved
+    the try/except around `render.page`. The phase gate reproduced a real
+    six-session sweep dying after two with a traceback, no tally line and,
+    under --all --index, no index at all: the transcript that killed it had a
+    record whose `usage` was a string, which raises in `load_session`, before
+    the renderer is called.
+
+    Built from a real renderable transcript rather than a stub, so the good
+    copy exercises the whole path and the bad copy differs from it by exactly
+    one field and its session id.
+    """
+
+    BAD = "bbbbbbbb-1111-2222-3333-444444444444"
+
+    def setUp(self):
+        import json
+        import time
+
+        from auditlog import resolve
+
+        fixtures.require_corpus(self)
+        self.tmp = tempfile.mkdtemp(prefix="auditlog-badusage-")
+        self.projects = os.path.join(self.tmp, "projects")
+        self.outdir = os.path.join(self.tmp, "out")
+        self.project = os.path.join(self.projects, os.path.basename(fixtures.GREENTHUMB))
+        os.makedirs(self.project)
+
+        good = fixtures.path(fixtures.BRIEF_AUG13)
+        self.good_path = os.path.join(self.project, fixtures.BRIEF_AUG13 + ".jsonl")
+        self.bad_path = os.path.join(self.project, self.BAD + ".jsonl")
+        shutil.copy(good, self.good_path)
+
+        broken = False
+        with open(good) as source, open(self.bad_path, "w") as sink:
+            for line in source:
+                line = line.replace(fixtures.BRIEF_AUG13, self.BAD)
+                if not broken:
+                    try:
+                        record = json.loads(line)
+                    except ValueError:
+                        record = None
+                    message = (record or {}).get("message")
+                    if (record or {}).get("type") == "assistant" \
+                            and isinstance(message, dict) and "usage" in message:
+                        message["usage"] = "not an object"
+                        line = json.dumps(record) + "\n"
+                        broken = True
+                sink.write(line)
+        self.assertTrue(broken, "the corpus transcript had no usage to break")
+
+        # A sweep runs newest first, so the bad transcript goes first: the
+        # shape that lost every good session queued behind it.
+        now = time.time()
+        os.utime(self.good_path, (now - 60, now - 60))
+        os.utime(self.bad_path, (now, now))
+
+        self._real_root = resolve.PROJECTS_ROOT
+        resolve.PROJECTS_ROOT = self.projects
+
+    def tearDown(self):
+        from auditlog import resolve
+
+        resolve.PROJECTS_ROOT = self._real_root
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, *extra):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main(["--all", "--output-dir", self.outdir] + list(extra))
+        finally:
+            sys.stderr = stderr
+        return code, buffer.getvalue()
+
+    def test_the_good_session_behind_the_bad_one_still_renders(self):
+        code, out = self._run()
+        written = [n for n in os.listdir(self.outdir) if n.endswith(".html")]
+        self.assertEqual(len(written), 1, out)
+        rows = [line for line in out.splitlines() if line.startswith(cli.OK)]
+        self.assertEqual(len(rows), 1, out)
+        self.assertIn(fixtures.BRIEF_AUG13[:8], rows[0])
+
+    def test_the_bad_session_is_an_error_row_with_its_reason_beneath(self):
+        code, out = self._run()
+        rows = [line for line in out.splitlines() if line.startswith(cli.ERROR)]
+        self.assertEqual(len(rows), 1, out)
+        self.assertIn("ERROR", rows[0])
+        self.assertIn(self.BAD[:8], rows[0])
+        # The reason is the exception itself, on its own line under the row.
+        self.assertIn("could not render %s" % os.path.basename(self.bad_path), out)
+        self.assertIn("'str' object has no attribute 'get'", out)
+
+    def test_the_error_row_is_aligned_with_the_good_row(self):
+        code, out = self._run()
+        rows = [line for line in out.splitlines()
+                if line.startswith(cli.ERROR) or line.startswith(cli.OK)]
+        self.assertEqual(len(rows), 2, out)
+        self.assertEqual(rows[0].index(" | "), rows[1].index(" | "))
+
+    def test_the_tally_is_printed_and_the_exit_code_says_failure(self):
+        code, out = self._run()
+        self.assertEqual(code, 4)
+        self.assertIn("1 written", out)
+        self.assertIn("1 failed", out)
+        self.assertIn("out of 2 sessions", out)
+
+    def test_the_index_is_still_built_after_a_failure(self):
+        code, out = self._run("--index")
+        self.assertEqual(code, 4)
+        self.assertTrue(os.path.exists(os.path.join(self.outdir, "index.html")), out)
+
+    def test_outside_a_sweep_the_failure_is_the_long_message_and_exit_4(self):
+        import io
+        import sys
+
+        buffer = io.StringIO()
+        stderr, sys.stderr = sys.stderr, buffer
+        try:
+            code = cli.main([self.bad_path, "--output-dir", self.outdir])
+        finally:
+            sys.stderr = stderr
+        self.assertEqual(code, 4)
+        self.assertIn("error: could not render", buffer.getvalue())
+        self.assertIn("'str' object has no attribute 'get'", buffer.getvalue())
+        self.assertNotIn(cli.ERROR, buffer.getvalue())
+        self.assertFalse(os.path.exists(self.outdir))
+
+
 class TestModelMissingFromTheRateTable(unittest.TestCase):
     """A model newer than pricing.json renders without money, and says so.
 

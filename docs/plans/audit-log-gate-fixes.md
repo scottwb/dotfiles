@@ -124,17 +124,17 @@ row had copied.
 
 ### Step 2: Make a sweep survive any per-session exception
 
-- [ ] Write the failing test first: in `tests/test_cli.py`, put a genuinely
+- [x] Write the failing test first: in `tests/test_cli.py`, put a genuinely
       malformed transcript in a temp project directory (a record whose `usage`
       is a string, which is what killed a real sweep) alongside a good one, run
       `--all` over that project, and assert the exit code reports failure, the
       good session still rendered, an aligned `ERROR` row names the bad one,
       and the tally line is printed. It fails today with a traceback and no
       tally.
-- [ ] Implement: widen the failure handling in `render_one` so parse, describe
+- [x] Implement: widen the failure handling in `render_one` so parse, describe
       and participant resolution are covered by the same ERROR-row path that
       `render.page` already has, rather than escaping to the top level.
-- [ ] Verify green: the new test passes; the existing monkeypatched-renderer
+- [x] Verify green: the new test passes; the existing monkeypatched-renderer
       test still passes unchanged.
 
 **Satisfies:** gate fix-list item 2 (high), and the batch's own stated intent
