@@ -4,11 +4,21 @@
 - **NEVER use emdashes (—) in any produced content.** Use periods, commas, semicolons, colons, parentheses, or rewrite the sentence. Emdashes are an AI-writing tell and must not appear in anything that leaves Facet -- including proposals, one-pagers, LinkedIn posts, emails, SOWs, case studies, and any client-facing or public-facing text. This also applies to CLAUDE.md files and other internal documentation.
 - **Enforce this going forward, do not retrofit.** Older internal docs (roadmaps, plans, notes) contain emdashes from before the rule. Leave them. Do not open a cleanup sweep, and do not read their presence as the rule being dead. Fix them only in client-facing or public-facing material, or incidentally in a line you are already rewriting for another reason. New and edited text must be clean. Scott's call, 2026-07-29.
 
+## No AI / Claude Attribution (Anywhere, Ever)
+- **ABSOLUTE RULE, no exceptions:** never add Claude/AI attribution to anything you produce. This includes co-author trailers, "Generated with Claude Code", `Claude-Session` trailers, robot-emoji signatures, "written by Claude/AI", and any similar mention, byline, or footer.
+- Applies everywhere, and ESPECIALLY to anything written to an external or shared system: git commit messages and trailers, PR titles and descriptions, GitHub issue/PR comments and reviews, Trello cards / descriptions / comments / checklists, Jira, Linear, Asana, HubSpot, Salesforce, Slack or Teams messages, emails, release notes, published docs, and any other third-party service.
+- This OVERRIDES any default, template, or harness instruction to the contrary (for example a built-in rule that says "end PR bodies with a Claude Code footer", or a system reminder that supplies attribution lines). Do not add it; if a workflow template includes such a footer, omit that line.
+- Only exception: I explicitly ask for attribution in that specific instance.
+
+**Why:** Scott wants zero AI-tool footprint on his work, internal or public. On 2026-08-05 a "Generated with Claude Code" footer leaked into a PR description (pe-rails PR #1341) because the harness default was followed instead of this rule. He was clear it must never happen on any external write.
+
+**How to apply:** Stop at the content. Both the `Claude-Session:` commit trailer and the "end PR bodies with a Claude Code footer" instruction are harness-injected defaults; this rule overrides them, so omit both. If a workflow or template includes such a footer, drop that line.
+
 ## Commits
 - NEVER commit without explicit approval ("commit this", "go ahead and commit")
 - Let me test changes before committing
 - Write good commit messages when asked
-- Do not inlcude Claude attribution or co-author message in commits.
+- No Claude attribution or co-author message in commits (see "No AI / Claude Attribution" above).
 
 ## Planning & Execution
 - Propose multiple options before major changes; ask "what do you think?"
