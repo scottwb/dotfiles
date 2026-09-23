@@ -61,34 +61,18 @@ does not re-open them.
 Ordered by priority. The Terminal & editors thread has nothing queued;
 new items for it go here with a **Thread:** tag like everything else.
 
-### Inter-agent conversation audit log generator
-
-**Thread:** AI Staff
-
-**Goal:** From any Claude Code session, run a skill and get a self-contained HTML audit log page for a given session transcript, written to `~/.ai-staff-audit-log/`. Renders the opening prompt, the work log, the reply, derived side effects, and a real cost breakdown, with the work log hidden by default and a raw/preview toggle on markdown-bearing tool results.
-
-**Plan:** [audit-log-generator.md](audit-log-generator.md)
-
-**Status:** Built on `feature/audit-log` (worktree `../dotfiles-audit-log`), 2026-08-15. **Awaiting Scott's testing and review; deliberately not merged.** Fifteen steps, four phase gates, 249 tests. Grew out of a one-off HTML log built by hand for a single Donna to Greenthumb exchange, which worked well enough to deserve being a real tool.
-
-**The skill is `audit-agent-conversation`, not `audit-log`** (decision A10). The `audit-` prefix reserves a namespace for the other kinds of audit skill that will follow; nothing in the name binds to Claude, to `claude -p`, to SendMessage, or to any single harness, model, or transport.
-
-**Why it is not a Tools item:** it is the first thing in this repo that is *about* the agent fleet rather than part of it, which is what opened the AI Staff thread. It is also a skill plus a Python CLI, so it straddles `.claude/` and `bin/` and would sit awkwardly in either existing thread.
-
-**The finding that shaped the whole design:** Claude Code writes one transcript record per content block, and every record repeats the entire message's `usage` object. Summing per record overcounted the reference session's output tokens by 2.5x. Deduplicating on `message.id` is load-bearing, and the golden test exists to keep it that way.
-
-**v1 is deliberately small.** Single-turn SDK sessions only, which is exactly what every Donna-to-agent brief is; 15 of the 28 surveyed sessions qualify. Multi-turn rendering, image blocks, and the 44 MB scale case are all deferred; v1 detects them and refuses cleanly with a non-zero exit rather than emitting a half-correct page.
-
 ### Audit log generator follow-ons
 
 **Thread:** AI Staff
 
 **Goal:** Everything v1 deliberately refuses or leaves out.
 
-**Status:** Queued behind the item above; v1 is useful without any of them.
-The first tier is planned as an unattended batch in
-[audit-log-followons-batch.md](audit-log-followons-batch.md), which also records
-why each remaining item is NOT in it.
+**Status:** The first tier landed 2026-09-23 with the v1 merge (PR #4):
+provider and model in the stats strip, the work log as an aligned table with
+per-step durations, the index page, and error rows during a sweep. Everything
+below that is still queued, and none of it blocks using the tool.
+[audit-log-followons-batch.md](audit-log-followons-batch.md) records why each
+remaining item was NOT in that batch.
 
 Ordered for value, not for size: cheap changes that improve **inspecting
 agent-to-agent conversations** come first, then work that makes more sessions
@@ -509,6 +493,20 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 ---
 
 ## Completed
+
+### Inter-agent conversation audit log generator (2026-09-23)
+
+**Thread:** AI Staff
+
+**Plans:** [audit-log-generator.md](audit-log-generator.md), then the unattended follow-on batch in [audit-log-followons-batch.md](audit-log-followons-batch.md)
+
+Merged to master via PR #4 with full history, 55 commits. The `audit-agent-conversation` skill and its CLI turn one session transcript into a self-contained HTML page: the opening prompt, the work log, the reply, the derived side effects, and what the traffic would have cost at list rates. Pages land in `~/.ai-staff-audit-log/`, which is deliberately not a repo and not inside one. Four phase gates ran during the build; their reports are in `docs/assessments/`.
+
+**The finding that shaped the design:** Claude Code writes one transcript record per content block and repeats the whole message's `usage` object on every one, so summing per record overcounted the reference session's output tokens by 2.5x. Deduplicating on `message.id` is load-bearing, and the golden test exists to keep it that way.
+
+**Built 2026-08-15, merged 2026-09-23.** The only thing between those dates was manual testing, which is the one part an agent could not do for it. Three commits landed the day of the merge: list rates for `claude-fable-5-1`, whose sessions could not render at all once Greenthumb moved to it; rendering a page with the cost figures suppressed when a model is missing from the rate table, instead of failing the whole page; and stating each model's own cache-read multiple in the cost note rather than asserting 0.1x for everything. Suite: 401 tests.
+
+**v1 is deliberately small.** Single-turn SDK sessions only, which is exactly what every Donna-to-agent brief is. Multi-turn rendering, image blocks, and the 44 MB scale case are deferred: v1 detects them and refuses cleanly with a non-zero exit rather than emitting a half-correct page. What remains is the follow-ons item under Upcoming.
 
 ### Fix the install instructions' `rm -rf .git` hazard (2026-08-01)
 
