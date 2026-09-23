@@ -96,10 +96,14 @@ class Entry(object):
         command cannot resolve to a neighbour. Nothing a transcript contains
         reaches this line unquoted: see `session_argument`, and the project
         name is shell-quoted, which leaves a normal one byte-identical.
+
+        The project goes in as `--project=NAME`, one word. Every real project
+        directory name begins with a dash, and given `--project NAME` argparse
+        reads the dash-led NAME as another option and refuses the line.
         """
         if not self.renderable or self.page:
             return None
-        return "audit-agent-conversation %s --project %s" % (
+        return "audit-agent-conversation %s --project=%s" % (
             self.session_argument, shlex.quote(self.project),
         )
 

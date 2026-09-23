@@ -137,7 +137,7 @@ class TestScan(FakeFleet):
         command = by_id[self.PENDING].command
         self.assertTrue(command.startswith("audit-agent-conversation "), command)
         self.assertIn(self.PENDING, command)
-        self.assertIn("--project -Users-someone-src-greenthumb", command)
+        self.assertIn("--project=-Users-someone-src-greenthumb", command)
 
     def test_a_generated_row_and_an_unsupported_row_carry_no_command(self):
         by_id = {e.description.session_id: e for e in self._entries()}
@@ -332,8 +332,11 @@ class TestCopyableCommand(FakeFleet):
         self.assertNotIn("; echo PWNED", command)
         self.assertEqual(self._argv(command), [
             "audit-agent-conversation", self.STEM,
-            "--project", "-Users-someone-src-greenthumb",
+            "--project=-Users-someone-src-greenthumb",
         ])
+        args = cli.build_parser().parse_args(self._argv(command)[1:])
+        self.assertEqual((args.session, args.project),
+                         (self.STEM, "-Users-someone-src-greenthumb"))
         copied = self._copied(self._html(), self.STEM)
         self.assertEqual(copied, command)
 
@@ -347,23 +350,42 @@ class TestCopyableCommand(FakeFleet):
         command = by_id[self.GOOD_ID].command
         self.assertEqual(self._argv(command), [
             "audit-agent-conversation", self.GOOD_ID,
-            "--project", self.EVIL_PROJECT,
+            "--project=" + self.EVIL_PROJECT,
         ])
+        args = cli.build_parser().parse_args(self._argv(command)[1:])
+        self.assertEqual((args.session, args.project),
+                         (self.GOOD_ID, self.EVIL_PROJECT))
         copied = self._copied(self._html(), self.GOOD_ID)
         self.assertEqual(copied, command)
         # The crafted rows change nothing about reproducibility.
         self.assertEqual(self._html(), self._html())
 
-    def test_a_well_formed_session_keeps_its_unquoted_command(self):
-        """Quoting only what needs it: a normal row's line is byte-identical
-        to what the index has always emitted, so a diff of the fix says the
-        truth about its blast radius."""
+    def test_a_well_formed_sessions_command_parses_as_written(self):
+        """The line the copy button hands out has to run as pasted. Every real
+        project directory name begins with a dash, and argparse reads a
+        dash-led token after `--project` as an option, not its value, so the
+        proof is the CLI's own parser accepting the split line and handing
+        `--project` the directory name. No I/O, no rendering: just the argv."""
         by_id = {e.description.session_id: e for e in self._entries()}
-        self.assertEqual(
-            by_id[self.PENDING].command,
-            "audit-agent-conversation %s --project -Users-someone-src-greenthumb"
-            % self.PENDING,
-        )
+        argv = self._argv(by_id[self.PENDING].command)
+        self.assertEqual(argv[0], "audit-agent-conversation")
+        args = cli.build_parser().parse_args(argv[1:])
+        self.assertEqual(args.session, self.PENDING)
+        self.assertEqual(args.project, "-Users-someone-src-greenthumb")
+
+    def test_a_well_formed_session_keeps_its_unquoted_command(self):
+        """Quoting only what needs it: a normal row's line carries no quote
+        characters at all, the shell splits it on whitespace and nothing else,
+        and the id and the project's directory name appear verbatim. That is
+        the property the crafted rows must not have bought at a normal row's
+        expense; the exact bytes are the parser's business, not this test's."""
+        by_id = {e.description.session_id: e for e in self._entries()}
+        command = by_id[self.PENDING].command
+        self.assertNotIn("'", command)
+        self.assertNotIn('"', command)
+        self.assertEqual(self._argv(command), command.split())
+        self.assertIn(self.PENDING, command.split())
+        self.assertIn("--project=-Users-someone-src-greenthumb", command.split())
 
 
 if __name__ == "__main__":

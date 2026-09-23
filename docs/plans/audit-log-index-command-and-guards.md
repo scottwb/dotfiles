@@ -57,19 +57,19 @@ first gate described actually lands.
 
 ### Step 1: Make the index's copyable command parse
 
-- [ ] Write the failing test first: in `tests/test_index.py`, feed the argv that
+- [x] Write the failing test first: in `tests/test_index.py`, feed the argv that
       `Entry.command` emits for a well-formed session through the CLI's own
       argument parser and assert it parses and resolves the project. It fails
       today with `error: argument --project: expected one argument`, because
       every real project directory name starts with a dash and argparse reads a
       dash-led token as an option.
-- [ ] Retarget `test_a_well_formed_session_keeps_its_unquoted_command`, which
+- [x] Retarget `test_a_well_formed_session_keeps_its_unquoted_command`, which
       currently pins the unparseable form. It was written to prove the quoting
       change moved no existing line; it proved the line stayed broken. Keep the
       "no unnecessary quoting" property it was protecting.
-- [ ] Implement: emit `--project=%s` in `index.py`, with the value still passing
+- [x] Implement: emit `--project=%s` in `index.py`, with the value still passing
       through `shlex.quote`.
-- [ ] Verify green: the whole suite, plus a real check. Rebuild the index over
+- [x] Verify green: the whole suite, plus a real check. Rebuild the index over
       the real store, copy a `TO DO` row's command verbatim, and run it.
 
 **Satisfies:** second gate finding 1 (high) and its fix-list item 1. Every `TO
