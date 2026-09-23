@@ -66,26 +66,26 @@ add Claude Opus 5.5, released 2026-09-22. Rates below were read from
 `https://platform.claude.com/docs/en/about-claude/pricing` on 2026-09-23, not
 from any cached copy.
 
-- [ ] Write the failing test first: in `tests/test_cost.py`, assert the rates
+- [x] Write the failing test first: in `tests/test_cost.py`, assert the rates
       for `claude-opus-5-5` (4.00 / 20.00 / 5.00 / 8.00 / 0.20) and the
       corrected `claude-sonnet-5` (2.00 / 10.00 / 2.50 / 4.00 / 0.20). Both
       fail today: Opus 5.5 is absent, Sonnet 5 carries Sonnet 4.6's numbers.
-- [ ] Write the failing test first: assert the cache-read multiple comes from
+- [x] Write the failing test first: assert the cache-read multiple comes from
       the table rather than from a list inside the test, so a third exception
       cannot silently diverge from what the page renders.
-- [ ] Implement: add `claude-opus-5-5` ($4 / $20, cache $5 / $8 / $0.20, a
+- [x] Implement: add `claude-opus-5-5` ($4 / $20, cache $5 / $8 / $0.20, a
       0.05x cache read) plus its `[1m]` alias; correct `claude-sonnet-5` to
       $2 / $10 with cache $2.50 / $4 / $0.20; add the rows the table has never
       carried but the corpus can produce: `claude-mythos-5-1` (same as Fable
       5.1, 0.025x cache read), `claude-opus-4-5` and `claude-sonnet-4-5`.
-- [ ] Implement: carry each row's cache-read multiple as data
+- [x] Implement: carry each row's cache-read multiple as data
       (`cache_read_multiple`, defaulting to 0.1) so `pricing.json` states it
       once and the test and the page note both read it, instead of three
       copies of the same fact.
-- [ ] Implement: bump `verified` to 2026-09-23 and change `source` to name the
+- [x] Implement: bump `verified` to 2026-09-23 and change `source` to name the
       published pricing page rather than the skill's cached table, which is
       what made the Sonnet 5 error possible.
-- [ ] Verify green: the whole suite, plus a rendered Fable 5.1 page still
+- [x] Verify green: the whole suite, plus a rendered Fable 5.1 page still
       saying 0.025x and an Opus 5 page still saying 0.1x.
 
 **Satisfies:** gate fix-list item 1 (high), and item 6 (low), which this

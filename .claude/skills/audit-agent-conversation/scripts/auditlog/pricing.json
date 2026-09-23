@@ -4,7 +4,12 @@
     "Rates go stale. They live here rather than in code so updating them is a",
     "data edit, and so a page can state which day its figures were checked.",
     "Cache writes bill at a multiple of base input: 1.25x on the 5-minute TTL,",
-    "2x on the 1-hour TTL. Cache reads bill at 0.1x, except claude-fable-5-1 at 0.025x.",
+    "2x on the 1-hour TTL. Cache reads bill at `cache_read_multiple` times base",
+    "input, 0.1x when a row omits it. The published exceptions carry their own",
+    "value on the row (Fable 5.1 and Mythos 5.1 at 0.025x, Opus 5.5 at 0.05x) so",
+    "the fact lives here once and the test and the page note both read it.",
+    "The 1M context window carries no premium, so every `[1m]` alias prices off",
+    "its base row.",
     "Reasoning tokens are a SUBSET of output tokens and bill at the output rate.",
     "They are never a separate line item; see cost.REASONING_IS_SUBSET_OF_OUTPUT.",
     "",
@@ -21,15 +26,24 @@
     "unpriced models are listed explicitly. Which Ollama HOST served a session",
     "is not recoverable and is never guessed: the provider is as far as it goes."
   ],
-  "verified": "2026-08-15",
-  "source": "claude-api skill, published list rates",
+  "verified": "2026-09-23",
+  "source": "https://platform.claude.com/docs/en/about-claude/pricing",
   "models": {
     "claude-fable-5-1": {
       "input": 10.00,
       "output": 50.00,
       "cache_write_5m": 12.50,
       "cache_write_1h": 20.00,
-      "cache_read": 0.25
+      "cache_read": 0.25,
+      "cache_read_multiple": 0.025
+    },
+    "claude-mythos-5-1": {
+      "input": 10.00,
+      "output": 50.00,
+      "cache_write_5m": 12.50,
+      "cache_write_1h": 20.00,
+      "cache_read": 0.25,
+      "cache_read_multiple": 0.025
     },
     "claude-fable-5": {
       "input": 10.00,
@@ -44,6 +58,14 @@
       "cache_write_5m": 12.50,
       "cache_write_1h": 20.00,
       "cache_read": 1.00
+    },
+    "claude-opus-5-5": {
+      "input": 4.00,
+      "output": 20.00,
+      "cache_write_5m": 5.00,
+      "cache_write_1h": 8.00,
+      "cache_read": 0.20,
+      "cache_read_multiple": 0.05
     },
     "claude-opus-5": {
       "input": 5.00,
@@ -73,14 +95,28 @@
       "cache_write_1h": 10.00,
       "cache_read": 0.50
     },
+    "claude-opus-4-5": {
+      "input": 5.00,
+      "output": 25.00,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10.00,
+      "cache_read": 0.50
+    },
     "claude-sonnet-5": {
+      "input": 2.00,
+      "output": 10.00,
+      "cache_write_5m": 2.50,
+      "cache_write_1h": 4.00,
+      "cache_read": 0.20
+    },
+    "claude-sonnet-4-6": {
       "input": 3.00,
       "output": 15.00,
       "cache_write_5m": 3.75,
       "cache_write_1h": 6.00,
       "cache_read": 0.30
     },
-    "claude-sonnet-4-6": {
+    "claude-sonnet-4-5": {
       "input": 3.00,
       "output": 15.00,
       "cache_write_5m": 3.75,
@@ -96,6 +132,7 @@
     }
   },
   "aliases": {
+    "claude-opus-5-5[1m]": "claude-opus-5-5",
     "claude-opus-5[1m]": "claude-opus-5",
     "claude-sonnet-5[1m]": "claude-sonnet-5",
     "claude-fable-5-1[1m]": "claude-fable-5-1",

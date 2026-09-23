@@ -95,17 +95,64 @@ class TestRateTable(unittest.TestCase):
             cost.rates_for("claude-haiku-4-5-20251001"),
         )
 
-    # Published exceptions to the 0.1x cache-read rule. Fable 5.1 reads cache at
-    # $0.25 per MTok against a $10 input rate.
-    CACHE_READ_EXCEPTIONS = {"claude-fable-5-1": 0.025}
-
     def test_cache_multiples_hold_for_every_model(self):
+        """Each row's cache-read multiple is data, not a list kept in this test.
+
+        Two published exceptions to the 0.1x rule exist now (Fable 5.1 at
+        0.025x, Opus 5.5 at 0.05x). A hardcoded exception list here would be a
+        third copy of that fact, free to drift from what the page renders, so
+        the multiple is read off the row itself via `cache_read_multiple`.
+        """
         table = cost._load()["models"]
         for name, r in sorted(table.items()):
-            read_multiple = self.CACHE_READ_EXCEPTIONS.get(name, 0.1)
+            read_multiple = cost.cache_read_multiple(name)
             self.assertAlmostEqual(r["cache_write_5m"], r["input"] * 1.25, 6, name)
             self.assertAlmostEqual(r["cache_write_1h"], r["input"] * 2.0, 6, name)
             self.assertAlmostEqual(r["cache_read"], r["input"] * read_multiple, 6, name)
+
+    def test_cache_read_multiple_defaults_to_one_tenth(self):
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-opus-5"), 0.1, places=6)
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-sonnet-5"), 0.1, places=6)
+
+    def test_cache_read_multiple_exceptions_come_from_the_table(self):
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-fable-5-1"), 0.025, places=6)
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-opus-5-5"), 0.05, places=6)
+        # Aliases price off their base row, multiple included.
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-opus-5-5[1m]"), 0.05, places=6)
+
+    # Rates below were read from the published pricing page
+    # (https://platform.claude.com/docs/en/about-claude/pricing) on 2026-09-23.
+
+    def test_opus_5_5_rates(self):
+        rates = cost.rates_for("claude-opus-5-5")
+        self.assertEqual(rates["input"], 4.00)
+        self.assertEqual(rates["output"], 20.00)
+        self.assertEqual(rates["cache_write_5m"], 5.00)
+        self.assertEqual(rates["cache_write_1h"], 8.00)
+        self.assertEqual(rates["cache_read"], 0.20)
+
+    def test_opus_5_5_1m_alias_prices_off_the_base_row(self):
+        self.assertEqual(
+            cost.rates_for("claude-opus-5-5[1m]"), cost.rates_for("claude-opus-5-5")
+        )
+
+    def test_sonnet_5_rates(self):
+        """Sonnet 5 is $2 / $10. The stale row had copied Sonnet 4.6's $3 / $15."""
+        rates = cost.rates_for("claude-sonnet-5")
+        self.assertEqual(rates["input"], 2.00)
+        self.assertEqual(rates["output"], 10.00)
+        self.assertEqual(rates["cache_write_5m"], 2.50)
+        self.assertEqual(rates["cache_write_1h"], 4.00)
+        self.assertEqual(rates["cache_read"], 0.20)
+
+    def test_rows_the_corpus_can_produce_are_priced(self):
+        self.assertEqual(cost.rates_for("claude-mythos-5-1"), cost.rates_for("claude-fable-5-1"))
+        self.assertEqual(cost.rates_for("claude-opus-4-5"), cost.rates_for("claude-opus-5"))
+        self.assertEqual(cost.rates_for("claude-sonnet-4-5"), cost.rates_for("claude-sonnet-4-6"))
+
+    def test_table_was_verified_against_the_published_page(self):
+        self.assertEqual(cost.table_verified_on(), "2026-09-23")
+        self.assertIn("platform.claude.com/docs/en/about-claude/pricing", cost.table_source())
 
 
 class TestUnpricedModels(unittest.TestCase):

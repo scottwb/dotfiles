@@ -775,9 +775,10 @@ def page(session, from_name="scott", to_name=None, channel=None):
         ),
         "reasoning": usd(breakdown.reasoning),
         "output": usd(breakdown.output),
-        # Read off this model's own rates, not asserted: Fable 5.1 is 0.025x.
-        # An unpriced breakdown has zero rates and replaces this note below.
-        "read_multiple": "%g" % (breakdown.rates["cache_read"] / breakdown.rates["input"])
+        # Read off this model's own row in pricing.json, not asserted here:
+        # Fable 5.1 is 0.025x, Opus 5.5 is 0.05x. An unpriced breakdown has no
+        # row and replaces this note below.
+        "read_multiple": "%g" % cost_module.cache_read_multiple(breakdown.model)
         if priced else "0",
     }
 

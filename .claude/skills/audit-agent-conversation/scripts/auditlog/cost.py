@@ -31,6 +31,11 @@ BILLABLE_KEYS = (
 #: The four components that make up the "input side" of a session's cost.
 INPUT_SIDE_KEYS = ("input", "cache_write_5m", "cache_write_1h", "cache_read")
 
+#: Cache reads bill at this multiple of base input unless a row in the table
+#: says otherwise with its own `cache_read_multiple`. The exceptions live in
+#: pricing.json, not here, so there is exactly one place to update.
+DEFAULT_CACHE_READ_MULTIPLE = 0.1
+
 _TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pricing.json")
 _table = None
 
@@ -64,6 +69,23 @@ def _load():
 def table_verified_on():
     """The date the rate table was last checked against published rates."""
     return _load()["verified"]
+
+
+def table_source():
+    """Where the rate table's figures were read from on `table_verified_on`."""
+    return _load()["source"]
+
+
+def cache_read_multiple(model):
+    """The multiple of base input that `model` bills cache reads at.
+
+    Read off the model's own row (`cache_read_multiple`), falling back to the
+    0.1x rule when the row omits it. Aliases resolve first, so a `[1m]` model
+    reports its base row's multiple. This is the single source the rate-table
+    test and the rendered cost note both use; neither keeps its own list of
+    exceptions.
+    """
+    return rates_for(model).get("cache_read_multiple", DEFAULT_CACHE_READ_MULTIPLE)
 
 
 def _resolve(model):
