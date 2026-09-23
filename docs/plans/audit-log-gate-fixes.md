@@ -154,16 +154,16 @@ not.
 
 ### Step 3: Validate what reaches the index's copyable command
 
-- [ ] Write the failing test first: in `tests/test_index.py`, build an index
+- [x] Write the failing test first: in `tests/test_index.py`, build an index
       from a session whose id carries shell metacharacters
       (`dddddddd-0000; echo PWNED #`) and a project name that does the same, and
       assert the rendered command contains no unquoted metacharacter that would
       run: a non-UUID id falls back to the file stem, and the project name is
       quoted or rejected. It fails today, which the gate demonstrated verbatim.
-- [ ] Implement: a UUID-shape check on `sessionId` with a file-stem fallback,
+- [x] Implement: a UUID-shape check on `sessionId` with a file-stem fallback,
       and `shlex.quote` (or a character allowlist) on the project name, in
       `index.py`.
-- [ ] Verify green: the new test passes, the existing index tests still pass,
+- [x] Verify green: the new test passes, the existing index tests still pass,
       and the page stays byte-reproducible.
 
 **Satisfies:** gate fix-list item 3 (medium), Security section. The HTML side

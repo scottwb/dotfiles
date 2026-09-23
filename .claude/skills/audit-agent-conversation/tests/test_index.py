@@ -12,10 +12,12 @@ writes only into a temporary output directory. The real transcript store and
 the real output directory are never touched.
 """
 
+import html
 import io
 import json
 import os
 import re
+import shlex
 import shutil
 import sys
 import tempfile
@@ -288,6 +290,80 @@ class TestIndexFlag(FakeFleet):
     def test_the_index_is_linked_from_help(self):
         parser = cli.build_parser()
         self.assertIn("--index", parser.format_help())
+
+
+class TestCopyableCommand(FakeFleet):
+    """What a transcript contributes to the copy button cannot compose a shell
+    command. The HTML side is escaped; this is the shell side. The page's own
+    instruction is to paste the line into a terminal, so a crafted session id
+    or project name must not be able to smuggle a second command onto it."""
+
+    EVIL_ID = "dddddddd-0000; echo PWNED #"
+    STEM = "dddddddd-0000-0000-0000-000000000004"
+    EVIL_PROJECT = "-Users-someone-src-evil; echo PWNED #"
+    GOOD_ID = "eeeeeeee-0000-0000-0000-000000000005"
+
+    def _write_as(self, project, stem, session_id, lines):
+        """Like _write, but the file stem and the recorded sessionId differ."""
+        for line in lines:
+            if line.get("type") in ("user", "assistant"):
+                line["sessionId"] = session_id
+        with open(os.path.join(project, stem + ".jsonl"), "w") as fh:
+            fh.write("\n".join(json.dumps(x) for x in lines))
+
+    def _argv(self, command):
+        # comments=True so a `#` ends the line exactly as a shell would.
+        return shlex.split(command, comments=True)
+
+    def _copied(self, html_text, needle):
+        """The text the copy button would put on the clipboard for the row
+        whose command mentions `needle`."""
+        found = [html.unescape(m) for m in
+                 re.findall(r'data-copy="([^"]*)"', html_text) if needle in html.unescape(m)]
+        self.assertEqual(len(found), 1, found)
+        return found[0]
+
+    def test_a_session_id_with_shell_metacharacters_falls_back_to_the_file_stem(self):
+        self._write_as(self.greenthumb, self.STEM, self.EVIL_ID,
+                       _record_lines(title="Crafted id",
+                                     cwd="/Users/someone/src/greenthumb"))
+        by_id = {e.description.session_id: e for e in self._entries()}
+        command = by_id[self.EVIL_ID].command
+        self.assertNotIn("; echo PWNED", command)
+        self.assertEqual(self._argv(command), [
+            "audit-agent-conversation", self.STEM,
+            "--project", "-Users-someone-src-greenthumb",
+        ])
+        copied = self._copied(self._html(), self.STEM)
+        self.assertEqual(copied, command)
+
+    def test_a_project_name_with_shell_metacharacters_is_quoted(self):
+        evil = os.path.join(self.projects, self.EVIL_PROJECT)
+        os.makedirs(evil)
+        self._write(evil, self.GOOD_ID,
+                    _record_lines(title="Crafted project",
+                                  cwd="/Users/someone/src/evil"))
+        by_id = {e.description.session_id: e for e in self._entries()}
+        command = by_id[self.GOOD_ID].command
+        self.assertEqual(self._argv(command), [
+            "audit-agent-conversation", self.GOOD_ID,
+            "--project", self.EVIL_PROJECT,
+        ])
+        copied = self._copied(self._html(), self.GOOD_ID)
+        self.assertEqual(copied, command)
+        # The crafted rows change nothing about reproducibility.
+        self.assertEqual(self._html(), self._html())
+
+    def test_a_well_formed_session_keeps_its_unquoted_command(self):
+        """Quoting only what needs it: a normal row's line is byte-identical
+        to what the index has always emitted, so a diff of the fix says the
+        truth about its blast radius."""
+        by_id = {e.description.session_id: e for e in self._entries()}
+        self.assertEqual(
+            by_id[self.PENDING].command,
+            "audit-agent-conversation %s --project -Users-someone-src-greenthumb"
+            % self.PENDING,
+        )
 
 
 if __name__ == "__main__":
