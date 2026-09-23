@@ -136,7 +136,13 @@ test enforces the rule.
 session over, and during a sweep `ERROR` names a session whose render failed,
 with the exception on the line beneath it, so the one outcome a reader most
 needs to see is in the same column as every other outcome rather than only in
-the tally. Outside a sweep, a failure is still the long message. The receiver is the agent's own `agent-name` when the transcript
+the tally. Outside a sweep, a failure is still the long message.
+
+An `EXISTS` row reading `no cost figure; --force to repair` means that page was
+written while its model was missing from the rate table, and the model is
+priced now: re-run with `--force` to replace it. A page that will never have a
+cost figure, because its model is local or routed through a non-Anthropic
+backend, says nothing, since there is nothing to repair. The receiver is the agent's own `agent-name` when the transcript
 carries one, then a configured name from `participants.json`, then the
 repository name taken from the session's `cwd`. Not from the project directory
 name: that is the working directory with every separator turned into a dash, and

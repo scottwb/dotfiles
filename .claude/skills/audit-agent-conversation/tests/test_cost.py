@@ -95,17 +95,64 @@ class TestRateTable(unittest.TestCase):
             cost.rates_for("claude-haiku-4-5-20251001"),
         )
 
-    # Published exceptions to the 0.1x cache-read rule. Fable 5.1 reads cache at
-    # $0.25 per MTok against a $10 input rate.
-    CACHE_READ_EXCEPTIONS = {"claude-fable-5-1": 0.025}
-
     def test_cache_multiples_hold_for_every_model(self):
+        """Each row's cache-read multiple is data, not a list kept in this test.
+
+        Two published exceptions to the 0.1x rule exist now (Fable 5.1 at
+        0.025x, Opus 5.5 at 0.05x). A hardcoded exception list here would be a
+        third copy of that fact, free to drift from what the page renders, so
+        the multiple is read off the row itself via `cache_read_multiple`.
+        """
         table = cost._load()["models"]
         for name, r in sorted(table.items()):
-            read_multiple = self.CACHE_READ_EXCEPTIONS.get(name, 0.1)
+            read_multiple = cost.cache_read_multiple(name)
             self.assertAlmostEqual(r["cache_write_5m"], r["input"] * 1.25, 6, name)
             self.assertAlmostEqual(r["cache_write_1h"], r["input"] * 2.0, 6, name)
             self.assertAlmostEqual(r["cache_read"], r["input"] * read_multiple, 6, name)
+
+    def test_cache_read_multiple_defaults_to_one_tenth(self):
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-opus-5"), 0.1, places=6)
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-sonnet-5"), 0.1, places=6)
+
+    def test_cache_read_multiple_exceptions_come_from_the_table(self):
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-fable-5-1"), 0.025, places=6)
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-opus-5-5"), 0.05, places=6)
+        # Aliases price off their base row, multiple included.
+        self.assertAlmostEqual(cost.cache_read_multiple("claude-opus-5-5[1m]"), 0.05, places=6)
+
+    # Rates below were read from the published pricing page
+    # (https://platform.claude.com/docs/en/about-claude/pricing) on 2026-09-23.
+
+    def test_opus_5_5_rates(self):
+        rates = cost.rates_for("claude-opus-5-5")
+        self.assertEqual(rates["input"], 4.00)
+        self.assertEqual(rates["output"], 20.00)
+        self.assertEqual(rates["cache_write_5m"], 5.00)
+        self.assertEqual(rates["cache_write_1h"], 8.00)
+        self.assertEqual(rates["cache_read"], 0.20)
+
+    def test_opus_5_5_1m_alias_prices_off_the_base_row(self):
+        self.assertEqual(
+            cost.rates_for("claude-opus-5-5[1m]"), cost.rates_for("claude-opus-5-5")
+        )
+
+    def test_sonnet_5_rates(self):
+        """Sonnet 5 is $2 / $10. The stale row had copied Sonnet 4.6's $3 / $15."""
+        rates = cost.rates_for("claude-sonnet-5")
+        self.assertEqual(rates["input"], 2.00)
+        self.assertEqual(rates["output"], 10.00)
+        self.assertEqual(rates["cache_write_5m"], 2.50)
+        self.assertEqual(rates["cache_write_1h"], 4.00)
+        self.assertEqual(rates["cache_read"], 0.20)
+
+    def test_rows_the_corpus_can_produce_are_priced(self):
+        self.assertEqual(cost.rates_for("claude-mythos-5-1"), cost.rates_for("claude-fable-5-1"))
+        self.assertEqual(cost.rates_for("claude-opus-4-5"), cost.rates_for("claude-opus-5"))
+        self.assertEqual(cost.rates_for("claude-sonnet-4-5"), cost.rates_for("claude-sonnet-4-6"))
+
+    def test_table_was_verified_against_the_published_page(self):
+        self.assertEqual(cost.table_verified_on(), "2026-09-23")
+        self.assertIn("platform.claude.com/docs/en/about-claude/pricing", cost.table_source())
 
 
 class TestUnpricedModels(unittest.TestCase):
@@ -161,6 +208,95 @@ class TestUnpricedModels(unittest.TestCase):
 
     def test_a_priced_model_is_not_flagged_unknown(self):
         self.assertFalse(cost.compute(fixtures.GOLDEN_TOKENS, "claude-opus-5").unknown)
+
+    def test_a_routed_slug_the_table_never_saw_is_unpriced_not_unknown(self):
+        """An OpenRouter slug carries no Anthropic list price by design.
+
+        The table does not list every model OpenRouter can route to, and it
+        never will: the batch's own decision is to carry no OpenRouter
+        pricing. So a routed slug the table has never seen is unpriced, and
+        telling the reader to add its list rates would be advice they cannot
+        act on. `provider_for` already knows the slug is routed; that
+        knowledge is what decides this, not a second list.
+        """
+        breakdown = cost.compute(fixtures.GOLDEN_TOKENS, "x-ai/grok-4.6")
+        self.assertFalse(breakdown.priced)
+        self.assertFalse(breakdown.unknown)
+        self.assertEqual(breakdown.total, 0.0)
+        self.assertIn("routed", breakdown.unpriced_reason)
+        self.assertIn("OpenRouter", breakdown.unpriced_reason)
+        self.assertNotIn("pricing.json", breakdown.unpriced_reason)
+        self.assertFalse(cost.is_unknown("x-ai/grok-4.6"))
+
+    def test_an_anthropic_prefixed_miss_is_still_unknown(self):
+        """Only a model that could carry Anthropic list rates warns about the table."""
+        breakdown = cost.compute(fixtures.GOLDEN_TOKENS, "claude-not-a-real-model")
+        self.assertFalse(breakdown.priced)
+        self.assertTrue(breakdown.unknown)
+        self.assertIn("pricing.json", breakdown.unpriced_reason)
+        self.assertTrue(cost.is_unknown("claude-not-a-real-model"))
+
+    def test_a_model_with_no_provider_is_unpriced_with_an_honest_reason(self):
+        """A bare id the table has never seen and that gives nothing away.
+
+        Naming a provider that did not serve the session would be a false
+        statement; so would telling the reader to add rates that may not
+        exist. The reason says the provider is unknown, and nothing more.
+        """
+        breakdown = cost.compute(fixtures.GOLDEN_TOKENS, "mystery-model-9000")
+        self.assertFalse(breakdown.priced)
+        self.assertFalse(breakdown.unknown)
+        self.assertEqual(breakdown.total, 0.0)
+        self.assertIn("provider", breakdown.unpriced_reason)
+        self.assertIn("unknown", breakdown.unpriced_reason)
+        self.assertNotIn("pricing.json", breakdown.unpriced_reason)
+
+    def test_a_recorded_unpriced_reason_still_wins(self):
+        """Models in the `unpriced` map keep their own wording."""
+        table = cost._load()["unpriced"]
+        for model, recorded in sorted(table.items()):
+            breakdown = cost.compute(fixtures.GOLDEN_TOKENS, model)
+            self.assertFalse(breakdown.unknown, model)
+            self.assertEqual(breakdown.unpriced_reason, recorded, model)
+
+    def test_rates_for_still_raises_for_a_routed_slug(self):
+        """Unpriced is not zero-priced: nothing may silently price at nothing."""
+        with self.assertRaises(cost.UnknownModel) as ctx:
+            cost.rates_for("x-ai/grok-4.6")
+        self.assertIn("x-ai/grok-4.6", str(ctx.exception))
+        self.assertNotIn("pricing.json", str(ctx.exception))
+        with self.assertRaises(cost.UnknownModel):
+            cost.rates_for("mystery-model-9000")
+
+    def test_routed_slug_page_shows_no_dollar_figure_and_no_nag(self):
+        import json
+        import os
+        import tempfile
+
+        from auditlog import parse, render
+
+        lines = [
+            {"type": "user", "parentUuid": None, "message": {"content": "hi"},
+             "timestamp": "2026-08-15T12:00:00.000Z", "cwd": "/tmp/x",
+             "version": "1.0.0"},
+            {"type": "assistant", "timestamp": "2026-08-15T12:00:05.000Z",
+             "message": {"id": "m", "model": "x-ai/grok-4.6",
+                         "content": [{"type": "text", "text": "ok"}],
+                         "usage": {"input_tokens": 100, "output_tokens": 50}}},
+        ]
+        handle, path = tempfile.mkstemp(suffix=".jsonl")
+        os.close(handle)
+        try:
+            with open(path, "w") as fh:
+                fh.write("\n".join(json.dumps(x) for x in lines))
+            html = render.page(parse.load_session(path), from_name="scott",
+                               to_name="agent")
+            self.assertIn("No cost figure for this session", html)
+            self.assertIn("OpenRouter", html)
+            self.assertNotIn("pricing.json", html)
+            self.assertNotIn("$0.00", html)
+        finally:
+            os.unlink(path)
 
     def test_unpriced_page_shows_no_dollar_figure(self):
         import json

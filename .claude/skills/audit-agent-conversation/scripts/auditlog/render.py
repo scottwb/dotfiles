@@ -775,9 +775,10 @@ def page(session, from_name="scott", to_name=None, channel=None):
         ),
         "reasoning": usd(breakdown.reasoning),
         "output": usd(breakdown.output),
-        # Read off this model's own rates, not asserted: Fable 5.1 is 0.025x.
-        # An unpriced breakdown has zero rates and replaces this note below.
-        "read_multiple": "%g" % (breakdown.rates["cache_read"] / breakdown.rates["input"])
+        # Read off this model's own row in pricing.json, not asserted here:
+        # Fable 5.1 is 0.025x, Opus 5.5 is 0.05x. An unpriced breakdown has no
+        # row and replaces this note below.
+        "read_multiple": "%g" % cost_module.cache_read_multiple(breakdown.model)
         if priced else "0",
     }
 
@@ -825,7 +826,7 @@ def page(session, from_name="scott", to_name=None, channel=None):
         where = " · ran in <code>%s</code>" % html.escape(session.cwd)
 
     document = """<!doctype html>
-<!-- audit-agent-conversation session:%(session_id)s -->
+<!-- audit-agent-conversation session:%(session_id)s%(costmark)s -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -914,6 +915,10 @@ def page(session, from_name="scott", to_name=None, channel=None):
 </html>
 """ % {
         "session_id": html.escape(session.session_id or ""),
+        # A page with no cost figure says so on its marker line, so a later
+        # run can tell without reading past the first lines. Priced pages
+        # carry nothing extra and stay byte-for-byte as they were.
+        "costmark": "" if priced else " cost:none",
         "title": html.escape(title_text),
         "css": CSS,
         "js": JS,

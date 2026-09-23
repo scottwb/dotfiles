@@ -19,6 +19,8 @@ model call, byte-reproducible from the same inputs (so no clock on the page).
 
 import html
 import os
+import re
+import shlex
 
 from . import cli, render
 
@@ -30,6 +32,12 @@ MARKER = "<!-- audit-agent-conversation index -->"
 
 #: The index's filename inside the output directory.
 FILENAME = "index.html"
+
+#: What a session id looks like when Claude Code wrote it. The copy button
+#: puts a transcript's own `sessionId` on a command line, and the page tells
+#: the reader to paste that line into a terminal, so a value that does not
+#: look like a UUID is not trusted there: the row names its file stem instead.
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 
 class Entry(object):
@@ -62,17 +70,37 @@ class Entry(object):
         return cli.reason_text(self.description, self.reasons)
 
     @property
+    def session_argument(self):
+        """The session as the command names it: the transcript's own id when
+        it is UUID-shaped, else the file stem, shell-quoted.
+
+        Both come from the transcript store, so neither is trusted on a
+        command line as-is. A UUID has nothing to quote. A stem is whatever
+        the file is called, and `shlex.quote` leaves a well-formed one alone
+        and wraps anything else so the shell reads it as one word.
+        """
+        session_id = self.description.session_id or ""
+        if UUID_RE.match(session_id):
+            return session_id
+        stem = os.path.basename(self.path)
+        if stem.endswith(".jsonl"):
+            stem = stem[:-len(".jsonl")]
+        return shlex.quote(stem)
+
+    @property
     def command(self):
         """The command that would produce this page, or None.
 
         Only for a renderable session that has no page yet. Names the session
         by its full id and the project by its exact directory name, so the
-        command cannot resolve to a neighbour.
+        command cannot resolve to a neighbour. Nothing a transcript contains
+        reaches this line unquoted: see `session_argument`, and the project
+        name is shell-quoted, which leaves a normal one byte-identical.
         """
         if not self.renderable or self.page:
             return None
         return "audit-agent-conversation %s --project %s" % (
-            self.description.session_id, self.project,
+            self.session_argument, shlex.quote(self.project),
         )
 
 

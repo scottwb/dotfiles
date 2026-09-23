@@ -451,18 +451,38 @@ def latest_renderable(project_path):
 
 _PAGE_SESSION = re.compile(r"audit-agent-conversation session:([0-9a-fA-F-]+)")
 
+#: What the marker line carries when the page was rendered with its cost
+#: suppressed. Written by `render.page`; read here and nowhere else.
+_PAGE_COST_NONE = re.compile(r"audit-agent-conversation session:[0-9a-fA-F-]* cost:none")
+
 #: Enough of a page to find the marker it declares itself with.
 PAGE_HEAD_BYTES = 300
 
 
-def page_session_id(path):
-    """Which session produced the page at `path`, or None if it does not say."""
+def page_head(path):
+    """The first lines of the page at `path`: enough to read its marker."""
     try:
         with open(path, "r", errors="replace") as handle:
-            match = _PAGE_SESSION.search(handle.read(PAGE_HEAD_BYTES))
+            return handle.read(PAGE_HEAD_BYTES)
     except OSError:
-        return None
+        return ""
+
+
+def page_session_id(path):
+    """Which session produced the page at `path`, or None if it does not say."""
+    match = _PAGE_SESSION.search(page_head(path))
     return match.group(1) if match else None
+
+
+def page_has_no_cost(path):
+    """Was the page at `path` written with its cost figure suppressed?
+
+    The page says so itself, on the marker line, so this costs one short
+    read. A page written before the marker carried that fact reads as
+    priced: there is no cheap way to tell, and guessing would nag about
+    pages that are fine.
+    """
+    return _PAGE_COST_NONE.search(page_head(path)) is not None
 
 
 def disambiguate(target, session_id):
@@ -977,6 +997,21 @@ def main(argv=None):
     return render_one(path, args, report_out)
 
 
+def missing_rates_warning(model):
+    """The one message for a page with no cost because pricing.json is stale.
+
+    Names both halves of the fix. Adding the rates prices future pages; the
+    page already on disk stays cost-less until it is rendered again, and an
+    existing page is only ever replaced under --force. Leaving that half
+    out is how a page written during the gap stays wrong for good.
+    """
+    return (
+        "   warning: model %r is not in pricing.json, so its page shows no "
+        "cost figure. Add the model's list rates to pricing.json, then re-run "
+        "with --force to replace the page." % model
+    )
+
+
 def warn_if_model_is_missing_from_rate_table(session, report_out):
     """Say so when a page went out with no cost because pricing.json is stale.
 
@@ -985,11 +1020,33 @@ def warn_if_model_is_missing_from_rate_table(session, report_out):
     renderer's default, which is always in the table, so it never warns.
     """
     if session.model and cost.is_unknown(session.model):
-        report_out.raw(
-            "   warning: model %r is not in pricing.json, so its page shows no "
-            "cost figure. Add the model's list rates to pricing.json."
-            % session.model
+        report_out.raw(missing_rates_warning(session.model))
+
+
+def repair_advice(session, target):
+    """Why the page already at `target` should be replaced, or None.
+
+    Only one thing about an existing page is worth interrupting a sweep for:
+    it was written with its cost suppressed and a cost is now, or could be,
+    available. Which of those it is comes from the rate table as it stands
+    today, not from anything stored with the page:
+
+    * the model is priced now: the gap has closed, say --force repairs it;
+    * the model is still unknown: the original warning is still the truth;
+    * the model has no list price at all (local, routed, synthetic): the page
+      is correct as written and there is nothing to repair, so stay quiet.
+    """
+    if not (session.model and page_has_no_cost(target)):
+        return None
+    if cost.is_unknown(session.model):
+        return missing_rates_warning(session.model)
+    if cost.unpriced_reason(session.model) is None:
+        return (
+            "   model %r is now in pricing.json, but this page was written "
+            "before it was and shows no cost figure. Re-run with --force to "
+            "replace it." % session.model
         )
+    return None
 
 
 def render_one(path, args, report_out, records=None):
@@ -997,11 +1054,60 @@ def render_one(path, args, report_out, records=None):
 
     Shared by the single-session path and the `--all` sweep so both report the
     same way and neither can drift from the other's safety checks.
+
+    Whatever one transcript raises, at whichever stage, is that session's
+    failure and nobody else's. The catch is here, around everything, rather
+    than around `render.page` alone: the first version guarded only the
+    renderer, and a real six-session sweep then died after two on a record
+    whose `usage` was a string, which raises in `load_session` before the
+    renderer is reached. No rows for the rest, no tally, and under `--index`
+    no index. Only `Exception` is caught, so Ctrl-C and `sys.exit` still stop
+    the run.
     """
-    if records is None:
-        records, skipped = parse.load_records(path)
-    else:
-        skipped = 0
+    try:
+        if records is None:
+            records, skipped = parse.load_records(path)
+        else:
+            skipped = 0
+        return _render_parsed(path, records, skipped, args, report_out)
+    except Exception as exc:  # noqa: BLE001 - fail loudly, never half-write
+        return render_failure(path, exc, args, report_out, records)
+
+
+def render_failure(path, exc, args, report_out, records):
+    """Report one session's failure the way the rest of the run is reported.
+
+    Outside a sweep, the long message on stderr. In a sweep, a row like any
+    other outcome, so it is visible in the same column a reader is already
+    scanning rather than only in the tally at the end; the exception itself
+    would not fit a 38-character cell, so it follows on its own line.
+
+    The row is built from whatever the transcript still yields. `describe`
+    needs only the records and is cheap, and when even that fails the
+    filename is all there is to name the session by. A second failure while
+    reporting the first would take the sweep down with it, which is the
+    thing this function exists to prevent.
+    """
+    if not args.all:
+        sys.stderr.write("error: could not render %s: %s\n" % (path, exc))
+        return 4
+    try:
+        description = parse.describe(records or [], path)
+        sender, receiver = resolve_participants(
+            description, args.from_name, args.to_name
+        )
+        ident, when = description.short_id, when_of(description)
+        title = description.title or "(untitled)"
+    except Exception:  # noqa: BLE001 - the report must not be the second failure
+        ident, when, title = os.path.basename(path)[:8], "unknown", "(unreadable)"
+        sender = receiver = "?"
+    report_out.row("ERROR", ident, when, "render failed", sender, receiver, title)
+    report_out.raw("   could not render %s: %s" % (os.path.basename(path), exc))
+    return 4
+
+
+def _render_parsed(path, records, skipped, args, report_out):
+    """`render_one` once the records are in hand. Raises freely."""
     if not records:
         if args.all:
             # Nothing parsed, so there is no description to name it by; the
@@ -1026,23 +1132,7 @@ def render_one(path, args, report_out, records=None):
 
     session = parse.load_session(path, records=records)
     sender, receiver = resolve_participants(session, args.from_name, args.to_name)
-
-    try:
-        html = render.page(session, from_name=sender, to_name=receiver)
-    except Exception as exc:  # noqa: BLE001 - fail loudly, never half-write
-        if args.all:
-            # In a sweep a failure is a row like any other outcome, so it is
-            # visible in the same column a reader is already scanning rather
-            # than only in the tally at the end. The exception itself would
-            # not fit a 38-character cell, so it follows on its own line.
-            description = parse.describe(records, path)
-            report_out.row("ERROR", description.short_id, when_of(description),
-                           "render failed", sender, receiver,
-                           description.title or "(untitled)")
-            report_out.raw("   could not render %s: %s" % (os.path.basename(path), exc))
-            return 4
-        sys.stderr.write("error: could not render %s: %s\n" % (path, exc))
-        return 4
+    html = render.page(session, from_name=sender, to_name=receiver)
 
     if args.stdout:
         sys.stdout.write(html)
@@ -1081,10 +1171,16 @@ def render_one(path, args, report_out, records=None):
     if os.path.exists(target) and not args.force:
         # Not an error: the page you asked for is already there. Report it the
         # same way as any other session passed over, and exit 0 so re-running a
-        # batch is a cheap no-op rather than a failure.
+        # batch is a cheap no-op rather than a failure. The one thing worth
+        # saying about it is that it could be repaired; a bare EXISTS over a
+        # cost-less page reads as "done" when the page is wrong for good.
+        advice = repair_advice(session, target)
         report_out.row("EXISTS", description.short_id, when_of(description),
-                       "use --force to replace", sender, receiver,
-                       description.title or "(untitled)")
+                       "no cost figure; --force to repair" if advice
+                       else "use --force to replace",
+                       sender, receiver, description.title or "(untitled)")
+        if advice:
+            report_out.raw(advice)
         return 0
 
     # Write to a sibling temp file and rename into place, so an interrupted run

@@ -28,7 +28,21 @@
       "Bash(which:*)",
       "Bash(whoami)",
       "WebSearch",
-      "Bash(slackline-read:*)"
+      "Bash(slackline-read:*)",
+      "mcp__mcp-ical__list_events",
+      "mcp__apple-mail__search",
+      "mcp__apple-mail__get_email",
+      "mcp__apple-mail__get_emails",
+      "mcp__apple-mail__get_email_attachment",
+      "mcp__hubspot__hubspot-search-objects",
+      "mcp__hubspot__hubspot-list-associations",
+      "mcp__hubspot__hubspot-batch-read-objects",
+      "mcp__harvest__list_task_assignments",
+      "mcp__harvest__list_projects",
+      "mcp__granola__list_meetings",
+      "mcp__granola__get_meeting_transcript",
+      "mcp__open-meteo__weather_forecast",
+      "mcp__google-docs-mcp__listFolderContents"
     ],
     "deny": [],
     "defaultMode": "auto"
@@ -37,8 +51,10 @@
   "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
+  "switchModelsOnFlag": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "taskCompleteNotifEnabled": true,
-  "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. Keep this file secret-free; it lives in the PUBLIC dotfiles repo. NON-ANTHROPIC BACKENDS: the parked x-env Ollama profile that used to live here was retired on 2026-08-01, replaced by the per-process launchers in bin/ (claude-glm, claude-gpt, claude-ollama, claude-openrouter, all thin wrappers over bin/claude-run). Routing is now per process rather than a global settings flip, so a routed session and a plain Max session run side by side and this file never needs editing to switch. The audit tier decision that lived in the x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME marker is ANSWERED and now recorded in bin/claude-run: routed profiles leave the fable tier deliberately unmapped so Servanda gates halt loudly rather than running a weak adversarial audit. See docs/plans/claude-route-launchers.md and docs/assessments/route-gates.md. AUTO MODE: an autoMode block (soft_deny plus a generated environment profile) was written into this file on 2026-09-09 and moved to .claude/settings.local.json, which is ignored via ~/.config/git/ignore. It does NOT belong here. ~/.claude is a symlink to this repo's .claude/, so the global settings path IS a tracked file in a PUBLIC repo, and the generated profile described a private repo's contents by path. gitignore cannot cover this file because it must stay tracked. Put machine-local or repo-scoped config in settings.local.json; Claude Code merges it over this file. ATTRIBUTION: attribution.sessionUrl is false on purpose. It suppresses the Claude-Session trailer that web and Remote Control sessions otherwise append to commits and PR bodies, and it flips the instruction the CLI injects into each session to its do-not-attribute variant, so the harness and CLAUDE.md agree instead of contradicting each other. A gitAttribution key sat here from 2026-02-17 looking like it did this job and was inert: no trace of it in CLI 2.1.250 through 2.1.258 or in the changelog back to 0.2.21. Do not re-add it. See commit 899282c and docs/claude-code-background-sessions.md."
+  "x-instructions": "Keys prefixed with x- are parked config, not live settings; Claude Code ignores unknown keys, so this is our JSON-comment workaround. Keep this file secret-free; it lives in the PUBLIC dotfiles repo. NON-ANTHROPIC BACKENDS: the parked x-env Ollama profile that used to live here was retired on 2026-08-01, replaced by the per-process launchers in bin/ (claude-glm, claude-gpt, claude-ollama, claude-openrouter, all thin wrappers over bin/claude-run). Routing is now per process rather than a global settings flip, so a routed session and a plain Max session run side by side and this file never needs editing to switch. The audit tier decision that lived in the x-ANTHROPIC_DEFAULT_FABLE_MODEL-DECIDE-ME marker is ANSWERED and now recorded in bin/claude-run: routed profiles leave the fable tier deliberately unmapped so Servanda gates halt loudly rather than running a weak adversarial audit. See docs/plans/claude-route-launchers.md and docs/assessments/route-gates.md. AUTO MODE: an autoMode block (soft_deny plus a generated environment profile) was written into this file on 2026-09-09 and moved to .claude/settings.local.json, which is ignored via ~/.config/git/ignore. It does NOT belong here. ~/.claude is a symlink to this repo's .claude/, so the global settings path IS a tracked file in a PUBLIC repo, and the generated profile described a private repo's contents by path. gitignore cannot cover this file because it must stay tracked. Put machine-local or repo-scoped config in settings.local.json; Claude Code merges it over this file. ATTRIBUTION: attribution.sessionUrl is false on purpose. It suppresses the Claude-Session trailer that web and Remote Control sessions otherwise append to commits and PR bodies, and it flips the instruction the CLI injects into each session to its do-not-attribute variant, so the harness and CLAUDE.md agree instead of contradicting each other. A gitAttribution key sat here from 2026-02-17 looking like it did this job and was inert: no trace of it in CLI 2.1.250 through 2.1.258 or in the changelog back to 0.2.21. Do not re-add it. See commit 899282c and docs/claude-code-background-sessions.md.",
+  "x-automode-removed": "An autoMode.environment profile describing scottwb/greenthumb was written here again on 2026-09-17 and removed on 2026-09-18; it now lives in that repo's own .claude/settings.local.json. Second occurrence after 2026-09-09. Note the failure mode that makes this more than a leak: autoMode.environment is a SINGLE global value but the generated profile is PER-REPO, so whichever session last ran the setup wins and every other repo inherits a trust profile describing someone else's boundary. The global settings.local.json still holds a donna-smithers profile for exactly this reason. Generated profiles belong in the PROJECT's settings.local.json, never here."
 }

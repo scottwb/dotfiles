@@ -28,6 +28,26 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
+### Audit log gate fixes (findings 1 to 5)
+
+**Thread:** AI Staff
+
+**Goal:** Land the five ranked findings from the 2026-09-23 phase gate on the audit log generator: a full rate-table refresh against the published pricing page (the Sonnet 5 row carried Sonnet 4.6's $3 / $15 against a published $2 / $10, and Claude Opus 5.5 was missing entirely), a sweep that aborts on any exception raised outside `render.page`, unvalidated transcript fields reaching the index page's copyable shell command, "add rates to pricing.json" said about routed models that will never have Anthropic rates, and cost-suppressed pages that persist silently with no way offered to repair them.
+
+**Plan:** [audit-log-gate-fixes.md](audit-log-gate-fixes.md)
+
+**Gate report:** [phasegate-audit-log-phase.md](../assessments/phasegate-audit-log-phase.md), verdict PASS_WITH_FINDINGS
+
+**Status:** Ready to implement. Five steps, one commit each, every step test-first because the gate demonstrated each defect against real data. Fix-list items 6 to 10 stay open in the report and are deliberately out of this plan. A second gate runs over these fixes once merged.
+
+---
+
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
+
 ### Patchbay team release
 
 **Thread:** Tools
@@ -53,13 +73,6 @@ does not re-open them.
 **What is already true, and reduces the work considerably:** the env-var credential path already functions with no `op` on `PATH`, runtime dependencies are already just `bash`, `curl`, `sed`, `grep`, `ps` and `claude`, and the `ollama` binary is not a runtime dependency at all. What blocks sharing is narrower than it looked: the 1Password vault path is hardcoded, the selftest enforces that hardcoding, and the missing-credential error tells the user to install 1Password, which is the wrong guidance for their most likely mistake.
 
 **This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. Step 8 corrects the doc.
-
----
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
 
 ### Audit log generator follow-ons
 
