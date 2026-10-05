@@ -437,6 +437,22 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 That makes the real question upstream of the build: **is the durable idea worth a competing tool at all?** ccr's ordered-fallback feature ("tries each backup model in order, returns on first success") is structurally the anti-pattern Servanda's capability floor exists to prevent, and no routing tool surveyed has any concept of refusing to substitute downward. A per-route `no_fallback: true` flag contributed upstream would be a small feature in ccr's existing config shape and would make the differentiator disappear in the best way. Not attempted, no issue filed, and the idea has been checked only against ccr's documentation rather than its code. See patchbay.md for the four options and their rough effort.
 
+### `/write-that-down`: ask whether this repo owns a fact before writing it
+
+**Thread:** Servanda
+
+**Goal:** Give the sweep a step that asks whether the repo it is running in owns a fact, before the fact is written down, and stop a peer agent's claim from landing as settled fact.
+
+**Status:** Needs a gameplan. **AWAITING SCOTT'S EXPLICIT GO, and do not auto-start.** Relayed 2026-09-17 by the Sri session, with Scott saying this repo owns the fix. Filed 2026-10-05 after he asked for it directly, so the relay is no longer the only authority behind it; the implementation still waits.
+
+**Two failures in `~/src/scottwb/sri`, both verified in that repo's history.** A knowledge sweep found a first name in a homework-status line with no identity behind it, researched him, and opened a People entry in `synthesis.md`. He is a Facet business contact who belongs to FAW and Donna, not a coaching vault. Reverted in `c7ba3c3`, with the scope rule added in `391254a`. Separately, a peer agent's claim that Donna had restarted mid-thread was written into that repo's CLAUDE.md as settled fact, with no source and no hedge; Donna says it has not happened. **That one is still contested and was never resolved**, so a gameplan should treat it as an open question rather than a fact in either direction.
+
+**This is a change to the global command, not a promotion of a local variant.** Checked 2026-10-05: sri has no `.claude/commands/` at all, and `.claude/commands/write-that-down.md` here is the only copy in existence, global from birth via the `~/.claude` symlink (`26e00ec`, 2026-09-09). What sri patched after the incident was its own `pre-session-prep` skill and its own CLAUDE.md, which is where a vault-specific rule belongs. The global command still has no step that asks the ownership question, which is why the same sweep would do the same thing in any repo.
+
+**Scope context Scott gave on 2026-09-17:** a repo like sri tracks whether he is doing what his advisors discuss, not business or RevOps to-dos. Those belong to FAW and route through Donna. The sweep has no step that asks "does this repo own this fact, or should it go to another agent?"
+
+**Directions, none decided.** An ownership check against the repo's own CLAUDE.md before anything is written; an unidentified name treated as a signal that it does not belong rather than a gap to fill; a peer's claim recorded with its source, or checked, rather than stated flatly. **Note before planning:** Step 4 of the command already says never to record intent or prediction as settled fact, and the command's own guidance says to sharpen an existing rule or add the missing trigger rather than add a second rule. So the second failure is a trigger problem, and only the first is a genuine gap.
+
 ### Add a peer-handoff step to `/write-that-down`
 
 **Thread:** Shell + Tools
