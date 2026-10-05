@@ -63,8 +63,41 @@ anywhere under `~/.claude` lands in this repo by default. The full reasoning,
 and the `autoMode` incident that established it, is in `settings.json`'s own
 `x-instructions`.
 
-One result worth adding to that record: after the generated `autoMode` block was
-moved to the ignored `settings.local.json`, **it did not regenerate** over the
-following hours. The generator reads the merged config and stays quiet when the
-block is already present, so relocation is a complete fix rather than treating
-one instance.
+### The `autoMode` block regenerates. Relocation is not a fix.
+
+An earlier version of this file recorded that after the generated `autoMode`
+block was moved to the ignored `settings.local.json`, it did not regenerate
+over the following hours, and concluded that relocation was a complete fix.
+**That conclusion was wrong**, and it was drawn from hours of quiet rather than
+from how the generator works.
+
+Occurrences: 2026-09-09, 2026-09-17 (found and cleaned by the Greenthumb
+session, profile describing the private `greenthumb` repo), and 2026-09-30,
+found on 2026-10-05 with a profile describing `donna-smithers`. Each time
+`/auto-mode-setup` wrote `autoMode.environment` into the tracked
+`.claude/settings.json`, which is a public repo. Two of the three runs also
+flipped `model` off its pin.
+
+**The leak is not the worst part.** `autoMode.environment` is a SINGLE GLOBAL
+value, but the profile it holds is generated PER REPO: it names a trusted repo
+and remote, sensitive-data locations, and protected branches. So whichever
+session ran the setup last wins, and every other repo on the machine silently
+inherits a trust profile describing someone else's boundary. A security profile
+confidently describing the wrong repo is worse than no profile, and it is
+invisible from inside any single session. Generated profiles belong in the
+PROJECT's own `.claude/settings.local.json`, which is what greenthumb now has.
+
+**A prose warning has now failed three times.** `settings.json`'s
+`x-instructions` forbade this after the first occurrence and
+`x-automode-removed` explained the mechanism after the second; it happened
+again regardless. `/auto-mode-setup` is built into the CLI (the 2.1.277 binary
+contains the string 23 times) and not a file in this repo, so there is nothing
+local to change about the generator. Detection is the only lever here: a check
+that fails when `autoMode` appears in the tracked `settings.json` would have
+caught all three. Queued as a roadmap item, not built.
+
+**For anyone cleaning up an occurrence:** move the block to the repo it
+describes rather than deleting it, restore the `model` pin, and leave a dated
+note. The 25-entry greenthumb profile moved intact on 2026-09-18, and the
+global `settings.local.json` still holds a `donna-smithers` profile, which is
+why every unprofiled repo reads as Donna's.

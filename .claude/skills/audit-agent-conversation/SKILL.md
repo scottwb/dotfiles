@@ -288,7 +288,15 @@ with its own name rather than described with a guess.
 ## Maintenance
 
 Rates go stale. They live in `scripts/auditlog/pricing.json`, keyed by model id,
-with the date they were last checked. A model missing from the table never
+with the date they were last checked.
+
+**Re-read rates from the published pricing page, never from a cached table.**
+On 2026-09-23 a phase gate found Sonnet 5 priced at $3 / $15 against a
+published $2 / $10: the row had been filled from the `claude-api` skill's
+cached figures, which carried a scheduled increase that was later cancelled. A
+model's own cache-read multiple is data on its row (`cache_read_multiple`,
+default 0.1) because two models now depart from the 0.1x rule, so adding a
+third exception is a table edit and nothing else. A model missing from the table never
 costs a silent zero: its page renders with the cost figures suppressed and a
 note saying why, and the CLI prints a warning (even under `--quiet`) to add the
 model's rates. The same file's `providers` map names who served each

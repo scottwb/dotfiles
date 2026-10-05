@@ -255,6 +255,29 @@ it "demonstrates bug" do
 end
 ```
 
+**Assert the job, not the shape. A test that pins output byte-for-byte can pin
+a bug in place.** When a change should not alter existing behavior, prove the
+property that matters rather than snapshotting the bytes, and prove it through
+the thing that consumes the output: feed a generated command to the real
+argument parser, a generated URL to the real router, a generated query to the
+real database.
+
+**Why:** on 2026-09-23 a fix quoted the shell command the audit-log index page
+hands out, and its regression test asserted a normal row's command was
+byte-identical to what the page had always emitted. Both halves were true and
+the test was worthless: every project directory name begins with a dash, so
+argparse read `--project -Users-...` as an option and the line had never once
+run. The assertion fused "no quoting was added" to "the line still does not
+parse", so the only way to pass it was to keep the bug. A phase gate caught it
+the next day by running the emitted command. The replacement checks the real
+property (no quote characters, the shell splits on whitespace and nothing else)
+and a second test parses the emitted argv.
+
+**How to apply:** when you reach for `assertEqual` against a whole generated
+string, ask what consumes that string and test it there instead. "Unchanged
+from yesterday" is a property worth having, but it is never the only one, and
+on its own it cannot tell working from broken.
+
 ## TDD Bug Discovery Process
 When discovering bugs during development:
 
