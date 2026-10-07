@@ -56,6 +56,28 @@ plugins/known_marketplaces.json
 plugins/marketplaces/
 plugins/blocklist.json
 plugins/.last_inuse_sweep
+plugins/.trash/
+plugins/*-cache*.json
+plugins/store/
+
+# Plugins and skills synced down from the claude.ai account (cowork plugins,
+# anthropic-skills). Re-fetched on startup and not authored here, so tracking
+# them would only record someone else's release churn.
+plugins/synced/
+skills/synced/
+
+# Per-machine CLI state: machineID, userID, migration flags, seen notifications.
+/.claude.json
+
+# Assorted runtime state (MCP discovery verdicts, etc.).
+/state/
+
+# Channel plugin runtime. Ignored for the strongest reason in this file: the
+# telegram channel keeps its bot token in channels/telegram/.env, its allowlist
+# in access.json, and received photos in inbox/. Committing any of it would
+# publish a live credential and private messages into this PUBLIC repo.
+# Observed untracked and unignored on 2026-10-05.
+/channels/
 
 # security-guidance plugin state. Ignored for a stronger reason than the rest
 # of this list: its warnings-state JSON records `untracked_at_baseline`, the
