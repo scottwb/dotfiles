@@ -19,6 +19,7 @@
 - Let me test changes before committing
 - Write good commit messages when asked
 - No Claude attribution or co-author message in commits (see "No AI / Claude Attribution" above).
+- **Delete a branch once it is done.** When a feature branch is merged into main, main is pushed, and the branch is no longer needed, delete it locally and on origin as part of the merge wrap-up, without being asked. First verify `git rev-list --count main..<branch>` and `origin/main..origin/<branch>` are both 0 and no worktree has it checked out. Scott, 2026-10-06, after the claim-checks branch was left standing post-merge: "if it is pushed/merged/pushed/main-pulled and is no longer needed, it should be deleted."
 
 ## Planning & Execution
 - Propose multiple options before major changes; ask "what do you think?"
