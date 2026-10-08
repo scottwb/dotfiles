@@ -196,7 +196,9 @@ its "side effects" prose is hand-written for that one session. Its parsing,
 cost math, markdown renderer, and CSS are all worth keeping.
 
 Both `inter-agent-prompt-audit-log-generator-prompt.md` (this file) and the
-prototype `.py` sit untracked at the repo root. **Relocate or delete both as
+prototype `.py` sit untracked at the repo root. (Done: both root copies were
+deleted on 2026-10-08. The prototype and the original handoff are in history at
+`3116bde`; this file is the handoff's tracked home.) **Relocate or delete both as
 part of this work** so the repo root does not stay cluttered. The plan should
 say which.
 
