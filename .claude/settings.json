@@ -4,6 +4,10 @@
     "sessionUrl": false
   },
   "includeCoAuthoredBy": false,
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/statusline.sh\" 2>/dev/null || printf '%s' \"$(hostname -s)\""
+  },
   "permissions": {
     "allow": [
       "Bash(cat:*)",
