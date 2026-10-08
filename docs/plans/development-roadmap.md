@@ -483,6 +483,14 @@ That makes the real question upstream of the build: **is the durable idea worth 
 
 **The open question this raises:** where the allowlist lives. It cannot live in the command file if that file stays in a public repo, which is the constraint that killed the previous attempt. The filesystem is the obvious candidate, since the inbox convention already keeps the roster there, privately.
 
+### Detect a regenerated `autoMode` profile in the tracked settings.json
+
+**Thread:** Servanda
+
+**Goal:** Fail loudly when `/auto-mode-setup` overwrites the repo-neutral `autoMode` profile in `.claude/settings.json`, before the change is committed to this public repo.
+
+**Status:** Needs a gameplan. `docs/assessments/config-propagation.md` said this check was "queued as a roadmap item" from 2026-10-05, but it was never filed; filed here 2026-10-08. Since 2026-10-07 the neutral profile is meant to be there, so the check must compare against it (or reject any entry naming a repo or path) rather than fail on the key's presence. Where it runs (pre-commit hook, `/booyah` guard, a test) is undecided.
+
 ### Status line: clear the workflow mode label when the workflow is over
 
 **Thread:** Servanda

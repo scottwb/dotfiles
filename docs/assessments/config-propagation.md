@@ -126,7 +126,7 @@ again regardless. `/auto-mode-setup` is built into the CLI and not a file in
 this repo, so there is nothing local to change about the generator. Detection
 is the only lever here: a check that fails when the tracked `settings.json`'s
 `autoMode` differs from the neutral profile would have caught all three. Not
-built.
+built; filed on the roadmap 2026-10-08.
 
 **For anyone cleaning up an occurrence:** restore the `autoMode` block and the
 `model` pin from git, and leave a dated note. Do not move the generated profile

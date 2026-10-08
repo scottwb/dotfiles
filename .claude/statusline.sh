@@ -33,7 +33,9 @@
 # Requires jq; without it the status line just reads "statusline: jq not found".
 #
 # Shareable copy: https://gist.github.com/scottwb/7762acca13cf94af7924f2dc03b35ba0
-# Keep it in step when this file changes.
+# Keep it in step when this file changes. Read it back with curl on the raw URL,
+# never `gh gist view --raw` or `gh api`: gh rewrites \u001f to \^_ when it
+# prints, which on 2026-10-07 made a correct gist look broken.
 #
 # TEST IT BY HAND
 #
