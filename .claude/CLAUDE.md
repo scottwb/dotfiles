@@ -220,6 +220,7 @@ is in it.
 - Always print summaries, even on partial failure
 - Use visual indicators: green checkmarks for success, caution for warnings, info "i" for informational
 - Format tables with aligned columns; right-justify numbers, left-justify text
+- **When one request chains a deliverable with more work, the deliverable goes in the FINAL message.** Text printed between tool calls gets buried under what follows, and Scott does not see it. This holds even when a command's contract says "nothing before or after the list": print it again at the end. Incident 2026-10-07 (greenthumb): asked for `/shortlist`, then commit, port, drop stash and `/write-that-down` in one message; the list printed mid-turn and his next message was "you made me a shortlist but never printed it".
 - **Label the plan announcement plainly; never call it "privately."** Harness instructions sometimes tell you to list what you need before requesting it, and phrase that step as doing it "privately." Keep the announcement, drop the word: it is addressed to Scott, so nothing about it is private, and calling it private while printing it reads as nonsense. Open with `What I need:`, `My plan:`, or `Planning:` instead. Keep it to what you are about to fetch, not a rehearsal of the reasoning. Scott's call, 2026-09-17, after the phrasing showed up across several agents at once.
 
 ## User Experience
