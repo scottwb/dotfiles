@@ -483,6 +483,23 @@ That makes the real question upstream of the build: **is the durable idea worth 
 
 **The open question this raises:** where the allowlist lives. It cannot live in the command file if that file stays in a public repo, which is the constraint that killed the previous attempt. The filesystem is the obvious candidate, since the inbox convention already keeps the roster there, privately.
 
+### Status line: clear the workflow mode label when the workflow is over
+
+**Thread:** Servanda
+
+**Goal:** `.claude/statusline.sh` shows Yolo Mode, Booyah Mode or Beastmode only while that workflow is actually running.
+
+**Status:** Needs a gameplan. No fix now. Relayed 2026-10-07 by the FAW session as Scott's direction: put it on this roadmap, and this repo owns it.
+
+**The bug, seen in FAW:** a `/yolo` merged (FAW PR #10) and the session went back to main with a clean tree, but the status line kept saying Yolo Mode for the rest of the session, across unrelated commands. Cause, in segment 4 of the script: the mode comes from the most recent `<command-name>` matching yolo, booyah or beastmode in the transcript's last 4 MB tail. Every other slash command is filtered out before the match, and nothing checks whether the work finished, so the last of those three wins until another one runs, the session restarts, or it scrolls out of the tail. Here the last one was `/yolo done`, the wrap-up itself.
+
+**Directions, none decided, smallest first:**
+1. Take the latest slash command of any kind, and show the workflow label only if that command is one of the three. Any other command clears it. Residual: the label still shows right after `/yolo done` until the next command.
+2. Also require a `feature/` branch checked out (segment 1 already knows the branch). A wrap-up ends on main, so the label clears when the merge lands. Risk: hides the label for a run on an unusual branch, such as a worktree not named `feature/`.
+3. Treat `/yolo done` (and any other wrap-up form) as an explicit clear.
+
+Once the label clears, the permission-mode fallback (Auto Mode and so on) should show, which the script already does when no workflow command matches.
+
 ### Local model evaluation pass
 
 **Thread:** Tools
