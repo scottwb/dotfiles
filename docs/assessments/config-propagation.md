@@ -84,20 +84,50 @@ and remote, sensitive-data locations, and protected branches. So whichever
 session ran the setup last wins, and every other repo on the machine silently
 inherits a trust profile describing someone else's boundary. A security profile
 confidently describing the wrong repo is worse than no profile, and it is
-invisible from inside any single session. Generated profiles belong in the
-PROJECT's own `.claude/settings.local.json`, which is what greenthumb now has.
+invisible from inside any single session.
+
+### There is no per-repo home for a profile. Relocating one makes it inert.
+
+This section previously said generated profiles belong in the project's own
+`.claude/settings.local.json`. **That was wrong**, and so were the two cleanups
+that followed it. Read from the 2.1.292 binary on 2026-10-07:
+
+- Claude Code reads `autoMode` only from user settings (`~/.claude/settings.json`),
+  a `--settings` flag file, and managed policy. It ignores `autoMode` in a
+  repo's `.claude/settings.json` and `.claude/settings.local.json`, logging
+  "only user/flag/managed settings may set classifier rules (projectSettings
+  and localSettings are repo-controllable)". A cloned repo must not be able to
+  set its own trust rules, so this is deliberate and will not change.
+- `/auto-mode-setup` always writes to user settings, whatever scope it offers.
+  The binary says so: "entries always land in the user settings file."
+- There is no user-level `settings.local.json`. `~/.claude/settings.local.json`
+  is this repo's `.claude/settings.local.json`, read only as the project-local
+  file for sessions rooted in this repo (or in `$HOME`). Other repos never see it.
+
+So greenthumb's relocated profile has been inert since 2026-09-18, and the
+`donna-smithers` profile in this repo's `settings.local.json` never made other
+repos "read as Donna's"; it was inert too, and is dead weight to delete. The
+only live profile was whatever the setup last wrote into the tracked
+`settings.json`, which since 2026-09-30 was Donna's, for every repo.
+
+**Decided 2026-10-07: one repo-neutral profile in `settings.json`.** It starts
+with `"$defaults"` to keep the built-in entries, then adds only facts true in
+every repo on this machine: the trusted repo is whichever one the session's
+working directory is in, secrets resolve through `op`, `~/.claude` is a public
+repo, and the `prod` naming heuristic. It names no repo, path, or private data
+location, so it is safe in a public file and correct everywhere. Per-repo
+profiles would need a launcher passing `--settings` per repo; rejected as more
+machinery than the gain.
 
 **A prose warning has now failed three times.** `settings.json`'s
 `x-instructions` forbade this after the first occurrence and
 `x-automode-removed` explained the mechanism after the second; it happened
-again regardless. `/auto-mode-setup` is built into the CLI (the 2.1.277 binary
-contains the string 23 times) and not a file in this repo, so there is nothing
-local to change about the generator. Detection is the only lever here: a check
-that fails when `autoMode` appears in the tracked `settings.json` would have
-caught all three. Queued as a roadmap item, not built.
+again regardless. `/auto-mode-setup` is built into the CLI and not a file in
+this repo, so there is nothing local to change about the generator. Detection
+is the only lever here: a check that fails when the tracked `settings.json`'s
+`autoMode` differs from the neutral profile would have caught all three. Not
+built.
 
-**For anyone cleaning up an occurrence:** move the block to the repo it
-describes rather than deleting it, restore the `model` pin, and leave a dated
-note. The 25-entry greenthumb profile moved intact on 2026-09-18, and the
-global `settings.local.json` still holds a `donna-smithers` profile, which is
-why every unprofiled repo reads as Donna's.
+**For anyone cleaning up an occurrence:** restore the `autoMode` block and the
+`model` pin from git, and leave a dated note. Do not move the generated profile
+into the repo it describes; it would be inert there.
