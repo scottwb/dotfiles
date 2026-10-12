@@ -86,6 +86,18 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
   other than that...dont". The work that followed was correct and in scope;
   the restatement and the tacked-on offer were the defect.
 
+- **A preference about how a skill runs goes into that skill's file, right away.**
+  When Scott says how a skill or command should behave ("put it on my
+  clipboard", "make that step optional"), edit its SKILL.md or command file in
+  the same turn. Do not park it in memory, and do not defer it because the file
+  has someone else's uncommitted edits; make yours and stage only your delta.
+
+  **Why:** on 2026-10-12, mid-AR cycle, two walk preferences went into a memory
+  note with an offer to fold them into the skill "once the other session's edits
+  are committed." His reply: "dont wait go ahead and get those changes to the
+  skill, not memory." Memory is per-machine and invisible to the repo; the skill
+  is where the behavior actually runs.
+
 ## Verification
 - Verify assumptions before acting ("before we do that, can you be sure...")
 - Check environment state (Docker vs local, gem availability, etc.) when relevant
