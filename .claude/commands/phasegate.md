@@ -108,6 +108,8 @@ Verdict: PASS | PASS_WITH_FINDINGS | FAIL
 
 Verdict rules: FAIL = red suite, any critical finding, or a core promise not delivered. PASS_WITH_FINDINGS = delivered, but medium/high findings exist. PASS = clean or nits/lows only.
 
+Before committing, re-run the full verification with the report in place. The report is a new file, and a repo's lint or doc tests can fail on it. (2026-10-14, static-web-template: the MVP gate ran its suite, then wrote a report quoting the template's own title; a test forbidding template identity in copies failed, and nobody saw it until the next session ran the suite.)
+
 Commit the report on main with message `Phase gate: <phase name> - <verdict>` (push if the repo has a remote and that is the norm there). On PASS or PASS_WITH_FINDINGS with nothing above low severity, also mark the roadmap's PHASE GATE item complete and include it in the same commit.
 
 ## Step 7: Hand Off
