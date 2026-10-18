@@ -28,6 +28,23 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
+### Retire the route wrapper scripts
+
+**Thread:** Tools
+
+**Goal:** Delete `bin/claude-gpt`, `claude-glm`, `claude-gemini`, `claude-ollama` and `claude-openrouter`, so that `bin/claude-run` is the only launcher. Fix `claude-ps` so it detects routes from `claude-run`'s own arguments, including flag-style launches, which it currently misreports as Anthropic. No replacement aliases or shorthand: Scott will add his own later if he ever wants them (2026-10-17).
+
+**Plan:** [retire-route-wrappers.md](retire-route-wrappers.md)
+
+**Status:** Ready to implement
+
+---
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
+
 ### Patchbay team release
 
 **Thread:** Tools
@@ -53,12 +70,6 @@ does not re-open them.
 **What is already true, and reduces the work considerably:** the env-var credential path already functions with no `op` on `PATH`, runtime dependencies are already just `bash`, `curl`, `sed`, `grep`, `ps` and `claude`, and the `ollama` binary is not a runtime dependency at all. What blocks sharing is narrower than it looked: the 1Password vault path is hardcoded, the selftest enforces that hardcoding, and the missing-credential error tells the user to install 1Password, which is the wrong guidance for their most likely mistake.
 
 **This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. Step 8 corrects the doc.
-
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
 
 ### Audit log generator follow-ons
 
