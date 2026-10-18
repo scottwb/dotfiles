@@ -122,7 +122,13 @@ DONE / CLOSED / Landed with a date, ✅, anything under a Completed heading.
 
 **Verify before listing.** Trackers go stale. If an open item looks done (a
 commit landed, the file exists, the PR merged), check; do not list finished
-work.
+work. The same goes for an item whose target is dead: a `TODO` inside a script
+nothing uses is not work. Check that the thing it improves is still alive (the
+paths it touches exist, something references it, it changed in the last few
+years) before listing it. On 2026-10-17 a dotfiles shortlist told Scott to fix
+the placeholder repo names in `bin/rmbterm`. The script had been dead since
+2021 and its target directory no longer existed, so the real action was to
+delete it.
 
 ## Step 4: Keep only what fits in a day
 

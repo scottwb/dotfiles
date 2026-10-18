@@ -72,6 +72,17 @@ whole of route detection, so fixing it belongs here.
   `docs/plans/audit-log-handoff.md`, completed steps in other plans, and dated
   roadmap notes. They describe what was true then.
 
+## Options Rejected (2026-10-17)
+
+- **Replace the wrappers with zsh aliases** (`alias claude-gpt='claude-run gpt'`).
+  Proposed alongside the deletion. Scott said no: he does not want new aliases,
+  and will make his own later if he ever cares to. Do not re-propose this as
+  part of the work.
+- **Keep the wrappers and fix only `claude-ps`.** This would have been the smallest
+  change, but it keeps the duplicated launcher list, which is the actual defect.
+- **Wait for Patchbay v2 (`pbay run`), which replaces them anyway.** `pbay` is
+  blocked "way later", so waiting means the wrappers stay indefinitely.
+
 ## Non-Goals
 
 - Patchbay v2 (`pbay`). Still blocked; this only shrinks what it inherits.
