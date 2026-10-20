@@ -45,6 +45,32 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 Ordered by priority. The Terminal & editors thread has nothing queued;
 new items for it go here with a **Thread:** tag like everything else.
 
+### Move Patchbay into its own repo
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** Patchbay lives in `facetdigital/patchbay` instead of dotfiles, so `pbay` is built there from the start, with its own roadmap, plans and tests. Dotfiles just puts its `bin/` on `PATH`. (Scott, 2026-10-20.)
+
+**Why now:** the `pbay` design in [patchbay.md](../patchbay.md#pbay) turned a few scripts into a product (config folders, a credentials file, one runner per harness, a conformance suite, possibly a new language), and it ships to other people. The next three items all rewrite the same files, so moving them before that work is cheaper than untangling them after.
+
+**Already decided, in [patchbay-team-release.md](patchbay-team-release.md) Step 4:** owner `facetdigital/patchbay`, licence MIT, visibility private. That step's tree was assembled and verified once (no personal strings, selftest green from a fresh clone) before the hold, so the mechanics are known.
+
+**Creating the repo is not releasing it.** A private repo with nobody invited moves the code without starting the team release. **Open question for Scott:** the team release was put on hold on 2026-09-13 with no reason recorded. If that reason was about the code leaving dotfiles rather than about the team, it applies here too. Ask before running.
+
+**What moves:** `bin/claude-run`, `bin/agent`, `bin/claude-ps` (it becomes `pbay ps`), `bin/claude-route-selftest`, `docs/patchbay.md`, the Patchbay plans (`claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`) and their gate reports (`route-gates.md`, `mcp-schema-budget.md`). The roadmap items for `pbay`, `pbay` config and the team release move to the new repo's roadmap; dotfiles keeps one pointer item.
+
+**What stays:** Servanda. Its docs name `claude-run`, which keeps working while it is on `PATH`, and `/shift-change`'s command file belongs in `.claude/commands/` because it runs `/write-that-down`. Only its relaunch loop lives in Patchbay.
+
+**Decide at plan time:** whether the new repo starts with fresh history, as the Step 4 tree did, or keeps the moved files' history via `git filter-repo`. Either way dotfiles keeps the full history. Also: how dotfiles adds the new repo's `bin/` to `PATH` on a fresh machine.
+
+**Run interactively.** Creating a GitHub repo is an outward-facing step; not for an unattended `/yolo` or `/beastmode`.
+
+**Sequencing:** after [Retire the route wrapper scripts](#retire-the-route-wrapper-scripts), so five dead shims are not moved. Before the `pbay` merge.
+
+**Plan:** none yet; next step is `/gameplan patchbay-repo`, reusing team-release Step 4.
+
+**Status:** Queued 2026-10-20. Not planned.
+
 ### `pbay`: one launcher (merge `agent` and `claude-run`)
 
 **Thread:** Tools (Patchbay)
@@ -66,7 +92,7 @@ new items for it go here with a **Thread:** tag like everything else.
 - **`claude-ps` route detection should not need to change.** If `pbay` `exec`s `claude-run`, the process `claude-ps` sees is still `claude-run`, so the parser fixed by the route-wrapper retirement keeps working. Verify rather than assume.
 - **The selftest's identifier check** (Scott's account, username and vault-path strings) globs only `bin/claude-*`. Widen it to `bin/pbay*` as well.
 
-**Sequencing:** after [Retire the route wrapper scripts](#retire-the-route-wrapper-scripts), which is ready, small, and deletes five shims `pbay` would otherwise inherit. Before `/shift-change`, which then builds its relaunch loop into `claude-run`, behind `pbay run`.
+**Sequencing:** after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), so it is built in the new repo. Before `/shift-change`, which then builds its relaunch loop into `claude-run`, behind `pbay run`.
 
 **Plan:** none yet; next step is `/gameplan pbay`.
 
@@ -135,6 +161,8 @@ new items for it go here with a **Thread:** tag like everything else.
 **Goal:** Ship Patchbay to the Facet dev team as an OpenRouter fallback for Claude outages, in its own repository. De-personalize the launchers so they work for someone who is not Scott, and give the team a documented install and setup path.
 
 **Plan:** [patchbay-team-release.md](patchbay-team-release.md)
+
+**Step 4 moves to its own item (2026-10-20):** creating the repo is now [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), without inviting the team. What stays on hold here is the release itself: Steps 5 through 8.
 
 **Status: ON HOLD at Step 4 (2026-09-13, Scott's call).** Steps 1 through 3 are
 committed and stand on their own: the launchers now resolve a key from
