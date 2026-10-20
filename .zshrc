@@ -24,3 +24,6 @@ export TERM=xterm
 # everything above that touches the prompt or precmd_functions, ~/.localrc
 # included. See the header of the file itself for the fpath/compinit exception.
 . ~/.zsh/integrations
+
+# Hermes Agent command
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
