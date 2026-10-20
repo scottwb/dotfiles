@@ -7,9 +7,7 @@ A patchbay in a studio connects any source to any destination, one physical
 connection at a time, with no central switchboard deciding for you. That is the
 architecture: **harness x model x provider**, assembled per process, no daemon.
 
-**Status:** shipped and in use, 2026-08-01. Five launchers, one harness. The
-`pbay` front door described at the bottom is not built and should not be built
-yet.
+**Status:** shipped and in use, 2026-08-01. Five launchers, one harness. The `pbay` design at the bottom is proposed and queued on the roadmap, one piece at a time; a second harness still waits for its trigger.
 
 | | |
 |---|---|
@@ -122,83 +120,103 @@ Patchbay's advantage is a discipline, not a capability.
 
 ## Where this goes
 
-Speculative. Recorded so the reasoning is not lost, explicitly **not** a plan.
+Proposed, not planned. Each piece becomes a plan when its roadmap item comes up.
 
-### `pbay`, a single front door
+### `pbay`
 
-Wrappers do not scale across a matrix. Four launchers for one harness is fine;
-four harnesses times six models is not. The general form:
+**Status:** proposed design, 2026-10-19. Each piece is gameplanned when its roadmap item comes up, and that plan may still change details.
 
-```bash
-pbay run claude glm          # what claude-glm does today
-pbay run aider deepseek
-pbay ps                      # claude-ps, as an alias
-pbay doctor                  # preflight: op, key, credit limit, ollama, window
-pbay models --refresh        # discover and cache; catalogs churn
-pbay config set default.claude glm
-pbay providers disable openrouter
+**The goal:** a session starts with the right harness, provider, model and effort without passing any of them. Config decides; flags override. One front door instead of a wrapper per combination, because wrappers do not scale across the harness x model x provider matrix.
+
+#### Three layers
+
+```
+agent / pbay run [harness] [standard args] [-- native args]
+   |  pbay: picks the harness, merges config from ~/.pbay/ down to ./.pbay/,
+   |        turns it into standard args (command-line args win)
+   v
+claude-run [standard args] [-- native args]        (one runner per harness)
+   |  runner: translates standard args to the harness's own flags,
+   |          sets the route environment, launches
+   v
+claude   (later: codex, aider, opencode, ...)
 ```
 
-State in `~/.pbay/`, with cache kept separable from config: config is precious,
-cache is disposable and needs to be deletable when a stale model list confuses
-things.
+- **`agent` is an alias for `pbay run` and nothing else.** Any harness, not only Claude: `agent`, `agent codex`, `agent "fix the bug"`. There is no `agent ps`. It exists because `agent` is the word Scott actually types; it is optional at install, and skipped when `agent` already resolves to something else on that machine.
+- **Keep `bin/agent`'s canary line:** the resolved command, printed to stderr. It is how you find out a different `agent` is shadowing this one on `PATH`, or that you are not in the directory you thought you were.
+- **`pbay` is the full CLI:** `run` first; later `ps` (`claude-ps`, which must keep reporting unrouted sessions too), `doctor` (which providers have a working key, and which harnesses can use each), `models --refresh`, and `config`.
+- **Picking the harness.** The first argument after `run` picks a harness only when it *exactly* equals an installed harness name. Anything else, including flags and a quoted prompt, goes whole to the default harness. A prompt collides only if the entire prompt is a harness name, and `agent claude codex` covers that.
+- **One runner per harness, one interface for all of them.** Every runner takes the same standard args, modelled on Claude Code's (`--model`, `--effort`, `--provider`, `--context`, `--name`, `--permission-mode`, `--remote-control`, `--resume` / `--continue`, an opening prompt), and maps them to its harness's own flags, all inside that one script.
+- **Runners never read config.** `pbay` turns config into args, and the runner only ever sees args. A runner is testable on its own, and adding a harness touches one file.
+- **An unsupported standard flag is an error,** never silently dropped (codex has no `--remote-control`). The same rule `claude-run` already applies to flags it cannot honour.
+- **Native flags pass after `--`, untranslated,** so a harness feature is usable before it has a standard flag.
+- **One conformance suite for every runner:** the same standard args in dry-run mode, and where possible the native command handed to the harness's own argument parser. `claude-run`'s `CLAUDE_ROUTE_DRYRUN=1` becomes the standard `--dry-run`.
+- **`/shift-change`'s relaunch loop lives in the Claude runner,** because it depends on how Claude exits.
 
-Three roadmap items fold into this as subcommands rather than separate tools:
-the doctor script, the periodic model-slug refresh, and the harness expansion.
+#### Runner names: decided, deferred
 
-**Design notes for whoever builds it:**
+Runners will be named `pbay-run-<harness>` (`pbay-run-claude`, `pbay-run-aider`) and found anywhere on `PATH` by that prefix, the way git runs `git-foo` as `git foo`. The prefix makes `PATH` discovery safe where a bare `*-run` would not be, the harness name comes from the filename with no table to keep in step, and one `bin/pbay*` glob covers the whole family for checks. It leaves room for `pbay-<sub>` subcommands too.
 
-- `pbay ps` must keep reporting *unrouted* sessions. `claude-ps` is useful
-  beyond Patchbay, and narrowing it to routed sessions only would be a
-  regression.
-- The model cache is **account-specific**, not global. Zero Data Retention
-  settings filter OpenRouter's catalog per account, so a cache shared between
-  accounts would be wrong. It needs a TTL and an explicit refresh.
-- **Bash will stop paying here.** `claude-run` is ~250 lines and comfortable.
-  Subcommand dispatch plus config parsing plus JSON cache handling plus TTL logic
-  is a different program. Decide the language deliberately rather than
-  discovering it at 900 lines.
+**Deferred (Scott, 2026-10-19):** `claude-run` keeps its name until a second harness arrives, so the Servanda docs that name it are not touched yet. Until then `pbay run claude` calls `claude-run` directly, and there is nothing to discover.
 
-### `bin/agent` and `pbay` are the same shape
+#### Config: `~/.pbay/` and `.pbay/` folders
 
-`bin/agent` exists on disk today, untracked as of 2026-09-02. It is v0 and
-deliberately small: a `DEFAULTS` array (`--model opus --effort high
---remote-control --permission-mode auto`), a session name derived from the
-current directory's basename, a check that backs off if the caller passed
-`-n`/`--name` themselves, the caller's own arguments appended last so they
-always win, a canary line to stderr naming the exact command, and `exec`. Its
-header says directory-aware config comes later.
+- **Layered, nearest wins.** Load `~/.pbay/config`, then every `.pbay/config` on the path from there down to the current folder. A subfolder that says only `model = sonnet` keeps the harness from above. Expected main use: `.pbay/` folders in repos.
+- **Flat keys,** git-config style (`model = sonnet`, `tier.routine.model = ...`). Merging is then last-wins per key with no nested-merge rules, and it stays parseable in bash.
+- **`root = true`** stops inheritance from above, as in EditorConfig.
+- **`pbay config --show-origin`,** like git's, shows which file set each value. Layered config is undebuggable without it.
+- **Committed versus personal.** `.pbay/config` is committed and shared. `.pbay/config.local` is gitignored and personal, and wins over `config` in the same folder: the same split as Claude Code's `settings.json` and `settings.local.json`. A `config.local` that git *tracks* is treated as committed, since a cloned repo could ship one.
+- **First run writes only `~/.pbay/`.** It detects installed harnesses (`command -v claude codex aider ...`), proposes defaults, and asks to confirm the default harness, provider, model, effort and tier map. A repo gets a `.pbay/` only from an explicit `pbay init`, never automatically. In an unattended run with no config, stop with a clear error; never wait on a question nobody will answer.
+- **`bin/agent`'s hardcoded `DEFAULTS` array becomes `~/.pbay/config`.** Its per-directory naming and the config's per-folder layering are the same idea.
+- **Cache stays out of config.** `${XDG_CACHE_HOME:-~/.cache}/patchbay/` already holds the model catalog.
 
-That is the same job `pbay run` describes above: choose the right defaults for
-a context, then exec a harness. `agent` picks them by *directory*; `pbay run`
-picks them by *backend*. Two axes of the same lookup, and `agent`'s hardcoded
-`DEFAULTS` array is the thing `~/.pbay/` config is meant to replace.
+#### Tiers
 
-**Decision, 2026-09-02: keep both names.** Scott expects to stay attached to
-`agent`, and it is the verb he actually types. The likely shape is one
-implementation with two doors:
+Claude Code's tier names are the keys: `fable`, `opus`, `sonnet`, `haiku`. Claude Code resolves each through `ANTHROPIC_DEFAULT_<TIER>_MODEL`, which `claude-run` already sets, so a config's tier map becomes those variables and Servanda's `model: "fable"` and `model: "opus"` pins keep working untouched. A tier can be explicitly `unmapped`, which keeps D12: a routed session's audit tier halts instead of running on something weak.
 
-- `agent` stays the ergonomic front door. No subcommand, no ceremony, just
-  "start a session here with the right defaults." This is the common case and
-  it should stay one word.
-- `pbay` is the full CLI: `run`, `ps`, `doctor`, `models`, `config`,
-  `providers`. Everything that needs a noun and a verb.
+Scott's labels (thinking, normal, routine, trivial) are display names for now. Renaming the keys waits, with the runner rename, so Servanda is not touched yet.
 
-So `agent` becomes either a thin wrapper over `pbay run` with the directory
-profile applied, or the same binary dispatching on `argv[0]`. Whoever builds
-this should not treat the two names as a thing to resolve. They are a
-deliberate keep-both.
+**Domain is not a config axis.** Coding, business, writing and sales are already separated by the folder tree: the sales repo's `.pbay/` picks its model and the writing vault picks another. A category key would mean naming the category at launch, which is the flag-passing this design removes.
 
-Two things to carry across when they merge:
+#### Providers and credentials
 
-- `agent`'s defaults are per-machine and hardcoded, which was fine for v0 and
-  is exactly what the config store is for. The migration is DEFAULTS becoming a
-  profile, not a rewrite.
-- The canary line matters. It is how you find out that a different `agent` is
-  shadowing this one on PATH, or that you are not in the directory you thought
-  you were. Keep it, on stderr, printing the resolved command.
+There will be many keys (OpenRouter, OpenAI, Google, z.ai, ...), so credentials belong to providers. Each provider is defined once in `~/.pbay/` and only named everywhere else:
+
+```
+# ~/.pbay/config
+provider.openrouter.url         = https://openrouter.ai/api
+provider.openrouter.format      = anthropic
+provider.openrouter.key_env     = OPENROUTER_API_KEY
+provider.openrouter.key_ref     = op://<vault>/AI Keys/openrouter
+provider.openrouter.key_account = <account>.1password.com
+```
+
+What may live where:
+
+| | `~/.pbay/` | `.pbay/config.local` | `.pbay/config` (committed) |
+|---|---|---|---|
+| Pick provider, model, tier, effort | yes | yes | yes |
+| Define a provider (url, format) | yes | no | no |
+| `op://` key reference | yes | yes | no |
+| Raw key | in `~/.pbay/credentials` only | no | no |
+
+- **A committed config may only pick from providers defined in `~/.pbay/`.** Otherwise a cloned repo could send your session, and your key, to an endpoint of its choosing, or choose which vault item gets read behind a routine-looking TouchID prompt. A committed `op://` reference is also simply wrong for everyone except its owner.
+- **Per-folder references exist for billing.** A client repo's `config.local` can point a provider at that client's key (say, a Mile26 OpenRouter key on `mile26.1password.com`), so usage in that repo lands on the client's account.
+- **Raw keys live in `~/.pbay/credentials`,** separate from `config` the way `~/.aws/credentials` is, one line per provider, and `pbay` refuses to read it unless it is `0600`. Scott does not use it; his rule is no secrets at rest. It exists because teammates without 1Password would otherwise `export` keys from `.zshrc`, which is usually world-readable and often in a public dotfiles repo.
+- **Lookup order:** the provider's environment variable (`key_env`, the vendor's usual name, so keys people already export just work), then `~/.pbay/credentials`, then the nearest `op://` reference. Unattended with no environment variable, an `op://` reference is an error, not a prompt.
+- **Only the launch's own key is resolved.** Ten providers must not mean ten `op read`s or ten TouchID prompts.
+- **Format decides which harnesses can use a provider.** Claude Code speaks only the Anthropic format: OpenRouter, Ollama, and z.ai's Anthropic-compatible endpoint (not yet verified). Direct OpenAI or Google need another harness, or OpenRouter. A runner refuses a provider whose format its harness cannot use.
+- **No account details in any shipped script.** The selftest's identifier check (`bin/claude-route-selftest`, which looks for Scott's account, username and vault-path strings) must scan `bin/pbay*` as well as `bin/claude-*`.
+
+#### Build order
+
+Separate roadmap items, each gameplanned when it comes up: retire the route wrappers, then the `pbay` merge (`pbay run` and the `agent` alias), then `/shift-change`, then config. The second harness, the runner rename and the tier-label rename stay with v2 and its trigger.
+
+**Decide the language at the config item.** `claude-run` is comfortable bash. Subcommand dispatch, layered config and caching together are a different program; choose deliberately rather than discovering it at 900 lines.
 
 ### The trigger for building it
+
+This gates only the second harness and what comes with it: the runner rename and the tier-label rename. The merge and the config store do not wait for it.
 
 **The first time you want aider or codex against a routed backend for real
 work.** That is when the matrix becomes real.

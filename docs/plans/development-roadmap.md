@@ -45,6 +45,89 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 Ordered by priority. The Terminal & editors thread has nothing queued;
 new items for it go here with a **Thread:** tag like everything else.
 
+### `pbay`: one launcher (merge `agent` and `claude-run`)
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** `pbay run` becomes the one way to start a session, and `agent` the easy way to type it. `pbay run claude [args]` hands off to `claude-run`, which stays as the Claude runner and takes over `agent`'s defaults. `agent` is an alias for `pbay run`, for any harness, and only a runner: there is no `agent ps`. The alias is optional at install and skipped when `agent` already resolves to something else. (Scott, 2026-10-19.)
+
+**Design:** [patchbay.md, "`pbay`"](../patchbay.md#pbay). This item builds the first layer of it.
+
+**Same shape as decided 2026-09-02:** one implementation, `agent` in front because it is the word Scott actually types, `pbay` as the full CLI. New on 2026-10-19: the alias is optional, it is not Claude-only, and the merge is queued now instead of waiting for the v2 trigger.
+
+**Why now, ahead of the v2 trigger.** [Patchbay v2](#patchbay-v2-the-pbay-front-door) stays blocked until a second harness is wanted for real work. The merge has its own reasons: `/shift-change` has to relaunch exactly what was launched, which wants one front door, and the team release wants one thing to install.
+
+**Scope:** `pbay run` dispatch, the `agent` alias, `agent`'s defaults moving into `claude-run`, and the harness-or-prompt rule. Only `claude` exists yet, but the rule ships now so a second harness cannot break the alias later. **Not in scope:** config (its own item below), other harnesses, the `pbay-run-<harness>` rename (both v2), and other subcommands.
+
+**Design points for the plan:**
+- **Route selection** passes through to `claude-run` (`--provider`, `--model`, `--context`, `--refresh`). Decide whether the positional route alias (`claude-run gpt`) survives, since after `pbay run claude` a bare word is an opening prompt.
+- **Whose defaults.** `agent`'s `DEFAULTS` (`--model opus --effort high --remote-control --permission-mode auto`) are Scott's. They can stay hardcoded until the config item lands; shipping them to the team waits for config.
+- **Keep the canary line** on stderr, printing the resolved command. It is how you find out a different `agent` is shadowing this one.
+- **`claude-ps` route detection should not need to change.** If `pbay` `exec`s `claude-run`, the process `claude-ps` sees is still `claude-run`, so the parser fixed by the route-wrapper retirement keeps working. Verify rather than assume.
+- **The selftest's identifier check** (Scott's account, username and vault-path strings) globs only `bin/claude-*`. Widen it to `bin/pbay*` as well.
+
+**Sequencing:** after [Retire the route wrapper scripts](#retire-the-route-wrapper-scripts), which is ready, small, and deletes five shims `pbay` would otherwise inherit. Before `/shift-change`, which then builds its relaunch loop into `claude-run`, behind `pbay run`.
+
+**Plan:** none yet; next step is `/gameplan pbay`.
+
+**Status:** Queued 2026-10-19. Design proposed, not planned.
+
+### `/shift-change`: write it down, clock out, next session comes in
+
+**Thread:** Tools (Patchbay), plus one command file in Servanda's `.claude/commands/`
+
+**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs `/write-that-down` so everything perishable outside the repo is recorded and committed, signals Claude to exit, and `claude-run`, behind `pbay run`, traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
+
+- **Restart to update.** A relaunch runs whatever `claude` is on disk now, so the session picks up a Claude Code update. Seen 2026-10-18: the CLI was at 2.1.302 while a long-running Donna session was still on 2.1.296.
+- **Clear context without losing the session's identity.** Plain `/clear` handles the context half, but it messes up the agent name and the Remote Control sessions (Scott, 2026-10-19), which is the whole reason this is not just `/write-that-down` plus `/clear`. A fresh `CLAUDE.md` comes along for free; it is a side effect, not the goal.
+
+**Named for the staffing model** (Scott, 2026-10-19): the outgoing session writes everything down for the next one and clocks out, and the next one comes in fresh at the same post. Working name before that was `/reload`, which wrongly implied the same session coming back.
+
+**Not wanted: resuming the previous conversation.** The repo is the memory. Anything worth carrying over is written down before the restart, and the new session starts empty. (Corrected 2026-10-19. The first version of this item resumed by session id and called `CLAUDE.md` reloading the point; both were wrong.)
+
+**References:**
+- [Building a reload command for Claude Code](https://www.panozzaj.com/blog/2026/02/07/building-a-reload-command-for-claude-code/) (panozzaj, 2026-02-07). The mechanism to start from: the command body is `` !`kill -HUP $PPID` `` (the `!` makes it deterministic; asking the model to run it was not), Claude exits 129, and a wrapper loop relaunches on 129 and passes any other exit code through. The post relaunches with `-c`; this item deliberately does not.
+- [adrrr/persistent-handoff](https://github.com/adrrr/persistent-handoff). The other carry-over model: a `SessionStart` hook reads back a per-project "where I am / next action" file the agent rewrites at milestones. Not adopted, because the rule here is that the repo carries what matters. Revisit only if fresh sessions keep having to re-ask what was in flight.
+
+**Why it lives in `pbay` (decided 2026-10-18, narrowed 2026-10-19).** The relaunch has to reproduce the original launch, and only the launcher knows what that was. A routed session relaunched as plain `claude` comes back on Anthropic under a different model with no warning. An agent relaunched without its `--name` and `--remote-control` comes back as a different agent, which is the exact `/clear` problem this exists to avoid. Once `pbay` is the one front door, the relaunch loop lives in `claude-run` behind it, the one place that knows both the route and Claude's exit behaviour. Plain bare `claude` stays untouched, per Patchbay's standing rule.
+
+**Design points for the plan:**
+- **Strip resume flags on relaunch.** If the original launch had `--resume <x>`, `-r`, `-c` or `--continue`, replaying the same arguments would resume. The loop replays everything except those. `claude-run`'s own usage example launches with `--resume`, so this is not hypothetical.
+- **Never restart over an unrecorded session.** `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the restart itself is a fixed `!` line or `bin/` helper the model cannot paraphrase.
+- **Refuse in an unwrapped session.** In plain `claude` a SIGHUP just kills the session. `pbay` exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent.
+
+**Verify first; the post is eight months and many CLI versions old** (now on 2.1.302):
+- SIGHUP still produces exit 129, and `$PPID` in a `!` command is still the Claude process.
+- **Remote Control across a relaunch.** Does the new process come back as the same Remote Control session, still reachable from the phone, or as a new one that leaves a dead entry behind? This is the half of the `/clear` problem most likely to need real work.
+- **Agent name and peer messaging.** The same `--name` should give the same name, but the PID and messaging socket change. Check that peers reach the new session by name, and that Claude Code's dedupe of same-named live sessions does not rename it to a variant because the old process has not fully exited.
+- `claude respawn` (new since the post) restarts *background* sessions onto the current binary, which is the update half for those. It does not cover interactive tmux sessions, and it has no write-down step.
+
+**Possible follow-on, not in scope:** a shift change for the whole fleet onto a new version. Sending `kill -HUP` to every PID `claude-ps` lists would skip each session's write-down, so this would have to deliver `/shift-change` into each session rather than signal it.
+
+**Sequencing:** after the `pbay` merge above. Ahead of the Patchbay team release, which is on hold anyway; the team gets `/shift-change` when it ships.
+
+**Plan:** none yet; next step is `/gameplan shift-change`.
+
+**Status:** Queued 2026-10-18 as `/reload`; goal corrected and renamed 2026-10-19. Not planned.
+
+### `pbay` config: `~/.pbay/` and per-folder `.pbay/`
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** Start a session without passing harness, provider, model or effort: layered config decides, and flags override. First run writes `~/.pbay/`; repos opt in with their own `.pbay/`, merged nearest-wins. Providers and their keys, from many vendors, are defined once in `~/.pbay/`. Tiers use Claude Code's names (`fable`, `opus`, `sonnet`, `haiku`) so Servanda's pins keep working. (Scott, 2026-10-19.)
+
+**Design:** [patchbay.md, "`pbay`"](../patchbay.md#pbay): the Config, Tiers, and Providers and credentials sections, including what a committed `.pbay/config` may and may not contain.
+
+**Why it is separate from the merge:** the merge is small and unblocks `/shift-change`; config is the larger piece and blocks neither. It is also where the team release's per-dev setup lands naturally: the `CLAUDE_ROUTE_OP_REF` and `CLAUDE_ROUTE_OP_ACCOUNT` exports become `~/.pbay/` entries.
+
+**Decide at plan time:** the language. patchbay.md already warned that bash stops paying once config, caching and subcommands pile up. Flat keys keep parsing simple, but choose deliberately rather than discovering the answer at 900 lines.
+
+**Sequencing:** after `/shift-change`. Ahead of the Patchbay team release, which needs it for per-dev setup.
+
+**Plan:** none yet; next step is `/gameplan pbay-config`.
+
+**Status:** Queued 2026-10-19. Design proposed, not planned.
+
 ### Patchbay team release
 
 **Thread:** Tools
@@ -440,7 +523,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Goal:** Replace the wrapper-per-combination shape with a single subcommand CLI over the harness x model x provider matrix: `pbay run claude glm`, `pbay ps`, `pbay doctor`, `pbay models --refresh`, `pbay config`, `pbay providers`. State in `~/.pbay/`, cache kept separable from config. Absorbs three items that would otherwise be built separately: the doctor script, the model-slug refresh, and the harness expansion. Includes the `ollama-tools` scope reduction (delete `claude-install`, demote its README's harness support to a mention) and `aider-run` migrating into `bin/`.
 
-**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
+**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Carved out 2026-10-19:** the `agent` / `claude-run` merge and the config store are now their own queued items, ahead of this trigger; the design for all of it is in [patchbay.md, "`pbay`"](../patchbay.md#pbay). What stays blocked here: a second harness, the `pbay-run-<harness>` runner rename that comes with it, the tier-label rename, and the remaining subcommands. **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
 
 **The trigger:** the first time you want aider or codex against a routed backend for real work. That is when the matrix becomes real. Today there is one harness, two backends, four launchers, and nothing chafing, so building the general form would be inventing requirements.
 
