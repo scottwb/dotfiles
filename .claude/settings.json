@@ -54,6 +54,7 @@
   "model": "claude-fable-5-1[1m]",
   "effortLevel": "high",
   "theme": "dark",
+  "autoCompactEnabled": false,
   "switchModelsOnFlag": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
