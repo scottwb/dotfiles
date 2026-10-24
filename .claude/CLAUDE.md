@@ -157,6 +157,8 @@ HUBSPOT_TOKEN=$(op read --account facetdigital.1password.com "op://...") \
   --permission-mode auto -p "/some-headless-command"
 ```
 
+**Use `--permission-mode auto`, never `--dangerously-skip-permissions`.** Auto mode has a safety classifier vet each action; the old flag skipped every check, and in October 2026 Claude Code's classifier began flagging unattended runs started with it, while the same runs under auto mode went through. Auto mode may refuse an action the old flag allowed: when an unattended run reports "denied", fix the run or its permission rules, and do not switch it back. Scott's call, 2026-10-24.
+
 The secret is never written down. It lives in the process environment for the life of the
 session and dies with it. This is the same shape Lambda, ECS, Heroku, and Doppler use: the
 thing being run is *given* the secret; it never goes and fetches one, and it never stores one.
