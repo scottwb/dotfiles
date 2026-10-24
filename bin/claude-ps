@@ -189,39 +189,67 @@ find_parent_session() {
 
 # ---------------------------------------------------------------- routing
 
-# Resolve an alias to "provider|model|window" by asking claude-run itself, so
-# the model table stays in exactly one place. Results are memoized because
-# several sessions commonly share an alias.
-ROUTE_CACHE=""
-resolve_route_alias() {
-  local alias="$1" claude_run plan provider base model window host cached
+# Rebuild claude-run's own leading arguments from a launcher's command line
+# into ROUTE_ARGS. The rule is the one claude-run parses itself with: its
+# --provider / --model / --context flags (either "--flag value" or
+# "--flag=value"), then the first positional, then stop. Everything after that
+# was forwarded to claude and says nothing about the route.
+#
+# --refresh is dropped on purpose. claude-run fetches the catalog for it before
+# it checks for a dry run, so passing it through would put a status tool on
+# the network.
+#
+# The command line comes from ps, so an argument that contained spaces arrives
+# split. claude-run's own flags never do, which is all this reads.
+ROUTE_ARGS=()
+ROUTE_POSITIONAL=""
+route_args_from_cmd() {
+  local rest="${1#*claude-run}" n i=0 t
+  local -a toks
+  read -ra toks <<< "$rest"
+  n=${#toks[@]}
+  ROUTE_ARGS=()
+  ROUTE_POSITIONAL=""
+  while [ "$i" -lt "$n" ]; do
+    t="${toks[$i]}"
+    case "$t" in
+      --provider|--model|--context)
+        ROUTE_ARGS+=("$t" "${toks[$((i + 1))]:-}"); i=$((i + 2)) ;;
+      --provider=*|--model=*|--context=*)
+        ROUTE_ARGS+=("$t"); i=$((i + 1)) ;;
+      --refresh)
+        i=$((i + 1)) ;;
+      --)
+        i=$((i + 1))
+        t="${toks[$i]:-}"
+        case "$t" in ''|-*) ;; *) ROUTE_ARGS+=("$t"); ROUTE_POSITIONAL="$t" ;; esac
+        break ;;
+      -*)
+        break ;;
+      *)
+        ROUTE_ARGS+=("$t"); ROUTE_POSITIONAL="$t"; break ;;
+    esac
+  done
+}
 
-  cached="$(printf '%s' "$ROUTE_CACHE" | sed -n "s/^${alias}=//p" | head -1)"
-  if [ -n "$cached" ]; then printf '%s' "$cached"; return 0; fi
+# The value of claude-run flag $1 within ROUTE_ARGS, in either form.
+route_flag() {
+  local want="$1" i=0 n=${#ROUTE_ARGS[@]} t
+  while [ "$i" -lt "$n" ]; do
+    t="${ROUTE_ARGS[$i]}"
+    case "$t" in
+      "$want")   printf '%s' "${ROUTE_ARGS[$((i + 1))]:-}"; return 0 ;;
+      "$want"=*) printf '%s' "${t#*=}"; return 0 ;;
+    esac
+    i=$((i + 1))
+  done
+  return 0
+}
 
-  claude_run="$(command -v claude-run 2>/dev/null || true)"
-  [ -z "$claude_run" ] && claude_run="$(dirname "${BASH_SOURCE[0]}")/claude-run"
-
-  if [ ! -x "$claude_run" ]; then
-    printf '%s||' "$alias"
-    return 0
-  fi
-
-  # Dry run touches no network and launches nothing, so this is safe to call
-  # from a status tool.
-  plan="$(CLAUDE_ROUTE_DRYRUN=1 "$claude_run" "$alias" 2>/dev/null || true)"
-  provider="$(printf '%s' "$plan" | sed -n 's/^  provider  *//p'       | head -1)"
-  base="$(printf '%s' "$plan"     | sed -n 's/^  base url  *//p'       | head -1)"
-  model="$(printf '%s' "$plan"    | sed -n 's/^  model  *//p'          | head -1)"
-  window="$(printf '%s' "$plan"   | sed -n 's/^  context tokens  *//p' | head -1)"
-
-  if [ -z "$provider" ]; then
-    printf '%s||' "$alias"
-    return 0
-  fi
-
-  # Friendly provider names. Ollama says where it is, since that is the
-  # difference between a local model and one on another box.
+# Friendly provider names. Ollama says where it is, since that is the
+# difference between a local model and one on another box.
+friendly_provider() {
+  local provider="$1" base="${2:-}" host
   case "$provider" in
     ollama)
       host="$(printf '%s' "$base" | sed -E 's#^[a-z]+://##; s#[:/].*$##')"
@@ -233,8 +261,55 @@ resolve_route_alias() {
     openrouter) provider="OpenRouter" ;;
     openai)     provider="OpenAI" ;;
   esac
+  printf '%s' "$provider"
+}
 
-  ROUTE_CACHE="${ROUTE_CACHE}${alias}=${provider}|${model}|${window}"$'\n'
+# Resolve ROUTE_ARGS to "provider|model|window" by asking claude-run itself, so
+# the model table stays in exactly one place. Results are memoized on the
+# rebuilt arguments, because several sessions commonly share a route.
+ROUTE_CACHE=""
+resolve_route() {
+  local key="${ROUTE_ARGS[*]}" claude_run plan provider base model window
+  local cached_key cached_val flag_provider flag_model
+
+  while IFS=$'\t' read -r cached_key cached_val; do
+    [ "$cached_key" = "$key" ] && { printf '%s' "$cached_val"; return 0; }
+  done <<< "$ROUTE_CACHE"
+
+  claude_run="$(command -v claude-run 2>/dev/null || true)"
+  [ -z "$claude_run" ] && claude_run="$(dirname "${BASH_SOURCE[0]}")/claude-run"
+
+  # Dry run touches no network and launches nothing, so this is safe to call
+  # from a status tool.
+  plan=""
+  if [ -x "$claude_run" ]; then
+    plan="$(CLAUDE_ROUTE_DRYRUN=1 "$claude_run" "${ROUTE_ARGS[@]}" 2>/dev/null || true)"
+  fi
+  provider="$(printf '%s' "$plan" | sed -n 's/^  provider  *//p'       | head -1)"
+  base="$(printf '%s' "$plan"     | sed -n 's/^  base url  *//p'       | head -1)"
+  model="$(printf '%s' "$plan"    | sed -n 's/^  model  *//p'          | head -1)"
+  window="$(printf '%s' "$plan"   | sed -n 's/^  context tokens  *//p' | head -1)"
+
+  # No plan. The usual cause is a flag launch with no --context for a model the
+  # cached catalog lacks, which claude-run refuses offline by design. Report
+  # what argv states rather than a wrong "Anthropic": the provider defaults to
+  # openrouter exactly as claude-run's does, and the window stays unknown.
+  if [ -z "$provider" ]; then
+    flag_provider="$(route_flag --provider)"
+    flag_model="$(route_flag --model)"
+    if [ -n "$flag_model" ]; then
+      provider="$(friendly_provider "${flag_provider:-openrouter}")"
+      model="$flag_model"
+    else
+      # An alias whose plan could not be read: name the alias, as before.
+      provider="$ROUTE_POSITIONAL"
+    fi
+    window=""
+  else
+    provider="$(friendly_provider "$provider" "$base")"
+  fi
+
+  ROUTE_CACHE="${ROUTE_CACHE}${key}"$'\t'"${provider}|${model}|${window}"$'\n'
   printf '%s|%s|%s' "$provider" "$model" "$window"
 }
 
@@ -246,7 +321,7 @@ resolve_route_alias() {
 # launcher process with claude, erasing the very ancestor matched here, and
 # every routed session would silently report as plain Anthropic.
 detect_route() {
-  local cmd="$1" ancestry="$2" line acmd i=0 alias
+  local cmd="$1" ancestry="$2" line acmd i=0
 
   # Preserve the pre-existing claude-code-router detection.
   if echo "$cmd" | grep -q 'claude-code-router'; then
@@ -259,18 +334,18 @@ detect_route() {
     [ $((i++)) -ge "$ROUTE_ANCESTRY_DEPTH" ] && break
     acmd="${line#*"$SEP"}"
 
-    # Named wrappers carry their alias implicitly; claude-run carries it as its
-    # first argument.
+    # Named wrappers carry their alias implicitly; claude-run carries the route
+    # in its own leading arguments, as an alias, as flags, or both.
     case "$acmd" in
       *claude-run*)
-        alias=$(echo "$acmd" | sed -n 's/.*claude-run[[:space:]]\{1,\}\([^[:space:]-][^[:space:]]*\).*/\1/p')
-        [ -n "$alias" ] && { resolve_route_alias "$alias"; return 0; }
+        route_args_from_cmd "$acmd"
+        [ "${#ROUTE_ARGS[@]}" -gt 0 ] && { resolve_route; return 0; }
         ;;
-      *claude-gemini*)     resolve_route_alias gemini; return 0 ;;
-      *claude-glm*)        resolve_route_alias glm; return 0 ;;
-      *claude-gpt*)        resolve_route_alias gpt; return 0 ;;
-      *claude-ollama*)     resolve_route_alias glm; return 0 ;;
-      *claude-openrouter*) resolve_route_alias gpt; return 0 ;;
+      *claude-gemini*)     ROUTE_ARGS=(gemini); ROUTE_POSITIONAL=gemini; resolve_route; return 0 ;;
+      *claude-glm*)        ROUTE_ARGS=(glm); ROUTE_POSITIONAL=glm; resolve_route; return 0 ;;
+      *claude-gpt*)        ROUTE_ARGS=(gpt); ROUTE_POSITIONAL=gpt; resolve_route; return 0 ;;
+      *claude-ollama*)     ROUTE_ARGS=(glm); ROUTE_POSITIONAL=glm; resolve_route; return 0 ;;
+      *claude-openrouter*) ROUTE_ARGS=(gpt); ROUTE_POSITIONAL=gpt; resolve_route; return 0 ;;
     esac
   done <<< "$ancestry"
 

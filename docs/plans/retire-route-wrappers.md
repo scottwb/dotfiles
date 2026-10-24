@@ -94,7 +94,7 @@ whole of route detection, so fixing it belongs here.
 
 ### Step 1: `claude-ps` detects flag-style `claude-run` launches
 
-- [ ] Write the failing test first. In `bin/claude-route-selftest`'s
+- [x] Write the failing test first. In `bin/claude-route-selftest`'s
       "claude-ps route detection (D6)" section, add a second stub launch:
       `ANTHROPIC_AUTH_TOKEN=<placeholder> PATH="$STUB_DIR:$PATH" "$CLAUDE_RUN" --provider=openrouter --model selftest/flag-route --context 12345`.
       Mixing `--provider=` and `--model <space>` covers both argv forms in one
@@ -105,27 +105,27 @@ whole of route detection, so fixing it belongs here.
       by exactly one over a baseline, and the row disappears when the stub
       exits. Expected to FAIL today: the alias extraction comes back empty, so
       the row shows `Anthropic` and model `-`.
-- [ ] Implement: in `bin/claude-ps`, generalize `resolve_route_alias` into a
+- [x] Implement: in `bin/claude-ps`, generalize `resolve_route_alias` into a
       resolver that takes `claude-run`'s leading arguments rather than one
       alias. In `detect_route`'s `*claude-run*` branch, walk the tokens after
       `claude-run`: keep `--provider X`, `--provider=X`, `--model X`,
       `--model=X`, `--context X`, `--context=X`, then the first remaining
       positional, then stop. That is the same rule `claude-run` uses to parse
       its own flags, so everything after belongs to `claude` and is ignored.
-- [ ] Implement: **drop `--refresh`** when rebuilding the arguments.
+- [x] Implement: **drop `--refresh`** when rebuilding the arguments.
       `claude-run` calls `catalog_fetch` for `--refresh` *before* it checks
       `CLAUDE_ROUTE_DRYRUN`, so passing it through would make `claude-ps` hit
       the network (R4).
-- [ ] Implement: dry-run `claude-run` with the rebuilt arguments and parse the
+- [x] Implement: dry-run `claude-run` with the rebuilt arguments and parse the
       plan exactly as today. Memoize on the rebuilt argument string instead of
       the alias.
-- [ ] Implement: when the dry run fails (a flag launch with no `--context` and
+- [x] Implement: when the dry run fails (a flag launch with no `--context` and
       no cached catalog entry, which `claude-run` refuses offline by design),
       fall back to what argv states: provider from `--provider`, defaulting to
       `openrouter` as `claude-run` does, model from `--model`, window empty.
       Showing the provider and model without a window is better than a wrong
       `Anthropic`.
-- [ ] Verify green: `bin/claude-route-selftest`, and by hand:
+- [x] Verify green: `bin/claude-route-selftest`, and by hand:
       `claude-run --model <any cached slug>` in one terminal, `claude-ps` in
       another.
 

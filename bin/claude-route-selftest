@@ -824,6 +824,98 @@ STUB
     bad "the route disappears when the session does" \
       "expected $baseline_rows, got $after_rows"
   fi
+
+  # Flag-style launches. A session started with `claude-run --provider X
+  # --model Y` names no alias, and until 2026-10-17 claude-ps only knew how to
+  # read an alias, so these sessions reported as Anthropic with no model.
+  #
+  # One launch covers both argv forms: `--provider=openrouter` (joined) and
+  # `--model <slug>` (separate). --context keeps the dry run off the catalog,
+  # and the placeholder token clears the openrouter preflight exactly as the
+  # gpt launch above does. The slug is made up on purpose, so this row can
+  # never collide with a real session.
+  flag_rows() { "$CLAUDE_PS" -n 2>/dev/null | grep -c 'selftest/flag-route' || true; }
+  flag_baseline="$(flag_rows)"
+
+  FLAG_STUB_DIR="$(mktemp -d)"
+  cat > "$FLAG_STUB_DIR/claude" <<'STUB'
+#!/usr/bin/env bash
+sleep 25
+STUB
+  chmod +x "$FLAG_STUB_DIR/claude"
+
+  ANTHROPIC_AUTH_TOKEN="selftest-placeholder-not-a-real-key" \
+    PATH="$FLAG_STUB_DIR:$PATH" "$CLAUDE_RUN" \
+      --provider=openrouter --model selftest/flag-route --context 12345 >/dev/null 2>&1 &
+  FLAG_LAUNCHER_PID=$!
+  sleep 2
+
+  flag_out="$("$CLAUDE_PS" -n 2>&1)"
+  flag_row="$(printf '%s\n' "$flag_out" | grep 'selftest/flag-route' | head -1)"
+
+  assert_contains "flag launch shows its model"    "$flag_out" "selftest/flag-route"
+  assert_contains "flag launch shows its provider" "$flag_row" "OpenRouter"
+
+  flag_now="$(printf '%s' "$flag_out" | grep -c 'selftest/flag-route' || true)"
+  if [ "$flag_now" -eq $((flag_baseline + 1)) ]; then
+    ok "one flag launch adds exactly one row"
+  else
+    bad "one flag launch adds exactly one row" \
+      "expected $((flag_baseline + 1)) (baseline $flag_baseline + 1), got $flag_now"
+  fi
+
+  kill "$FLAG_LAUNCHER_PID" 2>/dev/null
+  pkill -f "$FLAG_STUB_DIR/claude" 2>/dev/null
+  wait "$FLAG_LAUNCHER_PID" 2>/dev/null
+  rm -rf "$FLAG_STUB_DIR"
+  sleep 1
+
+  flag_after="$(flag_rows)"
+  if [ "$flag_after" -eq "$flag_baseline" ]; then
+    ok "the flag route disappears when the session does"
+  else
+    bad "the flag route disappears when the session does" \
+      "expected $flag_baseline, got $flag_after"
+  fi
+
+  # A flag launch claude-ps cannot dry-run. With no --context and no cached
+  # catalog entry, claude-run refuses the plan offline by design, and claude-ps
+  # must not go fetch one. It reports what argv states instead: the model, and
+  # openrouter as the provider, since that is claude-run's default.
+  #
+  # The real claude-run would fetch the catalog to launch this, so a stand-in
+  # named claude-run holds the ancestry instead. claude-ps never runs it: it
+  # resolves claude-run from its own PATH, which does not include this dir.
+  FB_STUB_DIR="$(mktemp -d)"
+  FB_CACHE_DIR="$(mktemp -d)"
+  cat > "$FB_STUB_DIR/claude" <<'STUB'
+#!/usr/bin/env bash
+sleep 25
+STUB
+  cat > "$FB_STUB_DIR/claude-run" <<'STUB'
+#!/usr/bin/env bash
+claude "$@"
+STUB
+  chmod +x "$FB_STUB_DIR/claude" "$FB_STUB_DIR/claude-run"
+
+  PATH="$FB_STUB_DIR:$PATH" "$FB_STUB_DIR/claude-run" --model selftest/no-window >/dev/null 2>&1 &
+  FB_LAUNCHER_PID=$!
+  sleep 2
+
+  fb_row="$(CLAUDE_ROUTE_CACHE_DIR="$FB_CACHE_DIR" "$CLAUDE_PS" -n 2>&1 | grep 'selftest/no-window' | head -1)"
+  assert_contains "unresolvable flag launch still shows its model"   "$fb_row" "selftest/no-window"
+  assert_contains "unresolvable flag launch defaults to OpenRouter"  "$fb_row" "OpenRouter"
+
+  if [ -z "$(ls -A "$FB_CACHE_DIR")" ]; then
+    ok "route detection fetched no catalog"
+  else
+    bad "route detection fetched no catalog" "cache dir gained: $(ls -A "$FB_CACHE_DIR" | tr '\n' ' ')"
+  fi
+
+  kill "$FB_LAUNCHER_PID" 2>/dev/null
+  pkill -f "$FB_STUB_DIR/claude" 2>/dev/null
+  wait "$FB_LAUNCHER_PID" 2>/dev/null
+  rm -rf "$FB_STUB_DIR" "$FB_CACHE_DIR"
 fi
 
 # ---------------------------------------------------------------- de-personalization
