@@ -106,6 +106,7 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
 - Verify assumptions before acting ("before we do that, can you be sure...")
 - Check environment state (Docker vs local, gem availability, etc.) when relevant
 - Confirm current state before making changes that depend on it
+- **`/config` rewrites `~/.claude/settings.json` whole.** A save from `/config` reorders keys and can bury one real change in a large textual diff. Compare values by parsing both versions as JSON, not by reading the diff. Before a pull touches a dirty settings.json, stash it, pull, and reapply only the real change. On 2026-10-24 that showed the only real change in a large reordered diff was `autoCompactEnabled: false`, which Scott then committed (`4077fb3`).
 
 ## Secrets
 When a script or skill needs a sensitive secret (API tokens, Slack user tokens, etc.) at
