@@ -24,7 +24,7 @@
 #   CLAUDE_ROUTE_MODEL       force the model id
 #   CLAUDE_ROUTE_CONTEXT     force the context-token ceiling
 #   CLAUDE_ROUTE_OLLAMA_HOST point at another Ollama host (see D2 below)
-#   CLAUDE_ROUTE_PERMISSION_MODE  override the permission flag (D1)
+#   CLAUDE_ROUTE_PERMISSION_MODE  override the permission flag(s), default "--permission-mode auto" (D1)
 #
 # Design decisions this file implements are cited as D1..D12 and are recorded
 # in docs/plans/claude-route-launchers.md. Gate findings are in
@@ -61,9 +61,13 @@ OP_ACCOUNT="${CLAUDE_ROUTE_OP_ACCOUNT:-}"
 OP_REF="${CLAUDE_ROUTE_OP_REF:-}"
 readonly OP_EXAMPLE_REF="op://<vault>/<item>/<field>"
 
-# D1: overridable const rather than a hardcoded flag. Routed sessions are for
-# throwaway and experimental work, so skipping prompts is the useful default.
-CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---dangerously-skip-permissions}"
+# D1: overridable const rather than a hardcoded flag. The default is auto mode,
+# which cuts prompts by having a safety classifier vet each action, where
+# --dangerously-skip-permissions bypassed the checks entirely. The value is
+# two words on purpose: it is expanded unquoted at the launch line so each
+# word reaches claude as its own argument. Set CLAUDE_ROUTE_PERMISSION_MODE
+# to override it for one run.
+CLAUDE_ROUTE_PERMISSION_MODE="${CLAUDE_ROUTE_PERMISSION_MODE:---permission-mode auto}"
 
 readonly KNOWN_ALIASES="glm gpt gemini"
 

@@ -88,7 +88,8 @@ assert_contains  "provider is ollama"             "$glm_out" "ollama"
 assert_contains  "base URL is the Ollama default" "$glm_out" "http://localhost:11434"
 assert_contains  "model id is glm-4.7-flash"      "$glm_out" "glm-4.7-flash"
 assert_contains  "context is the Gate A value"    "$glm_out" "202752"
-assert_contains  "permission mode is present"     "$glm_out" "--dangerously-skip-permissions"
+assert_contains  "permission mode is auto"        "$glm_out" "--permission-mode auto"
+assert_not_contains "no dangerously-skip flag"    "$glm_out" "--dangerously-skip-permissions"
 assert_contains  "haiku tier is mapped"           "$glm_out" "ANTHROPIC_DEFAULT_HAIKU_MODEL"
 assert_contains  "context override is set"        "$glm_out" "CLAUDE_CODE_MAX_CONTEXT_TOKENS"
 
@@ -602,6 +603,69 @@ fpos_out="$(run_fake --provider openrouter --model fake/big-model --context 10 e
 assert_contains "a prompt positional forwards"       "$fpos_out" "explain"
 
 rm -rf "$FAKE_CACHE"
+
+# ---------------------------------------------------------------- permission flags
+#
+# D1: the default permission flag is two words, "--permission-mode auto", and
+# it only works because the launch line expands it unquoted. The dry run prints
+# the same text whether or not it is quoted, so these assertions read the argv a
+# stub `claude` actually receives. Quote the expansion and they fail.
+#
+# Same throwaway token as the route-detection block below: it gets past the
+# openrouter preflight with no 1Password read, no network and no spend.
+
+section "Permission flags reach claude as separate arguments (D1)"
+
+ARGV_STUB_DIR="$(mktemp -d)"
+cat > "$ARGV_STUB_DIR/claude" <<'STUB'
+#!/usr/bin/env bash
+# Records each argument on its own line, then exits.
+printf '%s\n' "$@" > "$(dirname "$0")/claude.argv"
+STUB
+chmod +x "$ARGV_STUB_DIR/claude"
+
+# run_argv_stub [VAR=value ...]: launch the gpt route against the stub and
+# print the argv it received, one argument per line.
+run_argv_stub() {
+  rm -f "$ARGV_STUB_DIR/claude.argv"
+  env "$@" ANTHROPIC_AUTH_TOKEN="selftest-placeholder-not-a-real-key" \
+    PATH="$ARGV_STUB_DIR:$PATH" "$CLAUDE_RUN" gpt >/dev/null 2>&1
+  cat "$ARGV_STUB_DIR/claude.argv" 2>/dev/null
+}
+
+# arg_after <argv> <arg>: the argument that follows <arg>, if any.
+arg_after() { printf '%s\n' "$1" | grep -x -A1 -e "$2" | sed -n 2p; }
+
+argv_default="$(run_argv_stub)"
+if [ "$(arg_after "$argv_default" "--permission-mode")" = "auto" ]; then
+  ok "default reaches claude as --permission-mode, then auto"
+else
+  bad "default reaches claude as --permission-mode, then auto" \
+    "argv was: $(printf '%s' "$argv_default" | tr '\n' ' ')"
+fi
+if printf '%s\n' "$argv_default" | grep -qx -e "--permission-mode auto"; then
+  bad "default is never one fused argument" "claude got \"--permission-mode auto\" as a single argument"
+else
+  ok "default is never one fused argument"
+fi
+assert_not_contains "default never passes --dangerously-skip-permissions" \
+  "$argv_default" "--dangerously-skip-permissions"
+
+argv_override="$(run_argv_stub CLAUDE_ROUTE_PERMISSION_MODE="--permission-mode plan")"
+flag_count="$(printf '%s\n' "$argv_override" | grep -cx -e "--permission-mode" || true)"
+if [ "$flag_count" = "1" ]; then
+  ok "override passes the flag once"
+else
+  bad "override passes the flag once" "--permission-mode appeared $flag_count times"
+fi
+if [ "$(arg_after "$argv_override" "--permission-mode")" = "plan" ]; then
+  ok "override replaces the default"
+else
+  bad "override replaces the default" \
+    "argv was: $(printf '%s' "$argv_override" | tr '\n' ' ')"
+fi
+
+rm -rf "$ARGV_STUB_DIR"
 
 # ---------------------------------------------------------------- launcher/ps sync
 #

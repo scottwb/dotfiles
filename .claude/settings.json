@@ -53,7 +53,6 @@
   },
   "model": "claude-fable-5-1[1m]",
   "effortLevel": "high",
-  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "switchModelsOnFlag": true,
   "inputNeededNotifEnabled": true,
