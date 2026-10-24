@@ -45,29 +45,99 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 Ordered by priority. The Terminal & editors thread has nothing queued;
 new items for it go here with a **Thread:** tag like everything else.
 
+### `/end-session`: write it down, then exit
+
+**Thread:** Servanda
+
+**Goal:** One command for "I'm done with this session": run `/write-that-down`, then exit. It works in any session, plain `claude` included, and needs nothing from Patchbay. (Scott, 2026-10-20.)
+
+**The chain.** Three commands, each one the previous plus one step:
+
+| Command | Does | Needs |
+|---|---|---|
+| `/write-that-down` | Records and commits what only the session knows. The session keeps going. | Nothing |
+| `/end-session` | `/write-that-down`, then exits. | Nothing |
+| `/shift-change` | `/end-session`, then a fresh session comes up at the same post. | The Patchbay runner's relaunch loop |
+
+**The agent cannot type `/exit`,** so exiting needs a signal. The command file ends with a fixed `!` line the model cannot paraphrase, `` !`kill -TERM $PPID` ``, the same mechanism as the panozzaj post cited under `/shift-change`. SIGTERM gives exit 143, which the `/shift-change` relaunch loop will read as "stop", while SIGHUP (129) will mean "come back".
+
+**Never exit over an unrecorded session.** If `/write-that-down` fails or stops to ask a question, `/end-session` stops there and the session stays up.
+
+**When it runs.** Scott's phrases, and what each one means:
+
+| Scott says | Means |
+|---|---|
+| "record what we learned", "write that down" | `/write-that-down` |
+| "exit the session", "I'm done with this session" | `/end-session` |
+| "new context and restart", "get the harness update", "shift change" | `/shift-change` |
+| "heading out for a few hours" | Nothing. The session waits. |
+
+An explicit request runs immediately. A phrase that only implies it gets a one-line confirmation first (Scott, 2026-10-20). When the command ships, add its trigger lines to the Proactive Suggestions in `.claude/CLAUDE.md`.
+
+**No Donna briefing.** These commands are meant for everyone, and Donna runs her own daily checks (Scott, 2026-10-20). The peer-handoff idea that would have briefed her is dropped; its lessons about relays live in `.claude/CLAUDE.md` under "Messages between sessions".
+
+**Not a revival of the 2026-08-14 `/end-session`** (commit `48415e6`, never merged). Its three sweeps shipped as `/write-that-down` and its handoff step is dropped, so only the name comes back, with a new job.
+
+**Verify first:** SIGTERM still gives exit 143; Claude flushes the transcript and closes the Remote Control session cleanly on SIGTERM; `$PPID` in a `!` command is the Claude process.
+
+**Sequencing:** after [Retire the route wrapper scripts](#retire-the-route-wrapper-scripts). Before the Patchbay move, since it lives in Servanda and does not move. `/shift-change` builds on it.
+
+**Plan:** none yet; next step is `/gameplan end-session`.
+
+**Status:** Queued 2026-10-20. Not planned.
+
 ### Move Patchbay into its own repo
 
 **Thread:** Tools (Patchbay)
 
 **Goal:** Patchbay lives in `facetdigital/patchbay` instead of dotfiles, so `pbay` is built there from the start, with its own roadmap, plans and tests. Dotfiles just puts its `bin/` on `PATH`. (Scott, 2026-10-20.)
 
-**Why now:** the `pbay` design in [patchbay.md](../patchbay.md#pbay) turned a few scripts into a product (config folders, a credentials file, one runner per harness, a conformance suite, possibly a new language), and it ships to other people. The next three items all rewrite the same files, so moving them before that work is cheaper than untangling them after.
+**Why now:** the `pbay` design in [patchbay.md](../patchbay.md#pbay) turned a few scripts into a product (config folders, a credentials file, one runner per harness, a conformance suite, possibly a new language), and it ships to other people. The next items all rewrite the same files, so moving them before that work is cheaper than untangling them after.
 
-**Already decided, in [patchbay-team-release.md](patchbay-team-release.md) Step 4:** owner `facetdigital/patchbay`, licence MIT, visibility private. That step's tree was assembled and verified once (no personal strings, selftest green from a fresh clone) before the hold, so the mechanics are known.
+**Decided:**
+- **Owner `facetdigital/patchbay`, licence MIT, private.** Shared with the Facet team later, open-sourced later; neither is part of this item.
+- **Fresh history** in the new repo, as team-release Step 4 already decided (T5). No `git filter-repo` export.
+- **Removed from dotfiles at HEAD only.** Dotfiles reads as if Patchbay was never there, from this commit on. **Never rewrite history in either repo**; git keeps the old copies.
+- **`agent` keeps working, with the same options.** Before removing anything, collect every way `agent` has been launched (from shell history) and check each one resolves to the same `claude` command before and after, using the canary line or a dry run. Patchbay's `bin/` goes on `PATH` before `bin/agent` leaves dotfiles.
 
-**Creating the repo is not releasing it.** A private repo with nobody invited moves the code without starting the team release. **Open question for Scott:** the team release was put on hold on 2026-09-13 with no reason recorded. If that reason was about the code leaving dotfiles rather than about the team, it applies here too. Ask before running.
+**Already proven, in [patchbay-team-release.md](patchbay-team-release.md) Step 4:** that step's tree was assembled and verified once (no personal strings, selftest green from a fresh clone) before the hold, so the mechanics are known.
 
-**What moves:** `bin/claude-run`, `bin/agent`, `bin/claude-ps` (it becomes `pbay ps`), `bin/claude-route-selftest`, `docs/patchbay.md`, the Patchbay plans (`claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`) and their gate reports (`route-gates.md`, `mcp-schema-budget.md`). The roadmap items for `pbay`, `pbay` config and the team release move to the new repo's roadmap; dotfiles keeps one pointer item.
+**Creating the repo is not releasing it.** A private repo with nobody invited moves the code without starting the team release. **Open question for Scott:** the team release was put on hold on 2026-09-13 with no reason recorded. If that reason was about the code leaving dotfiles rather than about the team, it applies here too. **Context for that question:** the same day, a Donna relay turned Scott's remark that Patchbay "lives in dotfiles for now" into the claim "Patchbay stays in this repo, not its own repo", against a plan one command from creating the repo. Donna retracted it within the hour. The hold may have come from that misquote rather than from a decision. Ask before running.
 
-**What stays:** Servanda. Its docs name `claude-run`, which keeps working while it is on `PATH`, and `/shift-change`'s command file belongs in `.claude/commands/` because it runs `/write-that-down`. Only its relaunch loop lives in Patchbay.
+**What moves:** `bin/claude-run`, `bin/agent`, `bin/claude-ps` (toward `pbay ps`; see the `claude-ps` item next), `bin/claude-route-selftest`, `docs/patchbay.md`, the Patchbay plans (`claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`) and their gate reports (`route-gates.md`, `mcp-schema-budget.md`). The roadmap items for `pbay`, `/shift-change`'s relaunch loop, `pbay` config and the team release move to the new repo's roadmap; dotfiles keeps one pointer item.
 
-**Decide at plan time:** whether the new repo starts with fresh history, as the Step 4 tree did, or keeps the moved files' history via `git filter-repo`. Either way dotfiles keeps the full history. Also: how dotfiles adds the new repo's `bin/` to `PATH` on a fresh machine.
+**What stays in dotfiles:** an install line that puts Patchbay's `bin/` on `PATH`; `~/.pbay/config`, once it exists, as Scott's personal config; and Servanda, including its generic rule that routed sessions halt gates. Servanda's docs name `claude-run`, which keeps working while it is on `PATH`. The `/end-session` and `/shift-change` command files belong in `.claude/commands/` because they run `/write-that-down`; only the relaunch loop lives in Patchbay.
+
+**Decide at plan time:** how dotfiles adds the new repo's `bin/` to `PATH` on a fresh machine.
 
 **Run interactively.** Creating a GitHub repo is an outward-facing step; not for an unattended `/yolo` or `/beastmode`.
 
-**Sequencing:** after [Retire the route wrapper scripts](#retire-the-route-wrapper-scripts), so five dead shims are not moved. Before the `pbay` merge.
+**Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit) and the route-wrapper retirement, so five dead shims are not moved. Before the `claude-ps` extraction and the `pbay` merge.
 
 **Plan:** none yet; next step is `/gameplan patchbay-repo`, reusing team-release Step 4.
+
+**Status:** Queued 2026-10-20. Not planned.
+
+### Open-source `claude-ps` as `facetdigital/claude-ps`
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** `claude-ps`, the `ps` for Claude Code sessions, becomes a small standalone open-source tool. It is the upstream; `pbay ps` runs `claude-ps --json` and adds Patchbay's route columns. (Scott, 2026-10-20.)
+
+**Decided:**
+- **Generic and Claude-only.** No Patchbay, Facet or Scott references. The script's marked "Patchbay enricher" section (`detect_route`, `resolve_route_alias`, the launcher cases) stays behind in Patchbay, and the usage examples lose their agent names.
+- **Private until Scott is ready** to make it public. Fresh history.
+- **macOS only.** Linux support is a later roadmap item in the new repo (containers are the likely way to test it).
+- **Slackline's release conventions** (`~/src/facetdigital/slackline`): `VERSION` is the number of record, tests keep every copy of the version and the README's install URL equal to it, and the release steps live in `CONTRIBUTING.md` (tag `vX.Y.Z`, a GitHub release with the files attached). No release workflow in GitHub Actions; tests only.
+- **The repo:** a casual, friendly README, MIT licence, `CLAUDE.md`, an install script, tests (bats and shellcheck), and `--version`.
+
+**`pbay ps`** keeps working the same way for Scott: route columns on top of `claude-ps`'s own. Rewriting it on a harness-plugin model, for harnesses other than Claude Code, is a later Patchbay item, under [Patchbay v2](#patchbay-v2-the-pbay-front-door).
+
+**Sequencing:** right after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), so `claude-ps` is extracted from Patchbay rather than from dotfiles. Before the `pbay` merge.
+
+**Run interactively.** Creating a GitHub repo is an outward-facing step.
+
+**Plan:** none yet; next step is `/gameplan claude-ps-oss`.
 
 **Status:** Queued 2026-10-20. Not planned.
 
@@ -87,12 +157,13 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Design points for the plan:**
 - **Route selection** passes through to `claude-run` (`--provider`, `--model`, `--context`, `--refresh`). Decide whether the positional route alias (`claude-run gpt`) survives, since after `pbay run claude` a bare word is an opening prompt.
-- **Whose defaults.** `agent`'s `DEFAULTS` (`--model opus --effort high --remote-control --permission-mode auto`) are Scott's. They can stay hardcoded until the config item lands; shipping them to the team waits for config.
+- **Whose defaults.** `agent`'s `DEFAULTS` (`--model opus --effort high --remote-control --permission-mode auto`) are Scott's. They can stay hardcoded until the config item moves them into `~/.pbay/config`; shipping them to the team waits for config.
+- **`pbay` always passes an explicit model and effort.** `settings.json`'s `model` and `effortLevel` govern bare `claude` only, so a `pbay` session never depends on them (decided 2026-10-20). That leaves one place for each default: `settings.json` for bare `claude`, `pbay`'s defaults for everything it launches.
 - **Keep the canary line** on stderr, printing the resolved command. It is how you find out a different `agent` is shadowing this one.
 - **`claude-ps` route detection should not need to change.** If `pbay` `exec`s `claude-run`, the process `claude-ps` sees is still `claude-run`, so the parser fixed by the route-wrapper retirement keeps working. Verify rather than assume.
 - **The selftest's identifier check** (Scott's account, username and vault-path strings) globs only `bin/claude-*`. Widen it to `bin/pbay*` as well.
 
-**Sequencing:** after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), so it is built in the new repo. Before `/shift-change`, which then builds its relaunch loop into `claude-run`, behind `pbay run`.
+**Sequencing:** after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo) and the `claude-ps` extraction, so it is built in the new repo. Before `/shift-change`, which then builds its relaunch loop into `claude-run`, behind `pbay run`.
 
 **Plan:** none yet; next step is `/gameplan pbay`.
 
@@ -102,7 +173,7 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Thread:** Tools (Patchbay), plus one command file in Servanda's `.claude/commands/`
 
-**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs `/write-that-down` so everything perishable outside the repo is recorded and committed, signals Claude to exit, and `claude-run`, behind `pbay run`, traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
+**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs [`/end-session`](#end-session-write-it-down-then-exit) (so everything perishable outside the repo is recorded and committed, then Claude exits) with a restart signal instead of a stop signal, and `claude-run`, behind `pbay run`, traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
 
 - **Restart to update.** A relaunch runs whatever `claude` is on disk now, so the session picks up a Claude Code update. Seen 2026-10-18: the CLI was at 2.1.302 while a long-running Donna session was still on 2.1.296.
 - **Clear context without losing the session's identity.** Plain `/clear` handles the context half, but it messes up the agent name and the Remote Control sessions (Scott, 2026-10-19), which is the whole reason this is not just `/write-that-down` plus `/clear`. A fresh `CLAUDE.md` comes along for free; it is a side effect, not the goal.
@@ -119,11 +190,13 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Design points for the plan:**
 - **Strip resume flags on relaunch.** If the original launch had `--resume <x>`, `-r`, `-c` or `--continue`, replaying the same arguments would resume. The loop replays everything except those. `claude-run`'s own usage example launches with `--resume`, so this is not hypothetical.
-- **Never restart over an unrecorded session.** `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the restart itself is a fixed `!` line or `bin/` helper the model cannot paraphrase.
-- **Refuse in an unwrapped session.** In plain `claude` a SIGHUP just kills the session. `pbay` exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent.
+- **Two signals, two exit codes.** `/end-session` sends SIGTERM (exit 143) and the loop stops; `/shift-change` sends SIGHUP (exit 129) and the loop relaunches. Any other exit code passes through. **Fallback** if Claude Code turns out to exit with the same code for both: `/shift-change` writes a mode file keyed to the launcher's PID before signalling, and the loop reads it.
+- **Never restart over an unrecorded session.** Inherited from `/end-session`: `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the signal itself is a fixed `!` line or `bin/` helper the model cannot paraphrase.
+- **Refuse in an unwrapped session.** In plain `claude` there is no loop to bring the session back. `pbay` exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent, pointing at `/end-session`.
+- **Trigger phrases** ("new context and restart", "get the harness update", "shift change") are in the `/end-session` item's table, with the same rule: explicit runs, implied asks first in one line.
 
 **Verify first; the post is eight months and many CLI versions old** (now on 2.1.302):
-- SIGHUP still produces exit 129, and `$PPID` in a `!` command is still the Claude process.
+- SIGHUP still produces exit 129, distinct from SIGTERM's 143, and `$PPID` in a `!` command is still the Claude process.
 - **Remote Control across a relaunch.** Does the new process come back as the same Remote Control session, still reachable from the phone, or as a new one that leaves a dead entry behind? This is the half of the `/clear` problem most likely to need real work.
 - **Agent name and peer messaging.** The same `--name` should give the same name, but the PID and messaging socket change. Check that peers reach the new session by name, and that Claude Code's dedupe of same-named live sessions does not rename it to a variant because the old process has not fully exited.
 - `claude respawn` (new since the post) restarts *background* sessions onto the current binary, which is the update half for those. It does not cover interactive tmux sessions, and it has no write-down step.
@@ -146,7 +219,12 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Why it is separate from the merge:** the merge is small and unblocks `/shift-change`; config is the larger piece and blocks neither. It is also where the team release's per-dev setup lands naturally: the `CLAUDE_ROUTE_OP_REF` and `CLAUDE_ROUTE_OP_ACCOUNT` exports become `~/.pbay/` entries.
 
-**Decide at plan time:** the language. patchbay.md already warned that bash stops paying once config, caching and subcommands pile up. Flat keys keep parsing simple, but choose deliberately rather than discovering the answer at 900 lines.
+**Also in scope (decided 2026-10-20):**
+- **Agent secrets by folder.** `~/.pbay/config` can set environment variables for sessions launched under a folder, like git's `includeIf`: for `~/src/scottwb/donna-smithers`, `SLACK_USER_TOKEN`, `HUBSPOT_TOKEN` and `VT_API_KEY` from their `op://` references. Only the launch's own folder is resolved. This replaces the `agent-env`, `agent-env-slack` and `agent-env-hubspot` aliases in `.zsh/aliases`, which go once it works. It also closes donna-smithers' optional `agent-env-virustotal` to-do in `knowledge/facet-it/WORK-PLAN.md` (the key is at `op://Employee/VirusTotal/API Key`) and changes the `agent-env` mention in `config/staff.md` there. Those are edits in that repo, made in the same change; `morning-briefs/items.json` is generated state and is left alone. wp-triage's mentions (a checked `WORK-PLAN.md` item and `INCIDENT-LOG.md`) are history and stay.
+- **`pbay doctor`**, from team-release Step 6: which providers have a working key, whether an OpenRouter key has its own per-key limit set, which harnesses can use each provider, and `claude` on `PATH`.
+- `bin/agent`'s `DEFAULTS` move into `~/.pbay/config`, which dotfiles tracks as Scott's personal config.
+
+**Decide at plan time:** the language. patchbay.md already warned that bash stops paying once config, caching and subcommands pile up. Flat keys keep parsing simple, but choose deliberately rather than discovering the answer at 900 lines. Also verify z.ai's Anthropic-compatible endpoint before listing it as a Claude Code provider.
 
 **Sequencing:** after `/shift-change`. Ahead of the Patchbay team release, which needs it for per-dev setup.
 
@@ -162,25 +240,13 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Plan:** [patchbay-team-release.md](patchbay-team-release.md)
 
-**Step 4 moves to its own item (2026-10-20):** creating the repo is now [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), without inviting the team. What stays on hold here is the release itself: Steps 5 through 8.
-
-**Status: ON HOLD at Step 4 (2026-09-13, Scott's call).** Steps 1 through 3 are
-committed and stand on their own: the launchers now resolve a key from
-`OPENROUTER_API_KEY` first, the 1Password item is a per-dev setting rather than a
-hardcoded vault path, and the selftest fails if any `bin/claude-*` file names one
-person. Step 4 creates the repo, and it stops there. No reason was given and no
-resume date was set, so this is a hold rather than a cancellation of T1: Patchbay
-lives in dotfiles for now and the team release waits with it. **MIT** and
-**private** were already chosen for the repo; the plan records them so a resume
-does not re-open them.
-
-**Earlier status, still true of Steps 4 through 8.** Eight steps. Repo owner settled 2026-08-08: **`facetdigital/patchbay`**, so licensing and any future public release are a company decision. **Softened to "maybe next" on 2026-09-02:** asked whether this is still the next thing once the audit-log work lands and the answer was a qualified maybe. Scott may want to work on `bin/agent` and `bin/claude-ps` first, so confirm before starting rather than treating this heading as a standing go-ahead.
+**Status: ON HOLD (2026-09-13, Scott's call). Outlined now; gameplan when the hold lifts.** Steps 1 through 3 are committed and stand on their own: the launchers resolve a key from `OPENROUTER_API_KEY` first, the 1Password item is a per-dev setting rather than a hardcoded vault path, and the selftest fails if any `bin/claude-*` file names one person. The rest was re-cut on 2026-10-20 because other items now own most of it: creating the repo is [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), the setup checker is `pbay doctor` in the config item, and pointing dotfiles at the repo is part of the move. What is left for the release itself is inviting the team, the team README, and two doc corrections; the plan holds that outline. Confirm before starting rather than treating this heading as a standing go-ahead.
 
 **Why this jumped the queue (2026-08-08):** the extraction triggers written down on 2026-08-03 were "the ccr question resolves in favour of Patchbay standing alone, **or** someone other than you wants it." The second one fired. Scott's devs at Facet want a simple, low-dependency way to keep working through Claude outages, needing nothing beyond a credential in an environment variable.
 
 **What is already true, and reduces the work considerably:** the env-var credential path already functions with no `op` on `PATH`, runtime dependencies are already just `bash`, `curl`, `sed`, `grep`, `ps` and `claude`, and the `ollama` binary is not a runtime dependency at all. What blocks sharing is narrower than it looked: the 1Password vault path is hardcoded, the selftest enforces that hardcoding, and the missing-credential error tells the user to install 1Password, which is the wrong guidance for their most likely mistake.
 
-**This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. Step 8 corrects the doc.
+**This also settles the ccr question for this audience, in Patchbay's favour.** [patchbay.md](../patchbay.md) currently advises non-Servanda users to prefer ccr. That is wrong here: ccr is a proxy daemon, and telling a dev to install Node and run a background service *during an outage* is backwards. The no-daemon property is the actual advantage for outage fallback. The release corrects the doc.
 
 ### Audit log generator follow-ons
 
@@ -438,7 +504,7 @@ discipline, spec-per-feature granularity stays with /gameplan).
 
 **Goal:** Every feature or epic ships with one or more evals as part of its definition of done, and an eval result sits beside tests and review as a verification tier in the implement commands.
 
-**Status:** Needs a gameplan. **AWAITING SCOTT'S EXPLICIT GO, and do not auto-start.** Relayed on 2026-09-13 by the Donna session as decisions Scott made that day. Recorded so they survive, but a peer's relay is not Scott saying go in this repo, and this one shipped two mis-attributions that were retracted the same day (see the peer-handoff item below).
+**Status:** Needs a gameplan. **AWAITING SCOTT'S EXPLICIT GO, and do not auto-start.** Relayed on 2026-09-13 by the Donna session as decisions Scott made that day. Recorded so they survive, but a peer's relay is not Scott saying go in this repo, and this one shipped two mis-attributions that were retracted the same day (the lessons are in `.claude/CLAUDE.md`, "Messages between sessions").
 
 **Scott-direct, per the relay:**
 
@@ -524,10 +590,8 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
   **The ZDR warning that was attached to this item is retracted (measured 2026-09-10):** authenticated and public `/api/v1/models` both return 436 models with nothing hidden. Zero Data Retention is enforced when a request is routed, not when the catalog is listed, so there is no catalog check to perform before reaching for a model.
 
   **A third corroboration of the catalog fell out of this.** OpenRouter reports `z-ai/glm-4.7-flash` at 202752, matching Gate A's local `/api/ps` reading exactly, as it earlier matched Gate B's 1050000 for `gpt`. Two hand-measured numbers reproduced independently is why the catalog is trusted for models nobody has measured.
-- ~~**A periodic model-slug refresh.**~~ **Largely absorbed 2026-09-10.** The catalog is now fetched and cached (24h TTL, `--refresh` to force) under `${XDG_CACHE_HOME:-~/.cache}/patchbay/`, so slugs are resolved against a current catalog rather than a hardcoded table. What remains is narrower: nothing yet warns when a slug carries an `expiration_date`, which the catalog does publish.
-- **Bake `num_ctx` into `Modelfile.glm-4.7-flash`, and reconsider the pin while you are in there.** Fixes both the `num_ctz` typo and the `FROM` line (raw blob path to `glm-4.7-flash:latest`, since blob builds fail in `llama-quantize` on Ollama 0.30.7). Today the 198K window comes from `OLLAMA_CONTEXT_LENGTH` in the server's environment, which is silent when absent; a baked-in parameter survives any start method. Demoted from a Gate A blocker on 2026-07-30 once `/api/ps` showed the effective window was already correct. **Seen 2026-10-17:** the typo is already fixed (`PARAMETER num_ctx 202752`), but only in ollama-tools' working tree, uncommitted. The `FROM` line is still the raw blob path.
-
-  **Reconsider the pin before doing any of that (measured 2026-09-10).** `z-ai/glm-5.3-flash` has a **1310720** window against the local 4.7-flash's 202752, at $0.07/$0.25 per Mtok, which is *cheaper per output token* than hosted 4.7-flash's $0.40. The local route's remaining case is that it is free and fully private, against a ~4 min cold start. Worth settling before spending effort on a Modelfile for a two-generation-old pin.
+- ~~**A periodic model-slug refresh.**~~ **Largely absorbed 2026-09-10.** The catalog is now fetched and cached (24h TTL, `--refresh` to force) under `${XDG_CACHE_HOME:-~/.cache}/patchbay/`, so slugs are resolved against a current catalog rather than a hardcoded table. What remains is narrower: nothing yet warns when a slug carries an `expiration_date`, which the catalog does publish. **That warning belongs to `pbay models`** in [Patchbay v2](#patchbay-v2-the-pbay-front-door) (2026-10-20).
+- **The `Modelfile.glm-4.7-flash` fix is ollama-tools' work, not this roadmap's** (2026-10-20). For whoever picks it up there: the `num_ctx` typo is fixed (`PARAMETER num_ctx 202752`) but uncommitted in ollama-tools' working tree as of 2026-10-17, and the `FROM` line is still the raw blob path (blob builds fail in `llama-quantize` on Ollama 0.30.7, so it wants `glm-4.7-flash:latest`). Whether to keep the 4.7-flash pin at all is now a question for the [Local model evaluation pass](#local-model-evaluation-pass), and should be settled before anyone spends effort on that Modelfile.
 
 **Landed 2026-09-10: arbitrary models via `--provider` / `--model` / `--context` / `--refresh`.** Aliases became shorthand rather than the only door. Three things worth carrying forward:
 
@@ -543,7 +607,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
 
-**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". Write after the `claude-ps` overhaul commit lands. If the tool gets generalised beyond Claude Code (see the seam comment in the script and the `pbay ps` note in [patchbay.md](../patchbay.md)), the post should wait for that name instead.
+**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". **Related (2026-10-20):** `claude-ps` is queued to become the open-source `facetdigital/claude-ps`, staying Claude-only. A public repo would give the post something to link; ask Scott whether the post waits for it.
 
 ### Patchbay v2: the `pbay` front door
 
@@ -551,7 +615,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Goal:** Replace the wrapper-per-combination shape with a single subcommand CLI over the harness x model x provider matrix: `pbay run claude glm`, `pbay ps`, `pbay doctor`, `pbay models --refresh`, `pbay config`, `pbay providers`. State in `~/.pbay/`, cache kept separable from config. Absorbs three items that would otherwise be built separately: the doctor script, the model-slug refresh, and the harness expansion. Includes the `ollama-tools` scope reduction (delete `claude-install`, demote its README's harness support to a mention) and `aider-run` migrating into `bin/`.
 
-**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Carved out 2026-10-19:** the `agent` / `claude-run` merge and the config store are now their own queued items, ahead of this trigger; the design for all of it is in [patchbay.md, "`pbay`"](../patchbay.md#pbay). What stays blocked here: a second harness, the `pbay-run-<harness>` runner rename that comes with it, the tier-label rename, and the remaining subcommands. **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
+**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Carved out 2026-10-19:** the `agent` / `claude-run` merge and the config store are now their own queued items, ahead of this trigger; the design for all of it is in [patchbay.md, "`pbay`"](../patchbay.md#pbay). What stays blocked here: a second harness, the `pbay-run-<harness>` runner rename that comes with it, the tier-label rename, and the remaining subcommands. Two of those have specific jobs recorded (2026-10-20): `pbay models` warns when a model's catalog entry carries an `expiration_date`, and `pbay ps` is rewritten on a harness-plugin model so it can list sessions of harnesses other than Claude Code (until then it wraps the open-source `claude-ps`). **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
 
 **The trigger:** the first time you want aider or codex against a routed backend for real work. That is when the matrix becomes real. Today there is one harness, two backends, four launchers, and nothing chafing, so building the general form would be inventing requirements.
 
@@ -574,36 +638,6 @@ That makes the real question upstream of the build: **is the durable idea worth 
 **Scope context Scott gave on 2026-09-17:** a repo like sri tracks whether he is doing what his advisors discuss, not business or RevOps to-dos. Those belong to FAW and route through Donna. The sweep has no step that asks "does this repo own this fact, or should it go to another agent?"
 
 **Directions, none decided.** An ownership check against the repo's own CLAUDE.md before anything is written; an unidentified name treated as a signal that it does not belong rather than a gap to fill; a peer's claim recorded with its source, or checked, rather than stated flatly. **Note before planning:** Step 4 of the command already says never to record intent or prediction as settled fact, and the command's own guidance says to sharpen an existing rule or add the missing trigger rather than add a second rule. So the second failure is a trigger problem, and only the first is a genuine gap.
-
-### Add a peer-handoff step to `/write-that-down`
-
-**Thread:** Shell + Tools
-
-**Goal:** Let a session, when it wraps up, brief a coordinating session in another repo, so that what one session learned reaches the person or agent who needs to act on it rather than only reaching a file.
-
-**Status:** Queued 2026-09-09, deliberately not built. `/write-that-down` shipped with no peer concept on purpose: it is one global copy, repo-agnostic, and safe in a public repo, and a handoff step is the part that would have dragged a roster into it.
-
-**The design already worked out**, recorded here in prose because the branch it lived on is deleted and its commit is unreachable. Do not go looking for it in git.
-
-- **Gate it on an allowlist**, matched on the main worktree path, not the cwd, so linked worktrees resolve to the same entry. A repo not on the list skips the step entirely and records that it did. Never message a coordinator from a repo that is not listed.
-- **Resolve the recipient by exact name.** Look for an exactly matching session and never substitute a similarly named one; a near-match is a different session with a different scope. If no exact match exists, skip the send, print the brief in the summary so the user can relay it, and record the recipient as unreachable. Failing to reach someone must not silently drop the content.
-- **Brief at exec level:** what changed, what it means, what needs a decision. Not a file list, not a commit log. The recipient asks for detail if they want it.
-- **Identify yourself in the first line**, session name plus repo path, because a coordinator hears from several sessions and that is how they are told apart.
-- **One message, do not block on a reply**, and never include secrets, credentials, or client-identifying detail beyond the repo name.
-
-**Exercised by hand twice on 2026-09-10** (dotfiles to Greenthumb asking it to drop a duplicated command; Greenthumb back to dotfiles relaying an office-hours decision). Both worked, and three things about how they worked are design input rather than anecdote:
-
-- **A relayed instruction is enough to act on and not enough to treat as approval.** Both sessions reached that independently: Greenthumb staged its deletion and refused to commit until Scott confirmed, and this side filed the roadmap entry but would not gameplan it or touch `settings.json`. The brief format should make the distinction explicit, marking what is a relay of someone's decision versus what the sender is asking for on its own authority. A receiver that cannot tell will either over-step or stall.
-- **Verify the peer's premises; do not inherit them.** Both briefs that day carried a confidently stated, wrong fact. Greenthumb's said the memory hook already lived in `~/.claude` and was user-global, when it was greenthumb-local and dotfiles had no `hooks` key at all. This side's said the global command shadowed greenthumb's copy, which was asserted without checking and is probably backwards. Neither was caught by the sender. The brief should separate what the sender verified from what it believes, and the receiver should re-check anything it is about to act on.
-- **Ask the peer what you cannot see, rather than only stating conclusions.** The one question in the outbound brief ("is anything referencing this file by path?") is what surfaced two Obsidian wiki-links in a vault repo that would have dangled silently on deletion, invisible from this side. A brief made only of conclusions would have lost that. Whatever shape the step takes, it should carry an explicit "things I could not check from here" slot.
-
-**Two more live runs on 2026-09-13**, both inbound from the Donna session, both wrong in the same direction, and both retracted by the sender within the hour once asked. They are the sharpest argument yet for what the brief format has to carry:
-
-- **A relay can promote a passing remark into a ruling.** Scott said Patchbay "is not its own repo at this time and it lives in dotfiles for now" while classifying it in a repo manifest. That reached this repo as "Patchbay stays in this repo, not its own repo", presented as a decision, and it contradicted a plan that was one command from creating the repo. The fix is quotation: a brief should carry the principal's own words for anything attributed to them, because the paraphrase is where a remark becomes a mandate.
-- **A relay can attribute a peer's own refinement to the principal.** A `/beastmode` scope argument and stop-at-gate flag arrived under a "relaying Scott's direct decisions" header and were the greenthumb session's own idea. Per-item attribution, not per-message, is what would have caught it.
-- **What worked was refusing to act and asking the principal.** Both errors surfaced because this side replied with the conflict and held. Holding cost one round trip; acting would have created a company repo on a misquote.
-
-**The open question this raises:** where the allowlist lives. It cannot live in the command file if that file stays in a public repo, which is the constraint that killed the previous attempt. The filesystem is the obvious candidate, since the inbox convention already keeps the roster there, privately.
 
 ### Detect a regenerated `autoMode` profile in the tracked settings.json
 
@@ -636,9 +670,11 @@ Once the label clears, the permission-mode fallback (Auto Mode and so on) should
 
 **Goal:** Work out which local models are genuinely usable for agentic coding, rather than assuming.
 
-**Status:** Queued. Live candidates are `glm-4.7-flash`, `qwen3.5-27b`, and a possible `qwen3.6:27b` pull. `gemma4` has an open tool-parser issue and `qwen3-coder` has the worst Claude-Code-specific bug reports, so both start behind.
+**Status:** Queued. Live candidates are `glm-4.7-flash`, `qwen3.5-27b`, and a possible `qwen3.6:27b` pull. `gemma4` has an open tool-parser issue and `qwen3-coder` has the worst Claude-Code-specific bug reports, so both start behind. Greenthumb's 2026-09-12 research adds `qwen3.8:27b-q8_0` as its local pick; see [model-harness-research.md](../assessments/model-harness-research.md), which also covers OpenRouter with ZDR, EC2, and why Claude Code stays the harness.
 
-**Do not inventory local models with `ollama list`** (Greenthumb, 2026-09-12). With no server running, the CLI tries to start one, and on Scott's Mac that raised an Ollama.app "install command line tool" popup even though the CLI is already at `/opt/homebrew/bin/ollama`. A read-only inventory should read `~/.ollama/models/manifests` instead. The launchers are unaffected: none of them shells out to the `ollama` binary, and the preflight talks to the HTTP API through `curl` (verified 2026-09-13). Greenthumb also dropped model and harness research (Ollama local, OpenRouter ZDR, EC2) at `~/.agent-file-drop/agents/Dotfiles/inbox/20260912-model-harness-research.from-greenthumb.md`, which is **unread** and lives outside the repo, so read it before it is lost or treat it as gone.
+**This item owns model evaluation** (2026-10-20), including whether to keep the `glm-4.7-flash` pin. Measured 2026-09-10: hosted `z-ai/glm-5.3-flash` has a **1310720** window against the local 4.7-flash's 202752, at $0.07/$0.25 per Mtok, cheaper per output token than hosted 4.7-flash's $0.40. The local route's remaining case is that it is free and fully private, against a ~4 min cold start. Which model each folder uses is not this item: that is `pbay` config, layered global, then project, then a skill or agent's own `model:` tier.
+
+**Do not inventory local models with `ollama list`** (Greenthumb, 2026-09-12). With no server running, the CLI tries to start one, and on Scott's Mac that raised an Ollama.app "install command line tool" popup even though the CLI is already at `/opt/homebrew/bin/ollama`. A read-only inventory should read `~/.ollama/models/manifests` instead. The launchers are unaffected: none of them shells out to the `ollama` binary, and the preflight talks to the HTTP API through `curl` (verified 2026-09-13).
 
 One measurement already exists and should shape the rest: Gate A found `glm-4.7-flash` cold-starts in minutes, dominated by fixed cost rather than prompt size, against OpenRouter's roughly four seconds. Any evaluation that only scores output quality will miss the property that actually decides whether a local model gets used.
 

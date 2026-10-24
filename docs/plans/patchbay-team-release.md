@@ -15,28 +15,21 @@ When executing this plan:
    - `docs/plans/development-roadmap.md` - Mark progress, update status
 6. **Mark completion** - When all steps are done, move this item from "Next Immediate Step" to "Completed" in the roadmap
 
-**One constraint specific to this plan:** Steps 4 onward create and push a repo
-other people will read. Everything before Step 4 is reversible local editing;
-Step 4 is the first outward-facing action. Do not run it unattended.
+**One constraint specific to this plan:** inviting the team and pushing their README are outward-facing. Do not run them unattended.
 
 ---
 
-## Status: ON HOLD at Step 4 (2026-09-13)
+## Status: ON HOLD; outline only (re-cut 2026-10-20)
 
-Steps 1 through 3 are done and committed. **Step 4 onward is on hold by
-Scott's decision, with no reason given and no resume date.** Treat it as a
-hold, not a cancellation: T1 stands, Patchbay simply lives in dotfiles for
-now, and the Facet dev team release waits with it.
+Steps 1 through 3 are done and committed. The release itself is **on hold by Scott's decision (2026-09-13), with no reason recorded and no resume date.** It is a hold, not a cancellation: T1 stands.
 
-Step 4 was one command from running when the hold landed. Scott had already
-chosen **MIT** and **private** for the repo, so record those rather than
-re-deciding them later. The tree that Step 4 builds was assembled locally,
-verified (clean of personal strings, one commit of history, selftest green
-from a fresh clone outside dotfiles), then deleted unpushed. Nothing was
-created on GitHub. Rebuilding it costs minutes, so the hold costs nothing.
+**Re-cut on 2026-10-20.** Other roadmap items now own most of what Steps 4 through 8 used to do, so those steps are replaced by the outline below, and this plan gets a proper gameplan when the hold lifts. What moved:
 
-**Carry into any resume:** the plan says seven `bin/` scripts, and there are
-eight. `bin/claude-gemini` arrived on 2026-09-10, after the plan was written.
+- **Creating the repo** (old Step 4) is the roadmap's "Move Patchbay into its own repo": `facetdigital/patchbay`, MIT, private, fresh history, no team invited.
+- **The setup checker** (old Step 6) is `pbay doctor`, in the roadmap's `pbay` config item.
+- **Pointing dotfiles at the repo** (old Step 7) is part of the move.
+
+**A possible cause of the hold, for whoever asks Scott:** the same day, a Donna relay turned his remark that Patchbay "lives in dotfiles for now" into "Patchbay stays in this repo, not its own repo", against a Step 4 that was one command from running. Donna retracted it within the hour. The hold may have come from that misquote rather than from a decision about the team.
 
 ## Summary
 
@@ -83,8 +76,7 @@ Settled 2026-08-08 before planning. Steps cite these.
   paths, or name.
 - The failure message for a missing credential names the env var first.
 - The existing selftest passes for a user who is not Scott.
-- Scott's own workflow is unchanged: `claude-glm`, `claude-gpt`, and the
-  1Password path keep working exactly as they do today.
+- Scott's own workflow is unchanged: `agent`, `claude-run`'s routes, and the 1Password path keep working exactly as they do today.
 - Each dev can verify their own setup without asking Scott.
 
 ## Non-Goals
@@ -92,8 +84,7 @@ Settled 2026-08-08 before planning. Steps cite these.
 - Automatic failover when Claude is down. That is ordered fallback, which is
   the anti-pattern Servanda's capability floor exists to reject, and it is much
   harder to get right than it looks. Falling back stays a deliberate act.
-- The `pbay` front door. Still blocked on a second harness; see
-  [patchbay.md](../patchbay.md).
+- Building `pbay`. It has its own roadmap items; the release ships whatever exists when the hold lifts.
 - Extracting Servanda. Unchanged, still "someday".
 - Supporting devs outside Facet, or a public launch.
 
@@ -205,187 +196,14 @@ grep -rlE 'facetdigital|scottwb|op://Employee' bin/claude-* \
 
 ---
 
-### Step 4: Create the Patchbay repository
+## What remains: outline
 
-**First outward-facing step. Run it interactively.**
+Gameplan these when the hold lifts. They assume the repo move, `pbay` and `pbay doctor` have landed; if they have not, the gameplan decides whether to wait or release what exists.
 
-- [ ] Test-first: n/a for repo creation. The conformance check is Step 3's
-      guard, run against the new tree before the first push.
-- [ ] Create **`facetdigital/patchbay`** per T1. Owner is settled; do not
-      re-open it at execution time.
-- [ ] Create the repo with **fresh history** per T5. Copy the seven `bin/`
-      scripts; do not filter-export dotfiles history.
-- [ ] Add a license. Required before anyone else uses it. Because the repo is
-      Facet-owned per T1, this is a company choice rather than a personal one,
-      so confirm it rather than defaulting to whatever the last repo used.
-- [ ] Run Step 3's guard against the new tree **before the first push**, and
-      confirm `git log` contains only the new commits.
-- [ ] Verify green: the guard passes, and `bin/claude-route-selftest` passes
-      from a clone in a directory that is not Scott's dotfiles
-
-**Satisfies:** T1, T5.
-
-**File(s):** new repository
-
-**Test:**
-```bash
-cd /tmp && git clone <new-repo> patchbay-check && cd patchbay-check
-bin/claude-route-selftest
-grep -rlE 'facetdigital|scottwb|Scott' . && echo "FAIL: leak" || echo "PASS: clean"
-git log --oneline | wc -l   # expect a small number, not dotfiles history
-```
-
-**Commit message:** `Initial commit: Patchbay route launchers` (in the new repo)
-
----
-
-### Step 5: The team README
-
-Per T4, structured so the first screen is sufficient and everything else is
-below it.
-
-- [ ] Test-first: n/a, documentation. The proxy for correctness is Step 6's
-      checker plus a real dev completing setup unaided.
-- [ ] Write the quickstart: get an OpenRouter key, set one env var, run one
-      command. Must be complete on its own and must not mention 1Password,
-      Ollama, tiers, or Servanda.
-- [ ] Write the per-dev key walkthrough per T2, including **the per-key credit
-      limit and the gotcha that an account-level limit is not the same thing**.
-      Scott hit exactly this during Gate B: the key endpoint reports
-      `limit: null` when only the account is capped.
-- [ ] Document the rest below the fold: the Ollama half, `claude-ps`, the
-      model table and how to extend it, the dry-run and preflight modes, and
-      the no-`exec` constraint.
-- [ ] State the cost profile honestly: roughly $0.06 to $0.10 per turn, so a
-      dev knows what they are spending during an outage.
-- [ ] Verify green: a dev who reads only the quickstart can get a working
-      session
-
-**Satisfies:** T3, T4, T2.
-
-**File(s):** new repository `README.md`
-
-**Test:**
-```bash
-# The real test is a teammate. Proxy check: the quickstart is self-contained.
-sed -n '/## Quickstart/,/^## /p' README.md | grep -icE '1password|ollama|servanda|tier'
-# expect 0
-```
-
-**Commit message:** `Add the team README, quickstart first`
-
----
-
-### Step 6: A setup checker
-
-Per-dev keys (T2) mean each dev does the OpenRouter setup independently, so
-each one can get it wrong independently. This is the roadmap's queued doctor
-script, pulled forward because T2 makes it load-bearing rather than a nicety.
-
-- [ ] Write the failing test first: assert the checker exits non-zero and names
-      the fix when `OPENROUTER_API_KEY` is unset, and exits zero when a
-      credential resolves. Fails because the checker does not exist.
-- [ ] Implement the checker: credential present and resolving, the key's
-      **per-key** limit actually set (`limit` non-null on the key endpoint, per
-      T2), `claude` on `PATH`, and optionally Ollama reachable if the user cares.
-- [ ] Print what is missing plus the fix, in the same register as the existing
-      preflight messages.
-- [ ] Verify green: the checker's own assertions in the selftest
-
-**Satisfies:** T2. Absorbs the "bin/claude-route-doctor" roadmap item.
-
-**File(s):** new repository `bin/patchbay-doctor`, `bin/claude-route-selftest`
-
-**Test:**
-```bash
-bin/patchbay-doctor; echo "exit=$?"
-OPENROUTER_API_KEY= bin/patchbay-doctor; echo "exit=$? (expect non-zero)"
-bin/claude-route-selftest
-```
-
-**Commit message:** `Add patchbay-doctor: verify a dev's setup without asking Scott`
-
----
-
-### Step 7: Point dotfiles at the new repo
-
-Patchbay now lives in two places. Resolve it before they drift.
-
-- [ ] Test-first: n/a, install wiring. Verified by the launchers still
-      resolving after the change.
-- [ ] Decide and record the relationship: the new repo is the source of truth,
-      and dotfiles consumes it. Recommend a sibling clone plus symlinks, in
-      keeping with how dotfiles already installs `bin/`, rather than a submodule.
-- [ ] Remove the Patchbay scripts from `dotfiles/bin/`, or replace them with
-      links, so there is exactly one copy to edit.
-- [ ] Update the dotfiles `README.md` install section: Patchbay is now an
-      optional companion, with the clone step alongside the existing
-      `dotfiles-private` step it resembles.
-- [ ] Verify green: `claude-gpt` and `claude-glm` still work from a shell after
-      a fresh install, and `claude-ps` still reports routes
-
-**Satisfies:** T1, and the "install process offers optional components" idea
-that prompted this work.
-
-**File(s):** `README.md`, `bin/` (removals or links)
-
-**Test:**
-```bash
-command -v claude-gpt claude-glm claude-ps
-CLAUDE_ROUTE_DRYRUN=1 claude-gpt | grep -E '^  (provider|model) '
-bin/claude-ps | head -3
-```
-
-**Commit message:** `Consume Patchbay from its own repo instead of vendoring it`
-
----
-
-### Step 8: Correct the docs this work invalidates
-
-- [ ] Test-first: n/a, documentation.
-- [ ] Fix `docs/patchbay.md`'s ccr advice. It currently says "if you are not
-      running Servanda-style gates, use ccr," which is **wrong for this
-      audience**: ccr is a proxy daemon, and telling a dev to install Node and
-      run a background service during an outage is backwards. The no-daemon
-      property is the real advantage for outage fallback. Say so, and keep the
-      original advice scoped to the case it was right about.
-- [ ] Amend the global `CLAUDE.md` secrets convention per T7: hardcoded
-      `op://` refs remain correct for personal tooling, and are wrong for
-      anything shared, where resolution order beats a baked-in path. Name the
-      premise that changed rather than deleting the rule.
-- [ ] Update `docs/patchbay.md`'s status line: shipped to the Facet team, own
-      repo, with a link.
-- [ ] Verify green: the ccr section no longer recommends ccr unconditionally
-      for non-Servanda users
-
-**Satisfies:** T7. Closes the correction identified on 2026-08-08.
-
-**File(s):** `docs/patchbay.md`, `.claude/CLAUDE.md`
-
-**Test:**
-```bash
-grep -A3 'not running Servanda' docs/patchbay.md
-grep -i 'shared' .claude/CLAUDE.md | grep -i 'op://'
-```
-
-**Commit message:** `Correct the ccr guidance for outage fallback and scope the secrets convention`
-
----
-
-## Files Modified (Summary)
-
-| File | Steps |
-|------|-------|
-| `bin/claude-run` | 1, 2 |
-| `bin/claude-route-selftest` | 1, 2, 3, 6 |
-| new repo (all `bin/` scripts) | 4 |
-| new repo `README.md` | 5 |
-| new repo `bin/patchbay-doctor` | 6 |
-| `README.md` (dotfiles) | 7 |
-| `bin/` (removals or links) | 7 |
-| `docs/patchbay.md` | 8 |
-| `.claude/CLAUDE.md` | 8 |
-| `docs/plans/development-roadmap.md` | on completion |
+1. **Team README in `facetdigital/patchbay`** (T2, T3, T4). A quickstart that is complete on its own: get an OpenRouter key, set one environment variable, run one command, with no mention of 1Password, Ollama, tiers or Servanda. Below it, the per-dev key walkthrough, including the gotcha that an account-level credit limit is not a per-key limit (the key endpoint reports `limit: null` when only the account is capped; Scott hit this in Gate B). Then the full reference, and an honest cost profile (about $0.06 to $0.10 per turn).
+2. **Correct the ccr advice in `docs/patchbay.md`.** "If you are not running Servanda-style gates, use ccr" is wrong for outage fallback: ccr is a proxy daemon, and installing Node and running a background service during an outage is backwards. Keep the advice scoped to the case it was right about.
+3. **Scope the global secrets convention (T7).** Hardcoded `op://` references stay right for personal tooling and are wrong for anything shared, where a resolution order beats a baked-in path. Name the premise that changed rather than deleting the rule. `pbay`'s provider design (credentials only in `~/.pbay/`, never in a committed config) may already cover most of this.
+4. **Invite the Facet dev team** to the repo, and update `docs/patchbay.md`'s status line.
 
 ## Open Question Carried Forward
 

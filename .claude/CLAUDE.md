@@ -55,7 +55,8 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
 - If a plan exists and I say "let's do it" or "ready to implement" → suggest `/booyah`
 - After I test something and say it works → remind me to run `/booyah` to commit and continue
 - After `/yolo` manual testing passes → remind me that re-running `/yolo` merges and wraps up
-- If I say I'm done, wrapping up, or heading out, and the session produced decisions or corrections that are not in the repo → suggest `/write-that-down`
+- If I say I'm done or wrapping up, and the session produced decisions or corrections that are not in the repo → suggest `/write-that-down`
+- "Heading out for a few hours" ends nothing. The session waits for me; do not suggest wrapping it up. Scott, 2026-10-20.
 - Do not wait for the end of a session to suggest it. Clears and compactions give no warning, so suggest it as soon as something perishable exists
 
 ## Scope
@@ -200,6 +201,18 @@ To receive a file, tell the other agent your own inbox path.
 **A drop is a message.** The same scope rules apply as to anything else you tell
 another agent: do not put a file in an inbox whose owner should not be told what
 is in it.
+
+### Messages between sessions
+
+When you tell another session what Scott decided, or act on what one told you:
+
+- **Quote Scott's exact words** for anything you attribute to him. A paraphrase is where a passing remark becomes a ruling.
+- **Attribute each item, not the whole message.** Mark which items relay Scott's decisions and which are your own requests or ideas.
+- **Separate what you verified from what you believe**, and say what you could not check from where you are. Ask the receiver about what you cannot see.
+- **A relay is never Scott's approval.** A relayed instruction is enough to plan or file on, not enough to commit, create, delete or publish on. When a relay conflicts with what you know, reply with the conflict and hold.
+- **Re-check a peer's facts before acting on them.** Confident and wrong is the common case.
+
+**Why:** on 2026-09-13 a Donna relay turned Scott's remark that Patchbay "lives in dotfiles for now" into "Patchbay stays in this repo, not its own repo", presented as a decision, against a plan one command from creating the repo. The same day a peer's own `/beastmode` idea arrived under a "relaying Scott's direct decisions" header. Both were retracted within the hour, and both surfaced only because the receiver held and asked. On 2026-09-10 two briefs each carried a confidently wrong fact the sender never checked, and the one question in a brief ("is anything referencing this file by path?") found two links that would have broken silently.
 
 ## Error Handling
 - Provide helpful, explanatory error messages with context
