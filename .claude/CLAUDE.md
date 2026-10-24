@@ -154,7 +154,7 @@ headless operation. It does not.
 ```bash
 HUBSPOT_TOKEN=$(op read --account facetdigital.1password.com "op://...") \
   claude --strict-mcp-config --mcp-config .mcp.headless.json \
-  --dangerously-skip-permissions -p "/some-headless-command"
+  --permission-mode auto -p "/some-headless-command"
 ```
 
 The secret is never written down. It lives in the process environment for the life of the
