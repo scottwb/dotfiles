@@ -411,91 +411,6 @@ else
   ok "claude-run never reads a .env file"
 fi
 
-# ---------------------------------------------------------------- wrappers
-
-section "Thin wrappers (D9)"
-
-for wrapper in claude-glm claude-ollama; do
-  W="$SCRIPT_DIR/$wrapper"
-  if [ ! -x "$W" ]; then
-    bad "[$wrapper] exists and is executable" "missing or not executable: $W"
-    continue
-  fi
-  ok "[$wrapper] exists and is executable"
-
-  w_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" 2>&1)"
-  w_rc=$?
-  assert_exit     "[$wrapper] dry run exits 0"       "0" "$w_rc"
-  assert_contains "[$wrapper] resolves to ollama"    "$w_out" "ollama"
-  assert_contains "[$wrapper] resolves the model"    "$w_out" "glm-4.7-flash"
-  assert_contains "[$wrapper] carries the context"   "$w_out" "202752"
-
-  # D6 again: an exec in a wrapper erases the ancestor just as effectively as
-  # one in the workhorse, and the failure is silent.
-  if grep -nE '^[[:space:]]*exec[[:space:]]' "$W" >/dev/null 2>&1; then
-    bad "[$wrapper] contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$W")"
-  else
-    ok "[$wrapper] contains no 'exec'"
-  fi
-
-  # Wrappers must forward arguments through to claude, or `claude-glm -p "..."`
-  # silently drops the prompt.
-  fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
-  assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
-done
-
-for wrapper in claude-gpt claude-openrouter; do
-  W="$SCRIPT_DIR/$wrapper"
-  if [ ! -x "$W" ]; then
-    bad "[$wrapper] exists and is executable" "missing or not executable: $W"
-    continue
-  fi
-  ok "[$wrapper] exists and is executable"
-
-  w_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" 2>&1)"
-  w_rc=$?
-  assert_exit     "[$wrapper] dry run exits 0"        "0" "$w_rc"
-  assert_contains "[$wrapper] resolves to openrouter" "$w_out" "openrouter"
-  assert_contains "[$wrapper] resolves the model"     "$w_out" "openai/gpt-5.6-sol"
-  assert_contains "[$wrapper] carries the context"    "$w_out" "1050000"
-  assert_not_contains "[$wrapper] leaks no secret"    "$w_out" "sk-or-"
-
-  if grep -nE '^[[:space:]]*exec[[:space:]]' "$W" >/dev/null 2>&1; then
-    bad "[$wrapper] contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$W")"
-  else
-    ok "[$wrapper] contains no 'exec'"
-  fi
-
-  fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
-  assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
-done
-
-for wrapper in claude-gemini; do
-  W="$SCRIPT_DIR/$wrapper"
-  if [ ! -x "$W" ]; then
-    bad "[$wrapper] exists and is executable" "missing or not executable: $W"
-    continue
-  fi
-  ok "[$wrapper] exists and is executable"
-
-  w_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" 2>&1)"
-  w_rc=$?
-  assert_exit     "[$wrapper] dry run exits 0"        "0" "$w_rc"
-  assert_contains "[$wrapper] resolves to openrouter" "$w_out" "openrouter"
-  assert_contains "[$wrapper] resolves the model"     "$w_out" "google/gemini-3.8-flash"
-  assert_contains "[$wrapper] carries the context"    "$w_out" "1048576"
-  assert_not_contains "[$wrapper] leaks no secret"    "$w_out" "sk-or-"
-
-  if grep -nE '^[[:space:]]*exec[[:space:]]' "$W" >/dev/null 2>&1; then
-    bad "[$wrapper] contains no 'exec'" "$(grep -nE '^[[:space:]]*exec[[:space:]]' "$W")"
-  else
-    ok "[$wrapper] contains no 'exec'"
-  fi
-
-  fwd_out="$(CLAUDE_ROUTE_DRYRUN=1 "$W" --sentinel-arg 2>&1)"
-  assert_contains "[$wrapper] forwards arguments" "$fwd_out" "--sentinel-arg"
-done
-
 # ---------------------------------------------------------------- arbitrary models
 #
 # Aliases are shorthand, not the only way to reach a model. --provider/--model
@@ -670,43 +585,47 @@ rm -rf "$ARGV_STUB_DIR"
 # ---------------------------------------------------------------- launcher/ps sync
 #
 # claude-ps filters the launcher processes out of its listing with a hardcoded
-# alternation of script names. That list and claude-run's KNOWN_ALIASES are two
-# copies of the same fact, and nothing forced them to agree: adding the `gemini`
-# alias left claude-ps's filter untouched, so a `claude-gemini` session reported
-# as two rows, the wrapper and the session itself.
+# alternation of script names. Nothing forces that list to agree with what is
+# in bin/, and it drifted once: adding the `gemini` launcher on 2026-09-10 left
+# claude-ps's filter untouched, so its sessions reported as two rows.
 #
-# Static rather than behavioural on purpose. The behaviour would need a launched
-# session per alias, while the defect is pure drift between two lists, so
-# comparing the lists catches it at the source and costs nothing.
+# The expected list is derived from disk rather than written down a second
+# time: every bin/claude-* file other than claude-ps must appear in the filter.
+# Static rather than behavioural on purpose. The behaviour would need a launch
+# per script, while the defect is pure drift between a list and the files, so
+# comparing them catches it at the source and costs nothing.
 
 section "claude-ps knows every launcher (drift guard)"
 
 ps_filter="$(grep -oE "claude-\\([a-z|-]+\\)" "$SCRIPT_DIR/claude-ps" | head -1)"
-known_aliases="$(grep -oE 'KNOWN_ALIASES="[^"]*"' "$CLAUDE_RUN" | head -1 | cut -d'"' -f2)"
 
 if [ -z "$ps_filter" ]; then
   bad "claude-ps has a launcher exclusion list" "no 'claude-(...)' alternation found"
-elif [ -z "$known_aliases" ]; then
-  bad "claude-run declares KNOWN_ALIASES" "could not parse KNOWN_ALIASES from $CLAUDE_RUN"
 else
   ok "claude-ps has a launcher exclusion list"
 
-  # Guard the guard. If either extraction ever goes empty or the alias list
-  # stops containing what we know is in it, the loop below would pass by
-  # doing nothing at all, which is the failure mode this whole section exists
-  # to prevent elsewhere.
-  case " $known_aliases " in
-    *" glm "*) ok "alias extraction returned a usable list" ;;
-    *) bad "alias extraction returned a usable list" "got: '$known_aliases'" ;;
+  launchers=""
+  for f in "$SCRIPT_DIR"/claude-*; do
+    [ -f "$f" ] || continue
+    name="${f##*/claude-}"
+    [ "$name" = "ps" ] && continue
+    launchers="$launchers $name"
+  done
+
+  # Guard the guard. If the glob ever matches nothing, the loop below passes
+  # by doing nothing at all, which is the failure this section exists to catch.
+  case " $launchers " in
+    *" run "*) ok "the bin/claude-* glob found the launchers" ;;
+    *) bad "the bin/claude-* glob found the launchers" "got: '$launchers'" ;;
   esac
 
-  for a in $known_aliases; do
+  for l in $launchers; do
     case "$ps_filter" in
-      *"($a|"*|*"|$a|"*|*"|$a)"*)
-        ok "claude-ps excludes the '$a' launcher" ;;
+      *"($l|"*|*"|$l|"*|*"|$l)"*|*"($l)"*)
+        ok "claude-ps excludes bin/claude-$l" ;;
       *)
-        bad "claude-ps excludes the '$a' launcher" \
-          "'$a' is a claude-run alias but is missing from claude-ps's filter: $ps_filter" ;;
+        bad "claude-ps excludes bin/claude-$l" \
+          "bin/claude-$l exists but is missing from claude-ps's filter: $ps_filter" ;;
     esac
   done
 fi
@@ -749,7 +668,7 @@ else
   # Count routed rows BEFORE launching anything.
   #
   # Assertions here are relative to this baseline, never absolute. You may
-  # legitimately have a real claude-gpt session open while the suite runs, and
+  # legitimately have a real `claude-run gpt` session open while the suite runs, and
   # an absolute count ("exactly one ollama row") fails in that case for no good
   # reason. Learned the hard way on 2026-08-01, when a live routed session made
   # two assertions fail against correct code.
@@ -769,10 +688,10 @@ STUB
   chmod +x "$STUB_DIR/claude"
 
   ANTHROPIC_AUTH_TOKEN="selftest-placeholder-not-a-real-key" \
-    PATH="$STUB_DIR:$PATH" "$SCRIPT_DIR/claude-gpt" >/dev/null 2>&1 &
+    PATH="$STUB_DIR:$PATH" "$CLAUDE_RUN" gpt >/dev/null 2>&1 &
   STUB_LAUNCHER_PID=$!
 
-  # Give the chain time to establish: wrapper -> claude-run -> stub.
+  # Give the chain time to establish: claude-run -> stub.
   sleep 2
 
   wc_out="$("$CLAUDE_PS" -n 2>&1)"
@@ -786,8 +705,8 @@ STUB
 
   # The launcher processes must not be listed as sessions.
   #
-  # claude-run and every wrapper have "claude" in their command line, so the
-  # process filter picks them up and one launch reports as three or four rows.
+  # claude-run has "claude" in its command line, so the process filter picks
+  # it up unless excluded, and one launch reports as two rows.
   # Introduced by this launcher family: before it existed, nothing in bin/
   # matched. Caught by the PROVIDER column making the duplicates obvious.
   routed_rows="$(printf '%s' "$wc_out" | grep -c 'openai/gpt-5.6-sol' || true)"
@@ -799,7 +718,6 @@ STUB
       "expected $expected_rows (baseline $baseline_rows + 1), got $routed_rows; launcher processes may be counted as sessions"
   fi
   assert_not_contains "claude-run is not listed as a session" "$wc_out" "claude-run "
-  assert_not_contains "wrappers are not listed as sessions"   "$wc_out" "claude-gpt "
 
   # A session with no launcher ancestor is reported as Anthropic. Strictly an
   # inference from absence (a process's environment is not readable on macOS),
@@ -924,9 +842,9 @@ fi
 # convenient (a vault path, an account, a name) would reintroduce the exact
 # problem the team release removed, silently, so this makes it loud.
 #
-# Globbed, not enumerated. The launcher list drifted once already: claude-gemini
-# was added on 2026-09-10 and an enumerated check would have quietly stopped
-# covering it. A guard that can be outgrown by adding a file is not one.
+# Globbed, not enumerated. The launcher list drifted once already: a gemini
+# launcher was added on 2026-09-10 and an enumerated check would have quietly
+# stopped covering it. A guard that can be outgrown by adding a file is not one.
 #
 # The pattern is assembled from split literals so this file does not trip its
 # own check. The planted-string assertion below proves the split still matches.

@@ -32,8 +32,8 @@
 #
 set -euo pipefail
 
-# How many ancestor levels to walk looking for a route launcher. Three covers
-# the deepest real chain (wrapper -> claude-run -> claude) with a level spare.
+# How many ancestor levels to walk looking for a route launcher. The real
+# chain is claude-run -> claude; three leaves room for a shell in between.
 readonly ROUTE_ANCESTRY_DEPTH=3
 
 # How many ancestor levels to walk looking for a parent claude session, for
@@ -334,18 +334,13 @@ detect_route() {
     [ $((i++)) -ge "$ROUTE_ANCESTRY_DEPTH" ] && break
     acmd="${line#*"$SEP"}"
 
-    # Named wrappers carry their alias implicitly; claude-run carries the route
-    # in its own leading arguments, as an alias, as flags, or both.
+    # claude-run is the only launcher. It carries the route in its own leading
+    # arguments, as an alias, as flags, or both.
     case "$acmd" in
       *claude-run*)
         route_args_from_cmd "$acmd"
         [ "${#ROUTE_ARGS[@]}" -gt 0 ] && { resolve_route; return 0; }
         ;;
-      *claude-gemini*)     ROUTE_ARGS=(gemini); ROUTE_POSITIONAL=gemini; resolve_route; return 0 ;;
-      *claude-glm*)        ROUTE_ARGS=(glm); ROUTE_POSITIONAL=glm; resolve_route; return 0 ;;
-      *claude-gpt*)        ROUTE_ARGS=(gpt); ROUTE_POSITIONAL=gpt; resolve_route; return 0 ;;
-      *claude-ollama*)     ROUTE_ARGS=(glm); ROUTE_POSITIONAL=glm; resolve_route; return 0 ;;
-      *claude-openrouter*) ROUTE_ARGS=(gpt); ROUTE_POSITIONAL=gpt; resolve_route; return 0 ;;
     esac
   done <<< "$ancestry"
 
@@ -530,11 +525,11 @@ done < <(ps aux | grep -E '[c]laude' \
   | grep -v 'Claude Renderer' \
   | grep -v 'claude-ps' \
   | grep -v 'shell-snapshots' \
-  | grep -vE 'claude-(run|glm|gpt|gemini|ollama|openrouter|route-selftest)')
-  # ^ The route launchers themselves. Every one has "claude" in its command
-  #   line, so without this a single `claude-glm` reports as three or four
-  #   rows: the wrapper, claude-run, and the session it started. They are the
-  #   scaffolding around a session, not sessions.
+  | grep -vE 'claude-(run|route-selftest)')
+  # ^ The route launcher and its selftest. Both have "claude" in their command
+  #   line, so without this a single `claude-run gpt` reports as two rows:
+  #   claude-run and the session it started. They are the scaffolding around a
+  #   session, not sessions.
   #
   #   This exclusion is why the launchers must not be renamed casually, and it
   #   is deliberately narrow: `claude-code-router` is NOT excluded, because it

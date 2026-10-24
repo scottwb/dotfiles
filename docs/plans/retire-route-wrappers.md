@@ -147,19 +147,19 @@ CLAUDE_ROUTE_CACHE_DIR="$(mktemp -d)" bin/claude-ps -n
 
 ### Step 2: Delete the wrappers and everything in `bin/` that names them
 
-- [ ] Write the failing check first: `grep -rnE 'claude-(gpt|glm|gemini|ollama|openrouter)\b' bin/`
+- [x] Write the failing check first: `grep -rnE 'claude-(gpt|glm|gemini|ollama|openrouter)\b' bin/`
       must print nothing. FAILS today: the five wrappers, `claude-ps`'s filter
       and detection cases, `claude-run`'s header comment, and the selftest's
       wrapper section all match.
-- [ ] Implement: `git rm` the five wrappers (R1).
-- [ ] Implement: in `bin/claude-ps`, delete the five wrapper cases from
+- [x] Implement: `git rm` the five wrappers (R1).
+- [x] Implement: in `bin/claude-ps`, delete the five wrapper cases from
       `detect_route`, and shrink the process filter to
       `claude-(run|route-selftest)`. Update the comment beneath it, which says
       a single `claude-glm` reports as three or four rows.
-- [ ] Implement: in `bin/claude-run`, rewrite the header comment (lines 5 to 7)
+- [x] Implement: in `bin/claude-run`, rewrite the header comment (lines 5 to 7)
       so it no longer says the wrappers exist. The usage text already teaches
       `claude-run <alias>` and needs nothing.
-- [ ] Implement: in `bin/claude-route-selftest`:
+- [x] Implement: in `bin/claude-route-selftest`:
   - Delete the "Thin wrappers (D9)" section. Its alias-resolution, no-exec and
     argument-forwarding checks are already covered against `claude-run`
     directly, by the per-alias dry runs at the top, the D6 no-exec check, and
@@ -172,7 +172,7 @@ CLAUDE_ROUTE_CACHE_DIR="$(mktemp -d)" bin/claude-ps -n
     process names. Derive the expected list from disk instead: every
     `bin/claude-*` file other than `claude-ps` must appear in the filter.
     Keep the "guard the guard" check that the glob matched something.
-- [ ] Verify green: the grep above prints nothing, and
+- [x] Verify green: the grep above prints nothing, and
       `bin/claude-route-selftest` passes. Note the new assertion count for
       Step 3.
 
