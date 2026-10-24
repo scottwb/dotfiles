@@ -36,7 +36,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Plan:** [retire-route-wrappers.md](retire-route-wrappers.md)
 
-**Status:** In progress on `feature/retire-route-wrappers`. Steps 1 and 2 done.
+**Status:** All three steps done on `feature/retire-route-wrappers`; awaiting manual testing and merge.
 
 ---
 

@@ -195,9 +195,9 @@ CLAUDE_ROUTE_DRYRUN=1 claude-run gpt     # the replacement for every old wrapper
 
 ### Step 3: Correct the docs that name the wrappers
 
-- [ ] Test-first: n/a, documentation. The proxy check is the grep below,
+- [x] Test-first: n/a, documentation. The proxy check is the grep below,
       which FAILS today across all six files.
-- [ ] `README.md` launcher section: turn the table's Command column into
+- [x] `README.md` launcher section: turn the table's Command column into
       `claude-run glm` / `claude-run gpt` / `claude-run gemini` and drop the
       `claude-ollama` and `claude-openrouter` rows. Delete "All five are
       three-line wrappers". Change "the models worth a wrapper" to "the models
@@ -205,27 +205,34 @@ CLAUDE_ROUTE_DRYRUN=1 claude-run gpt     # the replacement for every old wrapper
       `CLAUDE_ROUTE_DRYRUN=1 claude-run gpt` and
       `CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-run glm`, and update the assertion
       count to Step 2's number.
-- [ ] `.claude/CLAUDE.md`, the "routed session" sentence under Development
+- [x] `.claude/CLAUDE.md`, the "routed session" sentence under Development
       Workflow Commands: replace "`claude-glm`, `claude-gpt`, or anything else
       via `bin/claude-run`" with "any `bin/claude-run` launch". This is the
       global instructions file, so it binds in new sessions only.
-- [ ] `.claude/COMMANDS.md` line 28: the per-process launchers are
+- [x] `.claude/COMMANDS.md` line 28: the per-process launchers are
       `bin/claude-run <alias>`, not named wrappers.
-- [ ] `.claude/settings.json` `x-instructions`: same correction to the
+- [x] `.claude/settings.json` `x-instructions`: same correction to the
       parenthetical that lists the four wrappers. Prose inside a JSON string
       only; no live setting changes. Validate with `jq`.
-- [ ] `docs/patchbay.md`: trim "What exists today" to `claude-run`,
+- [x] `docs/patchbay.md`: trim "What exists today" to `claude-run`,
       `claude-ps`, `claude-route-selftest` (with the new count). Change the
       `pbay run claude glm` comment to "what `claude-run glm` does today". In
       "Wrappers do not scale", record that the wrappers were retired on
       2026-10-17, so the paragraph argues against a shape that no longer
       exists.
-- [ ] `docs/plans/patchbay-team-release.md`: the hold note's "Carry into any
+      **As done (2026-10-24):** the 2026-10-19 rewrite had already removed the
+      `pbay run claude glm` comment and the "Wrappers do not scale" section,
+      so the trim was the whole change, plus dropping "retire the route
+      wrappers" from the `pbay` build order.
+- [x] `docs/plans/patchbay-team-release.md`: the hold note's "Carry into any
       resume" and Step 4's "Copy the seven `bin/` scripts" both become three
       scripts (`claude-run`, `claude-ps`, `claude-route-selftest`). Step 7's
       verify line becomes `claude-run gpt` and `claude-run glm`. Leave the
       completed Steps 1 to 3 as written (R7).
-- [ ] Verify green: the grep finds the wrapper names only in historical files.
+      **As done (2026-10-24): no change.** The plan's 2026-10-20 re-cut had
+      already replaced the hold note and Steps 4 to 8 with an outline that
+      names no wrapper, so only the completed Steps 1 to 3 still do.
+- [x] Verify green: the grep finds the wrapper names only in historical files.
 
 **Satisfies:** R6, R7.
 

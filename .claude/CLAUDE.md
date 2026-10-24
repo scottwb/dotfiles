@@ -47,7 +47,7 @@ Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`).
 
 Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, Argus, and which skill lives where): `~/.claude/private/docs/org-chart.md`. Same rule; read it on demand, do not preload.
 
-**Under a routed session (`claude-glm`, `claude-gpt`, or anything else via `bin/claude-run`), phase gates and security passes HALT.** The audit tier is left unmapped on purpose so a gate stops rather than quietly auditing on a weak model. That is correct behavior, not a misconfiguration: run gates on a plain Anthropic session. Plain `claude` is unaffected by the launchers in every other respect.
+**Under a routed session (any `bin/claude-run` launch), phase gates and security passes HALT.** The audit tier is left unmapped on purpose so a gate stops rather than quietly auditing on a weak model. That is correct behavior, not a misconfiguration: run gates on a plain Anthropic session. Plain `claude` is unaffected by the launchers in every other respect.
 
 ### Proactive Suggestions
 - If I mention wanting to start something new → suggest `/roadmap`
