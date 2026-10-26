@@ -151,7 +151,7 @@ claude   (later: codex, aider, opencode, ...)
 - **An unsupported standard flag is an error,** never silently dropped (codex has no `--remote-control`). The same rule `claude-run` already applies to flags it cannot honour.
 - **Native flags pass after `--`, untranslated,** so a harness feature is usable before it has a standard flag.
 - **One conformance suite for every runner:** the same standard args in dry-run mode, and where possible the native command handed to the harness's own argument parser. `claude-run`'s `CLAUDE_ROUTE_DRYRUN=1` becomes the standard `--dry-run`.
-- **`/shift-change`'s relaunch loop lives in the Claude runner,** because it depends on how Claude exits. The agent cannot type `/exit`, so the commands end the session with a signal: `/end-session` sends SIGTERM (exit 143) and the loop stops; `/shift-change` sends SIGHUP (exit 129) and the loop starts a fresh session with the same name, route, model and flags, minus any resume flag. If Claude Code ever exits the same way for both, a mode file keyed to the launcher's PID tells them apart.
+- **`/shift-change`'s relaunch loop lives in the Claude runner,** because it depends on how Claude exits. The agent cannot type `/exit`, so the commands end the session with a signal: `/end-session` sends SIGTERM (exit 143) through `bin/claude-end-session` and the loop stops; `/shift-change` sends SIGHUP (exit 129) and the loop starts a fresh session with the same name, route, model and flags, minus any resume flag. If Claude Code ever exits the same way for both, a mode file keyed to the launcher's PID tells them apart.
 
 #### Runner names: decided, deferred
 

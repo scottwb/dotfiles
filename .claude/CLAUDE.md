@@ -42,6 +42,7 @@ I have custom slash commands for a structured development workflow:
 | `/beastmode` | To chew through the whole roadmap unattended with review loops and phase gates |
 | `/phasegate` | After a phase's features are merged, to audit that the phase delivered its promises |
 | `/write-that-down` | Any time a session is holding knowledge the repo does not have; sweeps it in and commits it |
+| `/end-session` | When I am done with a session; runs `/write-that-down`, then exits Claude only if the sweep recorded everything |
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
@@ -55,9 +56,9 @@ Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, 
 - If a plan exists and I say "let's do it" or "ready to implement" → suggest `/booyah`
 - After I test something and say it works → remind me to run `/booyah` to commit and continue
 - After `/yolo` manual testing passes → remind me that re-running `/yolo` merges and wraps up
-- If I say I'm done or wrapping up, and the session produced decisions or corrections that are not in the repo → suggest `/write-that-down`
+- If I say "exit the session" or "I'm done with this session" → run `/end-session`. A phrase that only implies it ("I think we're done", "wrapping up") gets a one-line "Run /end-session?" first.
 - "Heading out for a few hours" ends nothing. The session waits for me; do not suggest wrapping it up. Scott, 2026-10-20.
-- Do not wait for the end of a session to suggest it. Clears and compactions give no warning, so suggest it as soon as something perishable exists
+- Do not wait for the end of a session to suggest `/write-that-down`. Clears and compactions give no warning, so suggest it as soon as something perishable exists. "Record what we learned" or "write that down" runs it.
 
 ## Scope
 - Make minimal, targeted changes; don't touch unrelated code

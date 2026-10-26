@@ -130,12 +130,12 @@ git log --oneline          # expect only "init": nothing to record, no commit
 
 ### Step 4: Docs and trigger phrases
 
-- [ ] Test-first: n/a (pure docs)
-- [ ] `.claude/CLAUDE.md`: add an `/end-session` row to the Development Workflow Commands table.
-- [ ] `.claude/CLAUDE.md` Proactive Suggestions: replace the "done or wrapping up → suggest `/write-that-down`" bullet with the roadmap's rule. "Exit the session" or "I'm done with this session" runs `/end-session`; a phrase that only implies it ("I think we're done", "wrapping up") gets a one-line "Run /end-session?" first. Keep the "heading out" bullet as is.
-- [ ] `.claude/docs/servanda.md`: after the `/write-that-down` paragraphs, a short paragraph: `/end-session` is that sweep plus an exit, not a rung either, and why the exit is a helper rather than a `!` line.
-- [ ] `docs/patchbay.md` line 154: say that `/end-session` sends SIGTERM through `claude-end-session`. Rewrite the line in place.
-- [ ] Check `README.md` and `.claude/README.md` for command lists that should name it. Neither lists `/write-that-down` today, so likely no change.
+- [x] Test-first: n/a (pure docs)
+- [x] `.claude/CLAUDE.md`: add an `/end-session` row to the Development Workflow Commands table.
+- [x] `.claude/CLAUDE.md` Proactive Suggestions: replace the "done or wrapping up → suggest `/write-that-down`" bullet with the roadmap's rule. "Exit the session" or "I'm done with this session" runs `/end-session`; a phrase that only implies it ("I think we're done", "wrapping up") gets a one-line "Run /end-session?" first. Keep the "heading out" bullet as is.
+- [x] `.claude/docs/servanda.md`: after the `/write-that-down` paragraphs, a short paragraph: `/end-session` is that sweep plus an exit, not a rung either, and why the exit is a helper rather than a `!` line.
+- [x] `docs/patchbay.md` line 154: say that `/end-session` sends SIGTERM through `claude-end-session`. Rewrite the line in place.
+- [x] Check `README.md` and `.claude/README.md` for command lists that should name it. Neither lists `/write-that-down` today, so likely no change.
 
 **Satisfies:** R7; roadmap "When the command ships, add its trigger lines to the Proactive Suggestions"
 
