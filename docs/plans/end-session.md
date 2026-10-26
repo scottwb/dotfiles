@@ -26,7 +26,7 @@ When executing this plan:
 
 **Why a `bin/` helper and not a `!` line.** The roadmap first proposed ending the command file with `` !`kill -TERM $PPID` ``. Claude Code runs every `!` line in a command file when it expands the command, before the model reads the prompt, wherever the line sits in the file. The session would exit before `/write-that-down` started. panozzaj's `/reload` gets away with it only because the kill is the whole command. So the last step is the model running one fixed command, `claude-end-session`, which finds the session's `claude` process and sends it SIGTERM. (Scott chose this over an inner `!`-only command and an armed watcher, 2026-10-25.)
 
-Verified 2026-10-25 on Claude Code 2.1.310: from the Bash tool, the process tree is `zsh` → `claude` → `zsh` → `tmux`, so `$PPID` is the `claude` process, and `~/bin` (the dotfiles `bin/`) is on PATH. The binary's command name is exactly `claude` (`~/.local/bin/claude` is a symlink to the versioned Mach-O, no wrapper script). SIGTERM is a clean exit: an interactive session started with `--remote-control` exits 143, its transcript keeps the final answer and then gets Claude's shutdown entries (`last-prompt`, `cost-state`), and the session drops off the phone's Remote Control list with no dead entry. A headless `claude -p` killed mid-answer also exits 143 and still writes its shutdown entries.
+Verified 2026-10-25 on Claude Code 2.1.310: from the Bash tool, the process tree is `zsh` → `claude` → `zsh` → `tmux`, so `$PPID` is the `claude` process, and `~/bin` (the dotfiles `bin/`) is on PATH. The binary's command name is exactly `claude` (`~/.local/bin/claude` is a symlink to the versioned Mach-O, no wrapper script). SIGTERM is a clean exit: an interactive session started with `--remote-control` exits 143, its transcript keeps the final answer and then gets Claude's shutdown entries (`last-prompt`, `cost-state`), and the session drops off the phone's Remote Control list with no dead entry. A headless `claude -p` killed mid-answer also exits 143 and still writes its shutdown entries. R4 (the closing record printed before the exit) can only be checked interactively: in three headless `claude -p "/end-session"` runs the model went straight from the leftovers check to `claude-end-session` without printing it, whatever the wording, while an interactive run in a detached tmux pane printed it (paraphrased, not in the exact `Left behind:` / `Ending session.` lines). Headless output only appears when the run ends, so a closing record would never show there anyway.
 
 ## Requirements
 
@@ -103,15 +103,15 @@ claude-end-session --help
 
 ### Step 3: The `/end-session` command
 
-- [ ] Write the failing test first: the headless e2e below, in a throwaway git repo with nothing to record. Before the command exists, `claude -p "/end-session"` exits 0 (unknown command), so the test fails. After, it should exit with the SIGTERM code from Step 1. The headless `claude` is the nearest `claude` ancestor of its own Bash tool, so this cannot signal the session running the test.
-- [ ] Implement `.claude/commands/end-session.md`:
+- [x] Write the failing test first: the headless e2e below, in a throwaway git repo with nothing to record. Before the command exists, `claude -p "/end-session"` exits 0 (unknown command), so the test fails. After, it should exit with the SIGTERM code from Step 1. The headless `claude` is the nearest `claude` ancestor of its own Bash tool, so this cannot signal the session running the test.
+- [x] Implement `.claude/commands/end-session.md`:
   - frontmatter `description` and `allowed-tools` (`Skill`, `Bash`, plus what `/write-that-down` needs)
   - run `/write-that-down` with `$ARGUMENTS` via the Skill tool, through its report
   - **gate (R2):** go on only if it committed or reported nothing to record. If it failed, asked a question, or left a file it wrote uncommitted, say why in one line and stop; the session stays up. Its closing "get back to whatever you were doing" does not apply: the thing being done is ending
   - **leftovers (R3):** in a git repo, `git status --porcelain` and, if there is an upstream, `git log --oneline @{u}..`; one line listing them, or nothing if clean. Outside a repo, skip
   - **last text (R4):** the write-down report, the leftovers line, then `Ending session.`
   - **exit (R5):** run exactly `claude-end-session` through Bash, nothing else in that command. If it fails, print its error and tell Scott to type `/exit`
-- [ ] Verify green: the e2e passes; then a manual run in a real session with something to record.
+- [x] Verify green: the e2e passes; then a manual run in a real session with something to record.
 
 **Satisfies:** R1, R2, R3, R4, R8; roadmap "Never exit over an unrecorded session"
 
