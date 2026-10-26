@@ -205,6 +205,14 @@ To receive a file, tell the other agent your own inbox path.
 another agent: do not put a file in an inbox whose owner should not be told what
 is in it.
 
+### ~/Downloads is a shared read drop
+
+`~/Downloads` is where Scott saves downloads, AirDrops from iOS, bank statements and Slack files, and where an agent driving a browser saves too. Any agent may read it. Inboxes stay the channel between agents; Downloads is the drop for things coming from Scott.
+
+- Read only: copy what you need into your own repo or folder; never move, rename or delete files there unasked.
+- It mixes personal and work material, so each agent's scope rules still govern what it may carry out of it.
+- Never mount `~/Downloads` into a Docker container. On 2026-10-25 that raised a macOS folder-permission prompt and hung every new container for about two hours.
+
 ### Messages between sessions
 
 When you tell another session what Scott decided, or act on what one told you:
