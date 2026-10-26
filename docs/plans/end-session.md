@@ -26,7 +26,7 @@ When executing this plan:
 
 **Why a `bin/` helper and not a `!` line.** The roadmap first proposed ending the command file with `` !`kill -TERM $PPID` ``. Claude Code runs every `!` line in a command file when it expands the command, before the model reads the prompt, wherever the line sits in the file. The session would exit before `/write-that-down` started. panozzaj's `/reload` gets away with it only because the kill is the whole command. So the last step is the model running one fixed command, `claude-end-session`, which finds the session's `claude` process and sends it SIGTERM. (Scott chose this over an inner `!`-only command and an armed watcher, 2026-10-25.)
 
-Verified 2026-10-25 on Claude Code 2.1.310: from the Bash tool, the process tree is `zsh` → `claude` → `zsh` → `tmux`, so `$PPID` is the `claude` process, and `~/bin` (the dotfiles `bin/`) is on PATH.
+Verified 2026-10-25 on Claude Code 2.1.310: from the Bash tool, the process tree is `zsh` → `claude` → `zsh` → `tmux`, so `$PPID` is the `claude` process, and `~/bin` (the dotfiles `bin/`) is on PATH. The binary's command name is exactly `claude` (`~/.local/bin/claude` is a symlink to the versioned Mach-O, no wrapper script). SIGTERM is a clean exit: an interactive session started with `--remote-control` exits 143, its transcript keeps the final answer and then gets Claude's shutdown entries (`last-prompt`, `cost-state`), and the session drops off the phone's Remote Control list with no dead entry. A headless `claude -p` killed mid-answer also exits 143 and still writes its shutdown entries.
 
 ## Requirements
 
@@ -44,14 +44,14 @@ Verified 2026-10-25 on Claude Code 2.1.310: from the Bash tool, the process tree
 
 ### Step 1: Verify how Claude Code exits on SIGTERM
 
-- [ ] Test-first: n/a (a verification spike; it records facts, it changes no behavior)
-- [ ] In a new tmux pane, start a throwaway session: `claude --name end-session-probe --remote-control`. Confirm it shows up on the phone. Send it one prompt and let it answer.
-- [ ] From another pane: `kill -TERM <pid>` (get the pid from `claude-ps`). In the probe's pane, `echo $?` right after it exits.
-- [ ] Check the transcript: the last entries in that session's `~/.claude/projects/<slug>/*.jsonl` include the final answer.
-- [ ] Check Remote Control: the session is gone or marked ended on the phone, with no live-looking dead entry.
-- [ ] Repeat the kill against a headless run (`claude -p "count slowly to 50"`) and record its exit code, since the Step 3 e2e test relies on it.
-- [ ] Record the results in this plan's "Verified" paragraph in the Summary, and tick the SIGTERM half of `/shift-change`'s "Verify first" list in the roadmap.
-- [ ] **Stop and replan** if SIGTERM truncates the transcript or leaves a dead Remote Control entry. The helper's signal choice depends on this.
+- [x] Test-first: n/a (a verification spike; it records facts, it changes no behavior)
+- [x] In a new tmux pane, start a throwaway session: `claude --name end-session-probe --remote-control`. Confirm it shows up on the phone. Send it one prompt and let it answer.
+- [x] From another pane: `kill -TERM <pid>` (get the pid from `claude-ps`). In the probe's pane, `echo $?` right after it exits.
+- [x] Check the transcript: the last entries in that session's `~/.claude/projects/<slug>/*.jsonl` include the final answer.
+- [x] Check Remote Control: the session is gone or marked ended on the phone, with no live-looking dead entry.
+- [x] Repeat the kill against a headless run (`claude -p "count slowly to 50"`) and record its exit code, since the Step 3 e2e test relies on it.
+- [x] Record the results in this plan's "Verified" paragraph in the Summary, and tick the SIGTERM half of `/shift-change`'s "Verify first" list in the roadmap.
+- [x] **Stop and replan** if SIGTERM truncates the transcript or leaves a dead Remote Control entry. The helper's signal choice depends on this.
 
 **Satisfies:** roadmap item "Verify first" (SIGTERM gives exit 143; transcript flush and clean Remote Control close on SIGTERM; `$PPID` is the Claude process, already confirmed above)
 

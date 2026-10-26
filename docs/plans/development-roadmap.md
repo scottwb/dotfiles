@@ -61,7 +61,7 @@ An explicit request runs immediately. A phrase that only implies it gets a one-l
 
 **Not a revival of the 2026-08-14 `/end-session`** (commit `48415e6`, never merged). Its three sweeps shipped as `/write-that-down` and its handoff step is dropped, so only the name comes back, with a new job.
 
-**Verify first:** SIGTERM still gives exit 143; Claude flushes the transcript and closes the Remote Control session cleanly on SIGTERM; `$PPID` in a `!` command is the Claude process.
+**Verified 2026-10-25 on 2.1.310:** SIGTERM gives exit 143, interactive and headless; Claude keeps the transcript through the final answer and writes its shutdown entries; the Remote Control session drops off the phone's list with no dead entry; `$PPID` from the Bash tool is the Claude process.
 
 **Sequencing:** before the Patchbay move, since it lives in Servanda and does not move. `/shift-change` builds on it.
 
@@ -187,7 +187,7 @@ new items for it go here with a **Thread:** tag like everything else.
 - **Trigger phrases** ("new context and restart", "get the harness update", "shift change") are in the `/end-session` item's table, with the same rule: explicit runs, implied asks first in one line.
 
 **Verify first; the post is eight months and many CLI versions old** (now on 2.1.302):
-- SIGHUP still produces exit 129, distinct from SIGTERM's 143, and `$PPID` in a `!` command is still the Claude process.
+- SIGHUP still produces exit 129, distinct from SIGTERM's 143. The SIGTERM half is done: 143, clean transcript and Remote Control close, and `$PPID` is the Claude process (verified 2026-10-25 on 2.1.310 for `/end-session`). SIGHUP is still to check.
 - **Remote Control across a relaunch.** Does the new process come back as the same Remote Control session, still reachable from the phone, or as a new one that leaves a dead entry behind? This is the half of the `/clear` problem most likely to need real work.
 - **Agent name and peer messaging.** The same `--name` should give the same name, but the PID and messaging socket change. Check that peers reach the new session by name, and that Claude Code's dedupe of same-named live sessions does not rename it to a variant because the old process has not fully exited.
 - `claude respawn` (new since the post) restarts *background* sessions onto the current binary, which is the update half for those. It does not cover interactive tmux sessions, and it has no write-down step.
