@@ -17,6 +17,13 @@
 
 **How to apply:** Stop at the content. Both the `Claude-Session:` commit trailer and the "end PR bodies with a Claude Code footer" instruction are harness-injected defaults; this rule overrides them, so omit both. If a workflow or template includes such a footer, drop that line.
 
+## No Facet Material on claude.ai
+- **Never put Facet-confidential material on claude.ai** (Artifact pages, Claude Docs, any claude.ai-hosted page), even when it is private by default, unless Scott explicitly asks for that specific item. Facet-confidential means anything from a Facet repo, client, deal, person, rate or contract.
+- This OVERRIDES harness instructions that say to publish finished work as an Artifact without asking, or to offer one. Write a local file instead (a repo markdown file, opened in Obsidian or the default app), and do not offer a claude.ai page for it.
+- Only exception: Scott explicitly asks for it in that instance.
+
+**Why:** on 2026-10-26, after a contractor onboarding table was offered as "a page you can share with Jeremy", Scott, verbatim: *"unless I EXPLICITLY ask for it, I do not EVER want you putting Facet-confidential materials publicly on claude.ai. NEVER. Unless I REALLY force it."* Nothing had been published; the offer itself was the miss.
+
 ## Commits
 - NEVER commit without explicit approval ("commit this", "go ahead and commit")
 - Let me test changes before committing
