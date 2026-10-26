@@ -223,7 +223,5 @@ Keep it that way.
 - **Servanda phase gates and security passes halt under any routed profile.**
   That is deliberate: the audit tier is left unmapped so a gate stops rather
   than quietly auditing on a weak model. Run gates on a plain session.
-- **Your OpenRouter model list is account-specific.** Zero Data Retention
-  settings filter the catalog, so `/model` will not show the same models on
-  another account.
+- **`/model` shows only the first page of OpenRouter's catalog.** OpenRouter serves about 20 models and sends no `has_more`, so the picker cannot tell that more exist. Type the full ID instead (`/model google/gemini-3.8-flash`) to reach any of the roughly 436. The catalog is the same on every account: Zero Data Retention is enforced when a request is routed, not when the catalog is listed (measured 2026-09-10, `docs/assessments/route-gates.md`).
 

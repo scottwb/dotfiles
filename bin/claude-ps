@@ -265,16 +265,11 @@ friendly_provider() {
 }
 
 # Resolve ROUTE_ARGS to "provider|model|window" by asking claude-run itself, so
-# the model table stays in exactly one place. Results are memoized on the
-# rebuilt arguments, because several sessions commonly share a route.
-ROUTE_CACHE=""
+# the model table stays in exactly one place. Not memoized: detect_route runs
+# in a command substitution per row, so a cache would never outlive one call,
+# and a dry run costs about 10 ms.
 resolve_route() {
-  local key="${ROUTE_ARGS[*]}" claude_run plan provider base model window
-  local cached_key cached_val flag_provider flag_model
-
-  while IFS=$'\t' read -r cached_key cached_val; do
-    [ "$cached_key" = "$key" ] && { printf '%s' "$cached_val"; return 0; }
-  done <<< "$ROUTE_CACHE"
+  local claude_run plan provider base model window flag_provider flag_model
 
   claude_run="$(command -v claude-run 2>/dev/null || true)"
   [ -z "$claude_run" ] && claude_run="$(dirname "${BASH_SOURCE[0]}")/claude-run"
@@ -309,7 +304,6 @@ resolve_route() {
     provider="$(friendly_provider "$provider" "$base")"
   fi
 
-  ROUTE_CACHE="${ROUTE_CACHE}${key}"$'\t'"${provider}|${model}|${window}"$'\n'
   printf '%s|%s|%s' "$provider" "$model" "$window"
 }
 
