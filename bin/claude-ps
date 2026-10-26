@@ -519,8 +519,8 @@ done < <(ps aux | grep -E '[c]laude' \
   | grep -v 'Claude Renderer' \
   | grep -v 'claude-ps' \
   | grep -v 'shell-snapshots' \
-  | grep -vE 'claude-(run|route-selftest)')
-  # ^ The route launcher and its selftest. Both have "claude" in their command
+  | grep -vE 'claude-(run|route-selftest|end-session|end-session-selftest)')
+  # ^ The route launcher, /end-session's exit helper, and their selftests. All have "claude" in their command
   #   line, so without this a single `claude-run gpt` reports as two rows:
   #   claude-run and the session it started. They are the scaffolding around a
   #   session, not sessions.

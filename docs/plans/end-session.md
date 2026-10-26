@@ -72,10 +72,10 @@ ls -t ~/.claude/projects/*/ | head    # find the probe transcript, then tail it
 
 ### Step 2: `bin/claude-end-session` and its selftest
 
-- [ ] Write the failing test first: `bin/claude-end-session-selftest`, in the style of `bin/claude-route-selftest` (`ok`/`bad`/`section`, summary, exit 0 or 1). Run it and see every case fail because the helper does not exist.
-- [ ] **Safety rule for the selftest:** it must be safe to run inside a live Claude session. Every test tree is double-forked and reparented to launchd, so the real session is never an ancestor of a helper under test. A bug in the helper can then only hit a fake.
-- [ ] Fake `claude` process: a Perl process that sets `$0 = "claude"`, traps TERM and writes a marker file. (A copy of `/bin/bash` named `claude` is killed by macOS on launch, exit 137; checked 2026-10-25.)
-- [ ] Cases:
+- [x] Write the failing test first: `bin/claude-end-session-selftest`, in the style of `bin/claude-route-selftest` (`ok`/`bad`/`section`, summary, exit 0 or 1). Run it and see every case fail because the helper does not exist.
+- [x] **Safety rule for the selftest:** it must be safe to run inside a live Claude session. Every test tree is double-forked and reparented to launchd, so the real session is never an ancestor of a helper under test. A bug in the helper can then only hit a fake.
+- [x] Fake `claude` process: a Perl process that sets `$0 = "claude"`, traps TERM and writes a marker file. (A copy of `/bin/bash` named `claude` is killed by macOS on launch, exit 137; checked 2026-10-25.)
+- [x] Cases:
   - fake `claude` → shell → helper: the fake gets SIGTERM, helper exits 0
   - fake `claude` → shell → shell → helper: still found (sandboxing or wrappers can add layers)
   - fake `claude-run` → fake `claude` → shell → helper: `claude` is signalled, `claude-run` is not
@@ -83,8 +83,8 @@ ls -t ~/.claude/projects/*/ | head    # find the probe transcript, then tail it
   - detached shell → helper (ancestors end at launchd): exit 1, nothing signalled
   - `--help` prints usage and exits 0; an unknown argument prints usage and exits 1
   - `shellcheck` passes on both scripts
-- [ ] Implement `bin/claude-end-session`: walk `ps -o ppid=,comm=` up from `$PPID`, stop at the first process whose command basename is exactly `claude`, print `Ending Claude session (pid N) with SIGTERM.` to stderr, `kill -TERM` it. Usage header in the file. No `--signal` flag yet (R9: `/shift-change` adds one when it needs it).
-- [ ] Verify green: the selftest passes, run from inside this Claude session.
+- [x] Implement `bin/claude-end-session`: walk `ps -o ppid=,comm=` up from `$PPID`, stop at the first process whose command basename is exactly `claude`, print `Ending Claude session (pid N) with SIGTERM.` to stderr, `kill -TERM` it. Usage header in the file. No `--signal` flag yet (R9: `/shift-change` adds one when it needs it).
+- [x] Verify green: the selftest passes, run from inside this Claude session.
 
 **Satisfies:** R5, R6, R9
 

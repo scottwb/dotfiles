@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# claude-end-session - End the Claude Code session this runs inside, with SIGTERM.
+#
+# The last step of /end-session. The model cannot type /exit, so it runs this
+# from its Bash tool instead. It walks up the process tree from its parent and
+# signals the nearest ancestor whose command name is exactly `claude`: the
+# session's own Claude Code process. Claude Code exits 143 on SIGTERM, keeps
+# its transcript, and closes its Remote Control session cleanly.
+#
+# It never signals a process with any other name (claude-run, claude-ps, a
+# shell). If no `claude` ancestor exists, it signals nothing and exits 1.
+#
+# Usage: claude-end-session
+#
+#   -h, --help   Show this help
+#
+# Exit: 0 after signalling the session, 1 if no `claude` ancestor was found or
+#       the arguments were wrong.
+#
+# Tests: bin/claude-end-session-selftest (safe to run inside a live session).
+#
+set -euo pipefail
+
+readonly TARGET_NAME="claude"
+# Safety bound on the walk; real chains are a handful of levels deep.
+readonly MAX_DEPTH=32
+
+usage() {
+  sed -n 's/^# \{0,1\}//; /^Usage:/,/^Exit:/p' "${BASH_SOURCE[0]}" | sed '$d'
+}
+
+case "$#:${1:-}" in
+  0:) ;;
+  1:-h | 1:--help)
+    usage
+    exit 0
+    ;;
+  *)
+    printf 'claude-end-session: unknown argument: %s\n\n' "$*" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+pid=$PPID
+walked=""
+depth=0
+while [ "$pid" -gt 1 ] && [ "$depth" -lt "$MAX_DEPTH" ]; do
+  line="$(ps -o ppid=,comm= -p "$pid" 2> /dev/null)" || break
+  read -r ppid comm <<< "$line"
+  name="${comm##*/}"
+  if [ "$name" = "$TARGET_NAME" ]; then
+    printf 'Ending Claude session (pid %s) with SIGTERM.\n' "$pid" >&2
+    kill -TERM "$pid"
+    exit 0
+  fi
+  walked="${walked:+$walked <- }$name($pid)"
+  pid="$ppid"
+  depth=$((depth + 1))
+done
+
+printf "claude-end-session: no ancestor process named '%s' (walked: %s). Nothing was signalled.\n" \
+  "$TARGET_NAME" "${walked:-none}" >&2
+printf 'To end the session by hand, type /exit.\n' >&2
+exit 1

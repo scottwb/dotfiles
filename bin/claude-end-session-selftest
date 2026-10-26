@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+#
+# claude-end-session-selftest - Verify claude-end-session signals the right
+#                               process, and only that one.
+#
+# Safe to run inside a live Claude session. Every case runs in a process tree
+# that is detached (double-forked and reparented to launchd), so the session
+# running this test is never an ancestor of a helper under test. A bug in the
+# helper can only ever hit a fake. Each case also records its helper's real
+# ancestor chain, and a section below checks that chain never reaches this
+# script.
+#
+# The fake `claude` and `claude-run` processes are Perl, renamed with $0, which
+# `ps -o comm=` reports as the new name. They record any SIGTERM in a marker
+# file instead of dying. (A copy of /bin/bash named claude is killed by macOS on
+# launch, and `exec -a` makes Perl fail to resolve its own path.)
+#
+# Usage: bin/claude-end-session-selftest
+# Exit:  0 if every assertion passes, 1 otherwise.
+#
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELPER="$SCRIPT_DIR/claude-end-session"
+
+PASS=0
+FAIL=0
+SKIP=0
+FAILED_NAMES=""
+
+# ---------------------------------------------------------------- assertions
+
+ok()   { PASS=$((PASS + 1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }
+bad()  {
+  FAIL=$((FAIL + 1))
+  FAILED_NAMES="${FAILED_NAMES}\n    - $1"
+  printf '  \033[31m✗\033[0m %s\n' "$1"
+  [ -n "${2:-}" ] && printf '      %s\n' "$2"
+  return 0
+}
+skip() {
+  SKIP=$((SKIP + 1))
+  printf '  \033[33m-\033[0m %s \033[2m(skipped: %s)\033[0m\n' "$1" "$2"
+}
+
+# assert_contains <description> <haystack> <needle>
+assert_contains() {
+  case "$2" in
+    *"$3"*) ok "$1" ;;
+    *)      bad "$1" "expected to find: $3 in: $2" ;;
+  esac
+}
+
+# assert_exit <description> <expected_code> <actual_code>
+assert_exit() {
+  if [ "$2" = "$3" ]; then ok "$1"; else bad "$1" "expected exit $2, got $3"; fi
+}
+
+# assert_signalled <description> <case_dir> <fake_name>
+assert_signalled() {
+  if [ -f "$2/$3.term" ]; then ok "$1"; else bad "$1" "fake '$3' got no SIGTERM"; fi
+}
+
+# assert_not_signalled <description> <case_dir> <fake_name>
+assert_not_signalled() {
+  if [ -f "$2/$3.term" ]; then bad "$1" "fake '$3' got SIGTERM"; else ok "$1"; fi
+}
+
+# assert_nothing_signalled <description> <case_dir>
+assert_nothing_signalled() {
+  local hits
+  hits="$(cd "$2" && ls ./*.term 2>/dev/null)"
+  if [ -n "$hits" ]; then bad "$1" "signalled: $hits"; else ok "$1"; fi
+}
+
+section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
+
+# ---------------------------------------------------------------- fixtures
+
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/claude-end-session-selftest.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+# fake.pl NAME DIR CMD... : a process named NAME that runs CMD as its child,
+# writes DIR/NAME.pid, appends to DIR/NAME.term on SIGTERM instead of dying,
+# and writes DIR/NAME.done when CMD finishes.
+FAKE="$WORK/fake.pl"
+cat > "$FAKE" <<'PERL'
+use strict;
+use warnings;
+use Errno ();
+my ($name, $dir, @cmd) = @ARGV;
+$0 = $name;
+sub put { my ($f, $s) = @_; open(my $h, '>>', "$dir/$f") or die; print $h $s; close $h; }
+$SIG{TERM} = sub { put("$name.term", "TERM\n") };
+put("$name.pid", "$$\n");
+my $kid = fork();
+die "fork: $!" unless defined $kid;
+if ($kid == 0) { exec { $cmd[0] } @cmd or exit 127; }
+while (1) {
+  my $r = waitpid($kid, 0);
+  last if $r == $kid;
+  last if $r == -1 && !$!{EINTR};
+}
+put("$name.done", "done\n");
+exit 0;
+PERL
+
+# runner DIR HELPER [ARGS...] : the shell that runs the helper. Records the
+# helper's real ancestor chain (for the safety check), its stdout, stderr, and
+# exit code. The exit file is written last, by rename, so it marks completion.
+RUNNER="$WORK/runner"
+cat > "$RUNNER" <<'SH'
+#!/bin/bash
+dir=$1; helper=$2; shift 2
+p=$$
+while [ "$p" -gt 1 ] 2>/dev/null; do
+  echo "$p" >> "$dir/ancestors"
+  p=$(ps -o ppid= -p "$p" | tr -d ' ')
+done
+"$helper" "$@" > "$dir/helper.out" 2> "$dir/helper.err"
+echo $? > "$dir/helper.exit.tmp"
+mv "$dir/helper.exit.tmp" "$dir/helper.exit"
+SH
+chmod +x "$RUNNER"
+
+# wait_for FILE [TENTHS] : poll until FILE exists. Returns 1 on timeout.
+wait_for() {
+  local i=0 max="${2:-100}"
+  while [ ! -e "$1" ]; do
+    i=$((i + 1))
+    [ "$i" -gt "$max" ] && return 1
+    sleep 0.1
+  done
+}
+
+# run_case NAME FAKES CMD... : run CMD detached from this script, wait for the
+# helper to finish and for each fake in the space-separated FAKES to exit.
+# Sets CASE_DIR, CASE_EXIT, CASE_OUT, CASE_ERR.
+run_case() {
+  local name=$1 fakes=$2 f
+  shift 2
+  CASE_DIR="$WORK/$name"
+  mkdir -p "$CASE_DIR"
+  ( "$@" < /dev/null > /dev/null 2>&1 & )
+  if wait_for "$CASE_DIR/helper.exit"; then
+    CASE_EXIT="$(cat "$CASE_DIR/helper.exit")"
+  else
+    CASE_EXIT="timeout"
+  fi
+  for f in $fakes; do wait_for "$CASE_DIR/$f.done" 50 || true; done
+  CASE_OUT="$(cat "$CASE_DIR/helper.out" 2>/dev/null)"
+  CASE_ERR="$(cat "$CASE_DIR/helper.err" 2>/dev/null)"
+}
+
+fake_pid() { tr -d ' \n' < "$CASE_DIR/$1.pid" 2>/dev/null; }
+
+# A shell layer that will not exec its last command away: the trailing `:`
+# keeps bash alive as the parent.
+SHELL_LAYER=(bash -c '"$@"; :' bash)
+
+printf '\n\033[1mclaude-end-session-selftest\033[0m  (fake processes only, detached from this session)\n'
+
+if [ ! -x "$HELPER" ]; then
+  printf '\n  \033[31m✗\033[0m %s is missing or not executable; every case below will fail.\n' "$HELPER"
+fi
+
+# ---------------------------------------------------------------- cases
+
+section "fake claude -> shell -> helper"
+run_case direct "claude" perl "$FAKE" claude "$WORK/direct" "$RUNNER" "$WORK/direct" "$HELPER"
+assert_exit "helper exits 0" 0 "$CASE_EXIT"
+assert_signalled "the fake claude gets SIGTERM" "$CASE_DIR" claude
+assert_contains "stderr names the pid it signalled" "$CASE_ERR" "Ending Claude session (pid $(fake_pid claude)) with SIGTERM."
+
+section "fake claude -> shell -> shell -> helper"
+run_case nested "claude" perl "$FAKE" claude "$WORK/nested" "${SHELL_LAYER[@]}" "$RUNNER" "$WORK/nested" "$HELPER"
+assert_exit "helper exits 0" 0 "$CASE_EXIT"
+assert_signalled "the fake claude is still found through an extra shell" "$CASE_DIR" claude
+
+section "fake claude-run -> fake claude -> shell -> helper"
+run_case wrapped "claude-run claude" perl "$FAKE" claude-run "$WORK/wrapped" perl "$FAKE" claude "$WORK/wrapped" "$RUNNER" "$WORK/wrapped" "$HELPER"
+assert_exit "helper exits 0" 0 "$CASE_EXIT"
+assert_signalled "the fake claude gets SIGTERM" "$CASE_DIR" claude
+assert_not_signalled "the fake claude-run does not" "$CASE_DIR" claude-run
+
+section "fake claude-run -> shell -> helper (no claude anywhere)"
+run_case noclaude "claude-run" perl "$FAKE" claude-run "$WORK/noclaude" "$RUNNER" "$WORK/noclaude" "$HELPER"
+assert_exit "helper exits 1" 1 "$CASE_EXIT"
+assert_contains "the error names what it looked for" "$CASE_ERR" "no ancestor process named 'claude'"
+assert_contains "the error says nothing was signalled" "$CASE_ERR" "Nothing was signalled"
+assert_nothing_signalled "nothing is signalled" "$CASE_DIR"
+
+section "detached shell -> helper (ancestors end at launchd)"
+run_case detached "" "$RUNNER" "$WORK/detached" "$HELPER"
+assert_exit "helper exits 1" 1 "$CASE_EXIT"
+assert_contains "the error names what it looked for" "$CASE_ERR" "no ancestor process named 'claude'"
+assert_nothing_signalled "nothing is signalled" "$CASE_DIR"
+
+section "Arguments"
+run_case help "" "$RUNNER" "$WORK/help" "$HELPER" --help
+assert_exit "--help exits 0" 0 "$CASE_EXIT"
+assert_contains "--help prints usage" "$CASE_OUT" "Usage: claude-end-session"
+run_case badarg "" "$RUNNER" "$WORK/badarg" "$HELPER" --bogus
+assert_exit "an unknown argument exits 1" 1 "$CASE_EXIT"
+assert_contains "an unknown argument prints usage" "$CASE_ERR" "Usage: claude-end-session"
+assert_contains "an unknown argument is named" "$CASE_ERR" "--bogus"
+
+# ---------------------------------------------------------------- safety
+
+section "Safety: every case ran detached from this script"
+leaked=""
+for d in "$WORK"/*/; do
+  if grep -qx "$$" "$d/ancestors" 2>/dev/null; then leaked="$leaked $(basename "$d")"; fi
+  [ -s "$d/ancestors" ] || leaked="$leaked $(basename "$d")(no-chain)"
+done
+if [ -z "$leaked" ]; then
+  ok "no helper under test had this script as an ancestor"
+else
+  bad "no helper under test had this script as an ancestor" "cases:$leaked"
+fi
+
+section "shellcheck"
+if command -v shellcheck > /dev/null 2>&1; then
+  if out="$(shellcheck "$HELPER" "$SCRIPT_DIR/claude-end-session-selftest" 2>&1)"; then
+    ok "shellcheck passes on both scripts"
+  else
+    bad "shellcheck passes on both scripts" "$(printf '%s' "$out" | head -20)"
+  fi
+else
+  skip "shellcheck passes on both scripts" "shellcheck not installed"
+fi
+
+# ---------------------------------------------------------------- summary
+
+TOTAL=$((PASS + FAIL))
+printf '\n'
+if [ "$FAIL" -eq 0 ]; then
+  printf '\033[32m✓ PASS\033[0m  %d/%d assertions' "$PASS" "$TOTAL"
+  [ "$SKIP" -gt 0 ] && printf ', \033[33m%d skipped\033[0m' "$SKIP"
+  printf '\n\n'
+  exit 0
+else
+  printf '\033[31m✗ FAIL\033[0m  %d/%d passed, %d failed' "$PASS" "$TOTAL" "$FAIL"
+  [ "$SKIP" -gt 0 ] && printf ', %d skipped' "$SKIP"
+  printf ':'
+  printf '%b\n\n' "$FAILED_NAMES"
+  exit 1
+fi
