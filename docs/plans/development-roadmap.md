@@ -28,23 +28,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### Retire the route wrapper scripts
-
-**Thread:** Tools
-
-**Goal:** Delete `bin/claude-gpt`, `claude-glm`, `claude-gemini`, `claude-ollama` and `claude-openrouter`, so that `bin/claude-run` is the only launcher. Fix `claude-ps` so it detects routes from `claude-run`'s own arguments, including flag-style launches, which it currently misreports as Anthropic. No replacement aliases or shorthand: Scott will add his own later if he ever wants them (2026-10-17).
-
-**Plan:** [retire-route-wrappers.md](retire-route-wrappers.md)
-
-**Status:** All three steps done on `feature/retire-route-wrappers`; awaiting manual testing and merge.
-
----
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
-
 ### `/end-session`: write it down, then exit
 
 **Thread:** Servanda
@@ -80,11 +63,18 @@ An explicit request runs immediately. A phrase that only implies it gets a one-l
 
 **Verify first:** SIGTERM still gives exit 143; Claude flushes the transcript and closes the Remote Control session cleanly on SIGTERM; `$PPID` in a `!` command is the Claude process.
 
-**Sequencing:** after [Retire the route wrapper scripts](#retire-the-route-wrapper-scripts). Before the Patchbay move, since it lives in Servanda and does not move. `/shift-change` builds on it.
+**Sequencing:** before the Patchbay move, since it lives in Servanda and does not move. `/shift-change` builds on it.
 
 **Plan:** none yet; next step is `/gameplan end-session`.
 
 **Status:** Queued 2026-10-20. Not planned.
+
+---
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
 
 ### Move Patchbay into its own repo
 
@@ -692,6 +682,20 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 ---
 
 ## Completed
+
+### Retire the route wrapper scripts (2026-10-25)
+
+**Thread:** Tools
+
+**Plan:** [retire-route-wrappers.md](retire-route-wrappers.md)
+
+Merged via PR #9, six commits: the plan's three steps and three fixes from manual testing. `bin/claude-run` is now the only route launcher; the five `claude-<alias>` wrappers are gone, with no replacement aliases by Scott's decision.
+
+**`claude-ps` reads flag launches.** It used to take only an alias from a `claude-run` command line, so `claude-run --model X` sessions reported as Anthropic. It now rebuilds `claude-run`'s own leading flags, dry-runs them offline, and falls back to what argv states when the window cannot be resolved without the network.
+
+**The launcher drift guard is derived, not enumerated.** The selftest now checks every `bin/claude-*` file on disk against `claude-ps`'s filter, rather than comparing two hand-kept lists.
+
+**Testing turned up three side fixes.** The README's claim that Zero Data Retention filters the OpenRouter catalog, disproved on 2026-09-10, is replaced with the real limit (the `/model` picker shows only the first page). `claude-ps`'s route cache had never hit, because each row resolves in a subshell, so it was removed. An Ollama selftest check had failed whenever Ollama was running since 2026-09-10, because an overridden model needs an explicit window; it now passes one. Suite: 154 assertions, 7 of them skipped when Ollama is down.
 
 ### The index's copyable command, and the describe guards (2026-09-23)
 
