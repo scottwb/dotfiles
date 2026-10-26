@@ -94,7 +94,7 @@ whole of route detection, so fixing it belongs here.
 
 ### Step 1: `claude-ps` detects flag-style `claude-run` launches
 
-- [ ] Write the failing test first. In `bin/claude-route-selftest`'s
+- [x] Write the failing test first. In `bin/claude-route-selftest`'s
       "claude-ps route detection (D6)" section, add a second stub launch:
       `ANTHROPIC_AUTH_TOKEN=<placeholder> PATH="$STUB_DIR:$PATH" "$CLAUDE_RUN" --provider=openrouter --model selftest/flag-route --context 12345`.
       Mixing `--provider=` and `--model <space>` covers both argv forms in one
@@ -105,27 +105,27 @@ whole of route detection, so fixing it belongs here.
       by exactly one over a baseline, and the row disappears when the stub
       exits. Expected to FAIL today: the alias extraction comes back empty, so
       the row shows `Anthropic` and model `-`.
-- [ ] Implement: in `bin/claude-ps`, generalize `resolve_route_alias` into a
+- [x] Implement: in `bin/claude-ps`, generalize `resolve_route_alias` into a
       resolver that takes `claude-run`'s leading arguments rather than one
       alias. In `detect_route`'s `*claude-run*` branch, walk the tokens after
       `claude-run`: keep `--provider X`, `--provider=X`, `--model X`,
       `--model=X`, `--context X`, `--context=X`, then the first remaining
       positional, then stop. That is the same rule `claude-run` uses to parse
       its own flags, so everything after belongs to `claude` and is ignored.
-- [ ] Implement: **drop `--refresh`** when rebuilding the arguments.
+- [x] Implement: **drop `--refresh`** when rebuilding the arguments.
       `claude-run` calls `catalog_fetch` for `--refresh` *before* it checks
       `CLAUDE_ROUTE_DRYRUN`, so passing it through would make `claude-ps` hit
       the network (R4).
-- [ ] Implement: dry-run `claude-run` with the rebuilt arguments and parse the
+- [x] Implement: dry-run `claude-run` with the rebuilt arguments and parse the
       plan exactly as today. Memoize on the rebuilt argument string instead of
       the alias.
-- [ ] Implement: when the dry run fails (a flag launch with no `--context` and
+- [x] Implement: when the dry run fails (a flag launch with no `--context` and
       no cached catalog entry, which `claude-run` refuses offline by design),
       fall back to what argv states: provider from `--provider`, defaulting to
       `openrouter` as `claude-run` does, model from `--model`, window empty.
       Showing the provider and model without a window is better than a wrong
       `Anthropic`.
-- [ ] Verify green: `bin/claude-route-selftest`, and by hand:
+- [x] Verify green: `bin/claude-route-selftest`, and by hand:
       `claude-run --model <any cached slug>` in one terminal, `claude-ps` in
       another.
 
@@ -147,19 +147,19 @@ CLAUDE_ROUTE_CACHE_DIR="$(mktemp -d)" bin/claude-ps -n
 
 ### Step 2: Delete the wrappers and everything in `bin/` that names them
 
-- [ ] Write the failing check first: `grep -rnE 'claude-(gpt|glm|gemini|ollama|openrouter)\b' bin/`
+- [x] Write the failing check first: `grep -rnE 'claude-(gpt|glm|gemini|ollama|openrouter)\b' bin/`
       must print nothing. FAILS today: the five wrappers, `claude-ps`'s filter
       and detection cases, `claude-run`'s header comment, and the selftest's
       wrapper section all match.
-- [ ] Implement: `git rm` the five wrappers (R1).
-- [ ] Implement: in `bin/claude-ps`, delete the five wrapper cases from
+- [x] Implement: `git rm` the five wrappers (R1).
+- [x] Implement: in `bin/claude-ps`, delete the five wrapper cases from
       `detect_route`, and shrink the process filter to
       `claude-(run|route-selftest)`. Update the comment beneath it, which says
       a single `claude-glm` reports as three or four rows.
-- [ ] Implement: in `bin/claude-run`, rewrite the header comment (lines 5 to 7)
+- [x] Implement: in `bin/claude-run`, rewrite the header comment (lines 5 to 7)
       so it no longer says the wrappers exist. The usage text already teaches
       `claude-run <alias>` and needs nothing.
-- [ ] Implement: in `bin/claude-route-selftest`:
+- [x] Implement: in `bin/claude-route-selftest`:
   - Delete the "Thin wrappers (D9)" section. Its alias-resolution, no-exec and
     argument-forwarding checks are already covered against `claude-run`
     directly, by the per-alias dry runs at the top, the D6 no-exec check, and
@@ -172,7 +172,7 @@ CLAUDE_ROUTE_CACHE_DIR="$(mktemp -d)" bin/claude-ps -n
     process names. Derive the expected list from disk instead: every
     `bin/claude-*` file other than `claude-ps` must appear in the filter.
     Keep the "guard the guard" check that the glob matched something.
-- [ ] Verify green: the grep above prints nothing, and
+- [x] Verify green: the grep above prints nothing, and
       `bin/claude-route-selftest` passes. Note the new assertion count for
       Step 3.
 
@@ -195,9 +195,9 @@ CLAUDE_ROUTE_DRYRUN=1 claude-run gpt     # the replacement for every old wrapper
 
 ### Step 3: Correct the docs that name the wrappers
 
-- [ ] Test-first: n/a, documentation. The proxy check is the grep below,
+- [x] Test-first: n/a, documentation. The proxy check is the grep below,
       which FAILS today across all six files.
-- [ ] `README.md` launcher section: turn the table's Command column into
+- [x] `README.md` launcher section: turn the table's Command column into
       `claude-run glm` / `claude-run gpt` / `claude-run gemini` and drop the
       `claude-ollama` and `claude-openrouter` rows. Delete "All five are
       three-line wrappers". Change "the models worth a wrapper" to "the models
@@ -205,27 +205,34 @@ CLAUDE_ROUTE_DRYRUN=1 claude-run gpt     # the replacement for every old wrapper
       `CLAUDE_ROUTE_DRYRUN=1 claude-run gpt` and
       `CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-run glm`, and update the assertion
       count to Step 2's number.
-- [ ] `.claude/CLAUDE.md`, the "routed session" sentence under Development
+- [x] `.claude/CLAUDE.md`, the "routed session" sentence under Development
       Workflow Commands: replace "`claude-glm`, `claude-gpt`, or anything else
       via `bin/claude-run`" with "any `bin/claude-run` launch". This is the
       global instructions file, so it binds in new sessions only.
-- [ ] `.claude/COMMANDS.md` line 28: the per-process launchers are
+- [x] `.claude/COMMANDS.md` line 28: the per-process launchers are
       `bin/claude-run <alias>`, not named wrappers.
-- [ ] `.claude/settings.json` `x-instructions`: same correction to the
+- [x] `.claude/settings.json` `x-instructions`: same correction to the
       parenthetical that lists the four wrappers. Prose inside a JSON string
       only; no live setting changes. Validate with `jq`.
-- [ ] `docs/patchbay.md`: trim "What exists today" to `claude-run`,
+- [x] `docs/patchbay.md`: trim "What exists today" to `claude-run`,
       `claude-ps`, `claude-route-selftest` (with the new count). Change the
       `pbay run claude glm` comment to "what `claude-run glm` does today". In
       "Wrappers do not scale", record that the wrappers were retired on
       2026-10-17, so the paragraph argues against a shape that no longer
       exists.
-- [ ] `docs/plans/patchbay-team-release.md`: the hold note's "Carry into any
+      **As done (2026-10-24):** the 2026-10-19 rewrite had already removed the
+      `pbay run claude glm` comment and the "Wrappers do not scale" section,
+      so the trim was the whole change, plus dropping "retire the route
+      wrappers" from the `pbay` build order.
+- [x] `docs/plans/patchbay-team-release.md`: the hold note's "Carry into any
       resume" and Step 4's "Copy the seven `bin/` scripts" both become three
       scripts (`claude-run`, `claude-ps`, `claude-route-selftest`). Step 7's
       verify line becomes `claude-run gpt` and `claude-run glm`. Leave the
       completed Steps 1 to 3 as written (R7).
-- [ ] Verify green: the grep finds the wrapper names only in historical files.
+      **As done (2026-10-24): no change.** The plan's 2026-10-20 re-cut had
+      already replaced the hold note and Steps 4 to 8 with an outline that
+      names no wrapper, so only the completed Steps 1 to 3 still do.
+- [x] Verify green: the grep finds the wrapper names only in historical files.
 
 **Satisfies:** R6, R7.
 

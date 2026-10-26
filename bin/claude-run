@@ -2,9 +2,15 @@
 #
 # claude-run - Launch Claude Code against a non-Anthropic backend, per process.
 #
-# This is the workhorse. It owns the provider table, the model table, and all
-# environment construction; bin/claude-glm, bin/claude-gpt, bin/claude-ollama
-# and bin/claude-openrouter are thin wrappers over it.
+# The only route launcher. It owns the provider table, the model table, and
+# all environment construction. Name an alias (`claude-run gpt`) or pass
+# --provider / --model for anything the alias table does not cover. The
+# per-alias `claude-<alias>` wrappers were retired on 2026-10-24.
+#
+# Inside an OpenRouter session, /model reaches the whole catalog, so there is
+# no need for an alias per model. Type the slug (`/model google/gemini-3.8-flash`)
+# rather than picking from the list: the picker shows only the first page,
+# because OpenRouter serves about 20 and sends no has_more.
 #
 # Plain `claude` is deliberately untouched and stays on the Anthropic Max
 # subscription. Routing here is per process, so a routed session and a plain

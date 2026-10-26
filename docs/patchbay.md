@@ -23,14 +23,12 @@ alternative, and where it goes.
 ## What exists today
 
 ```
-bin/claude-run          the workhorse: provider table, model table, environment
-bin/claude-glm          Ollama, local, glm-4.7-flash          free,  ~4 min to first token
-bin/claude-gpt          OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 sec
-bin/claude-gemini       OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, ~4 sec
-bin/claude-ollama       the Ollama default
-bin/claude-openrouter   the OpenRouter default
+bin/claude-run          the launcher: provider table, model table, environment
+  claude-run glm        Ollama, local, glm-4.7-flash          free,  ~4 min to first token
+  claude-run gpt        OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 sec
+  claude-run gemini     OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, ~4 sec
 bin/claude-ps           every running session: backend, model, context, status
-bin/claude-route-selftest   156 assertions, no session, no spend
+bin/claude-route-selftest   147 assertions, no session, no spend
 ```
 
 Aliases are shorthand, not the only door. `claude-run --provider openrouter
@@ -213,7 +211,7 @@ What may live where:
 
 #### Build order
 
-Separate roadmap items, each gameplanned when it comes up: retire the route wrappers; `/end-session` (Servanda, no Patchbay needed); move Patchbay into `facetdigital/patchbay`; extract `facetdigital/claude-ps`; the `pbay` merge (`pbay run` and the `agent` alias); `/shift-change`; then config, including `pbay doctor`. The second harness, the runner rename, the tier-label rename and the plugin `pbay ps` stay with v2 and its trigger.
+Separate roadmap items, each gameplanned when it comes up: `/end-session` (Servanda, no Patchbay needed); move Patchbay into `facetdigital/patchbay`; extract `facetdigital/claude-ps`; the `pbay` merge (`pbay run` and the `agent` alias); `/shift-change`; then config, including `pbay doctor`. The second harness, the runner rename, the tier-label rename and the plugin `pbay ps` stay with v2 and its trigger.
 
 **Decide the language at the config item.** `claude-run` is comfortable bash. Subcommand dispatch, layered config and caching together are a different program; choose deliberately rather than discovering it at 900 lines.
 

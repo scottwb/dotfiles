@@ -89,8 +89,8 @@ Installation:
 Claude Code route launchers
 ---------------------------
 
-`bin/` holds a family of launchers that run Claude Code against non-Anthropic
-backends, one process at a time.
+`bin/claude-run` runs Claude Code against non-Anthropic backends, one process
+at a time.
 
 **Plain `claude` is deliberately untouched.** It stays on the
 Max subscription with no wrapper in the path and no telemetry changes. Routing
@@ -99,11 +99,9 @@ either knowing about the other, and nothing global is flipped to switch.
 
 | Command | Backend | Model | Cost | First token |
 |---|---|---|---|---|
-| `claude-glm` | local Ollama | `glm-4.7-flash` | free | **~4 min** |
-| `claude-ollama` | local Ollama | the Ollama default (currently `glm`) | free | ~4 min |
-| `claude-gpt` | OpenRouter | `openai/gpt-5.6-sol` | ~$0.06-0.10/turn | ~4 s |
-| `claude-gemini` | OpenRouter | `google/gemini-3.8-flash` | ~$0.04-0.07/turn † | ~4 s |
-| `claude-openrouter` | OpenRouter | the OpenRouter default (currently `gpt`) | ~$0.06-0.10/turn | ~4 s |
+| `claude-run glm` | local Ollama | `glm-4.7-flash` | free | **~4 min** |
+| `claude-run gpt` | OpenRouter | `openai/gpt-5.6-sol` | ~$0.06-0.10/turn | ~4 s |
+| `claude-run gemini` | OpenRouter | `google/gemini-3.8-flash` | ~$0.04-0.07/turn † | ~4 s |
 
 † Measured 2026-09-10 against OpenRouter's Anthropic-compatible endpoint, the
 same one `claude-run` points at. **Do not scale this by the price sheet.**
@@ -111,17 +109,16 @@ Gemini 3.8 Flash bills at $0.75/$3.75 per Mtok against GPT-5.6 Sol's
 $2.00/$10.00, which suggests 0.375x, but on the same prompt it emitted ~1.9x
 the output tokens, so the measured per-turn ratio is **~0.70x**. Gemini also hit
 the token cap in that probe, so its verbosity is a floor, not a settled figure.
-Time to first token is indistinguishable from `claude-gpt` (~1.2-1.8 s at the
+Time to first token is indistinguishable from `gpt` (~1.2-1.8 s at the
 API layer for both); the ~4 s in the column is session start, which is Claude
 Code's own boot and is model-independent.
 
-All five are three-line wrappers over `bin/claude-run`, which owns the provider
-table, the model table, and all environment construction. `bin/claude-ps`
-shows which backend every running session is on.
+`bin/claude-run` owns the provider table, the model table, and all environment
+construction. `bin/claude-ps` shows which backend every running session is on.
 
 ### Any model, without an alias
 
-The table above is shorthand for the models worth a wrapper. Any model the
+The table above is shorthand for the models worth an alias. Any model the
 backend serves can be named directly, with nothing pre-configured:
 
 ```bash
@@ -147,12 +144,12 @@ otherwise forward to `claude` and leave the window on `gpt`'s. Parsing flags
 after the alias is not an option: `--resume gpt` would then read a session named
 `gpt` as the alias.
 
-Inspect any launcher without starting anything:
+Inspect any route without starting anything:
 
 ```bash
-CLAUDE_ROUTE_DRYRUN=1 claude-gpt      # print the resolved plan, launch nothing
-CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-glm   # check the backend is ready, no session
-bin/claude-route-selftest             # 174 assertions, no session, no spend
+CLAUDE_ROUTE_DRYRUN=1 claude-run gpt         # print the resolved plan, launch nothing
+CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-run glm # check the backend is ready, no session
+bin/claude-route-selftest                    # 147 assertions, no session, no spend
 ```
 
 ### One-time setup
@@ -226,7 +223,5 @@ Keep it that way.
 - **Servanda phase gates and security passes halt under any routed profile.**
   That is deliberate: the audit tier is left unmapped so a gate stops rather
   than quietly auditing on a weak model. Run gates on a plain session.
-- **Your OpenRouter model list is account-specific.** Zero Data Retention
-  settings filter the catalog, so `/model` will not show the same models on
-  another account.
+- **`/model` shows only the first page of OpenRouter's catalog.** OpenRouter serves about 20 models and sends no `has_more`, so the picker cannot tell that more exist. Type the full ID instead (`/model google/gemini-3.8-flash`) to reach any of the roughly 436. The catalog is the same on every account: Zero Data Retention is enforced when a request is routed, not when the catalog is listed (measured 2026-09-10, `docs/assessments/route-gates.md`).
 
