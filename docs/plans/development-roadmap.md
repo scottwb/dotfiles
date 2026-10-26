@@ -42,7 +42,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 | `/end-session` | `/write-that-down`, then exits. | Nothing |
 | `/shift-change` | `/end-session`, then a fresh session comes up at the same post. | The Patchbay runner's relaunch loop |
 
-**The agent cannot type `/exit`,** so exiting needs a signal. The command file ends with a fixed `!` line the model cannot paraphrase, `` !`kill -TERM $PPID` ``, the same mechanism as the panozzaj post cited under `/shift-change`. SIGTERM gives exit 143, which the `/shift-change` relaunch loop will read as "stop", while SIGHUP (129) will mean "come back".
+**The agent cannot type `/exit`,** so exiting needs a signal. As its last step, after the write-down succeeds, the model runs one fixed command, `bin/claude-end-session`, which sends SIGTERM to the nearest `claude` ancestor and refuses if there is none. Why not a `!` line: Claude Code runs a command file's `!` lines when it expands the command, before the model reads it, so a `` !`kill -TERM $PPID` `` line would exit before `/write-that-down` started (found 2026-10-25). SIGTERM gives exit 143, which the `/shift-change` relaunch loop will read as "stop", while SIGHUP (129) will mean "come back".
 
 **Never exit over an unrecorded session.** If `/write-that-down` fails or stops to ask a question, `/end-session` stops there and the session stays up.
 
@@ -65,9 +65,9 @@ An explicit request runs immediately. A phrase that only implies it gets a one-l
 
 **Sequencing:** before the Patchbay move, since it lives in Servanda and does not move. `/shift-change` builds on it.
 
-**Plan:** none yet; next step is `/gameplan end-session`.
+**Plan:** [end-session.md](end-session.md). Run interactively: Steps 1 and 5 need Scott and the phone.
 
-**Status:** Queued 2026-10-20. Not planned.
+**Status:** Ready to implement (planned 2026-10-25). Next: `/booyah end-session` in a fresh session.
 
 ---
 
@@ -182,7 +182,7 @@ new items for it go here with a **Thread:** tag like everything else.
 **Design points for the plan:**
 - **Strip resume flags on relaunch.** If the original launch had `--resume <x>`, `-r`, `-c` or `--continue`, replaying the same arguments would resume. The loop replays everything except those. `claude-run`'s own usage example launches with `--resume`, so this is not hypothetical.
 - **Two signals, two exit codes.** `/end-session` sends SIGTERM (exit 143) and the loop stops; `/shift-change` sends SIGHUP (exit 129) and the loop relaunches. Any other exit code passes through. **Fallback** if Claude Code turns out to exit with the same code for both: `/shift-change` writes a mode file keyed to the launcher's PID before signalling, and the loop reads it.
-- **Never restart over an unrecorded session.** Inherited from `/end-session`: `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the signal itself is a fixed `!` line or `bin/` helper the model cannot paraphrase.
+- **Never restart over an unrecorded session.** Inherited from `/end-session`: `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the signal itself is the fixed `bin/claude-end-session` helper from `/end-session`, extended to send SIGHUP. Not the post's `!` line: `!` lines run when the command expands, before the write-down.
 - **Refuse in an unwrapped session.** In plain `claude` there is no loop to bring the session back. `pbay` exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent, pointing at `/end-session`.
 - **Trigger phrases** ("new context and restart", "get the harness update", "shift change") are in the `/end-session` item's table, with the same rule: explicit runs, implied asks first in one line.
 
