@@ -241,7 +241,10 @@ if curl -fsS --max-time 2 http://localhost:11434/api/version >/dev/null 2>&1; th
   assert_not_contains "installed model is not reported missing" "$pf_out" "not installed"
 
   # A model that genuinely is not installed must fail, or the check is theater.
-  miss_out="$(CLAUDE_ROUTE_PREFLIGHT_ONLY=1 CLAUDE_ROUTE_MODEL=definitely-not-installed "$CLAUDE_RUN" glm 2>&1)"
+  # The context is passed because an overridden model drops the alias window,
+  # and without one claude-run stops at exit 3 before preflight ever runs.
+  miss_out="$(CLAUDE_ROUTE_PREFLIGHT_ONLY=1 CLAUDE_ROUTE_MODEL=definitely-not-installed \
+    CLAUDE_ROUTE_CONTEXT=202752 "$CLAUDE_RUN" glm 2>&1)"
   miss_rc=$?
   assert_exit     "missing model exits non-zero"      "7" "$miss_rc"
   assert_contains "missing model is named"            "$miss_out" "definitely-not-installed"
