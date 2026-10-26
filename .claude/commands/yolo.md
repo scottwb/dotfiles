@@ -208,6 +208,7 @@ git branch -d feature/<plan-name>
 Preserve full history: `--no-ff`, never squash, never rebase (honor an explicit repo override in CLAUDE.md/CONTRIBUTING.md if one exists).
 
 **PR mode:**
+0. Check `git log --oneline origin/main..main` first. A commit on local main that origin lacks makes step 5's `git pull --ff-only` fail after the merge. Commits on main already had the user's approval, and 6c pushes main anyway, so push them now and announce it. If one looks like work the user never approved, STOP and ask. Incident 2026-10-25: a `~/Downloads` rule committed on master mid-test would have blocked the pull after PR #9 merged.
 1. Push: `git push -u origin feature/<plan-name>`
 2. Create the PR: title under 70 chars; body includes a summary, the plan link, and an "Operator verified" section recording that the user manually tested (list what the checklist covered)
 3. Wait for CI green: poll `gh pr checks` every 30 seconds, 45-minute cap. CI failure: diagnose and fix using the same systematic method as Step 4b, push, re-wait (3 fix rounds max, then STOP)

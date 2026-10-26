@@ -28,7 +28,7 @@ bin/claude-run          the launcher: provider table, model table, environment
   claude-run gpt        OpenRouter, openai/gpt-5.6-sol        ~$0.06-0.10/turn, ~4 sec
   claude-run gemini     OpenRouter, google/gemini-3.8-flash   ~$0.04-0.07/turn, ~4 sec
 bin/claude-ps           every running session: backend, model, context, status
-bin/claude-route-selftest   147 assertions, no session, no spend
+bin/claude-route-selftest   154 assertions (7 skip without Ollama), no session, no spend
 ```
 
 Aliases are shorthand, not the only door. `claude-run --provider openrouter

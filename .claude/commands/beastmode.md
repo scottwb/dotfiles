@@ -196,6 +196,7 @@ This is essentially `/yolo` executed inline. Do not actually invoke `/yolo` as a
    ```bash
    git push -u origin feature/<plan-name>
    ```
+   First push any commits on local main that origin lacks (`git log --oneline origin/main..main`), or the post-merge `git pull --ff-only` fails; same rule as `/yolo` 6b step 0.
 
 2. **Build the PR description.** Include:
    - **Summary:** 1-3 bullets of what shipped

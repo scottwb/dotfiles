@@ -149,7 +149,7 @@ Inspect any route without starting anything:
 ```bash
 CLAUDE_ROUTE_DRYRUN=1 claude-run gpt         # print the resolved plan, launch nothing
 CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-run glm # check the backend is ready, no session
-bin/claude-route-selftest                    # 147 assertions, no session, no spend
+bin/claude-route-selftest                    # 154 assertions (7 skip without Ollama), no session, no spend
 ```
 
 ### One-time setup
