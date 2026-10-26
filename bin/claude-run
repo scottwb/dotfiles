@@ -409,6 +409,55 @@ catalog_context_for() {
   return 0
 }
 
+# Catalog ids that look like $1, best first, at most five. Read from the cached
+# catalog only, so it costs no network, and only ever printed: a suggestion is
+# never acted on, so nothing runs that was not typed. Two checks:
+#
+#   1. The same id up to case and '.' versus '-' (z.ai/glm-5.3 -> z-ai/glm-5.3).
+#      A hit here is the answer, alone.
+#   2. Ids containing what was typed, or failing that its last path segment
+#      (haiku, or anthropic/haiku -> anthropic/claude-haiku-5.5), shortest first.
+#
+# :batch copies and ~...-latest shortcuts are left out; they would crowd the
+# list with near-duplicates of the ids worth typing.
+catalog_suggest() {
+  local f ids want seg norm id exact="" whole="" part=""
+  f="$(catalog_path)"
+  [ -f "$f" ] || return 0
+  ids="$(sed 's/},{"id":/}\n{"id":/g' "$f" \
+    | sed -nE 's/^(\{"data":\[)?\{"id":"([^"]*)".*/\2/p' \
+    | grep -vE '^~|:batch$')"
+  [ -z "$ids" ] && return 0
+  want="$(printf '%s' "$1" | tr 'A-Z.' 'a-z-')"
+  [ -z "$want" ] && return 0
+  seg="${want##*/}"
+  [ "$seg" = "$want" ] && seg=""
+
+  while IFS=$'\t' read -r norm id; do
+    [ -z "$id" ] && continue
+    [ "$norm" = "$want" ] && { exact="$id"; break; }
+    case "$norm" in *"$want"*) whole="${whole}${id}"$'\n' ;; esac
+    if [ -n "$seg" ]; then
+      case "$norm" in *"$seg"*) part="${part}${id}"$'\n' ;; esac
+    fi
+  done < <(paste <(printf '%s\n' "$ids" | tr 'A-Z.' 'a-z-') <(printf '%s\n' "$ids"))
+
+  if [ -n "$exact" ]; then printf '%s\n' "$exact"; return 0; fi
+  printf '%s' "${whole:-$part}" \
+    | while IFS= read -r id; do [ -n "$id" ] && printf '%d\t%s\n' "${#id}" "$id"; done \
+    | sort -s -n -k1,1 | cut -f2 | head -5
+  return 0
+}
+
+# Print catalog_suggest's answer for $1 under an error, or nothing.
+suggest_models() {
+  local s
+  s="$(catalog_suggest "$1")"
+  [ -z "$s" ] && return 0
+  info "Did you mean:"
+  printf '%s\n' "$s" | sed 's/^/    /' >&2
+}
+
 # Resolve ROUTE_CONTEXT for a model the table does not know.
 #
 # Never guesses. A window that cannot be established is a hard failure with the
@@ -430,6 +479,7 @@ resolve_context_from_catalog() {
   # that a plan can be inspected with no network, no server and no key.
   if [ -n "${CLAUDE_ROUTE_DRYRUN:-}" ]; then
     err "No cached context window for '${model}'."
+    suggest_models "$model"
     info "The dry run deliberately does no network, so it cannot refresh the catalog."
     info "Pass it explicitly:  --context <tokens>"
     info "Or refresh the catalog first:  claude-run --refresh ${ROUTE_ALIAS_DISPLAY}"
@@ -440,6 +490,7 @@ resolve_context_from_catalog() {
   if catalog_fetch; then
     ctx="$(catalog_context_for "$model")" && [ -n "$ctx" ] && { ROUTE_CONTEXT="$ctx"; return 0; }
     err "'${model}' is not in the OpenRouter catalog."
+    suggest_models "$model"
     info "Check the slug at ${CATALOG_URL}"
     info "Or pass the window explicitly:  --context <tokens>"
     return 3
@@ -452,6 +503,7 @@ resolve_context_from_catalog() {
   fi
 
   err "Could not resolve a context window for '${model}'."
+  suggest_models "$model"
   info "The catalog could not be fetched and no cached copy has this model."
   info "Pass it explicitly:  --context <tokens>"
   return 3

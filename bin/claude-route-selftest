@@ -437,7 +437,8 @@ mkdir -p "$FAKE_CACHE/patchbay"
 # The nested "context_length" is a decoy. Real records carry one inside
 # top_provider as well, so a parser that takes the last match, or any match,
 # rather than the record's own reports the wrong window.
-printf '%s' '{"data":[{"id":"fake/tiny-model","context_length":4096,"architecture":{"context_length":999999}},{"id":"fake/big-model","context_length":1048576,"architecture":{}}]}' \
+# The records after fake/big-model are look-alikes for the suggestion checks.
+printf '%s' '{"data":[{"id":"fake/tiny-model","context_length":4096,"architecture":{"context_length":999999}},{"id":"fake/big-model","context_length":1048576,"architecture":{}},{"id":"z-ai/glm-5.3","context_length":200000},{"id":"anthropic/claude-haiku-5.5","context_length":200000},{"id":"anthropic/claude-haiku-5.5:batch","context_length":200000},{"id":"~anthropic/claude-haiku-latest","context_length":200000},{"id":"anthropic/claude-haiku-4.5","context_length":200000},{"id":"fake/many-1","context_length":1},{"id":"fake/many-2","context_length":1},{"id":"fake/many-3","context_length":1},{"id":"fake/many-4","context_length":1},{"id":"fake/many-5","context_length":1},{"id":"fake/many-6","context_length":1}]}' \
   > "$FAKE_CACHE/patchbay/openrouter-models.json"
 
 run_fake() { CLAUDE_ROUTE_CACHE_DIR="$FAKE_CACHE" CLAUDE_ROUTE_DRYRUN=1 "$CLAUDE_RUN" "$@" 2>&1; }
@@ -509,6 +510,40 @@ fmiss_out="$(run_fake --provider openrouter --model fake/absent-from-catalog)"
 fmiss_rc=$?
 assert_exit     "unknown model exits non-zero"       "3" "$fmiss_rc"
 assert_contains "the failure names the model"        "$fmiss_out" "fake/absent-from-catalog"
+
+# --- a model that is not in the catalog gets suggestions, never a launch.
+#
+# Two misses from 2026-10-25 manual testing: `--model haiku` and
+# `--model z.ai/glm-5.3`, where the real ids are anthropic/claude-haiku-5.5
+# and z-ai/glm-5.3. claude-run still refuses (exit 3); it only names likely
+# ids, so nothing runs that was not typed.
+fsp_out="$(run_fake --model z.ai/glm-5.3)"
+fsp_rc=$?
+assert_exit     "a near-miss id still exits 3"            "3" "$fsp_rc"
+assert_contains "a near-miss id is offered a suggestion"  "$fsp_out" "Did you mean"
+assert_contains "'.' versus '-' finds the real id"        "$fsp_out" "z-ai/glm-5.3"
+
+fsh_out="$(run_fake --model haiku)"
+fsh_rc=$?
+assert_exit     "a partial name still exits 3"            "3" "$fsh_rc"
+assert_contains "a partial name lists matching ids"       "$fsh_out" "anthropic/claude-haiku-5.5"
+assert_contains "a partial name lists every version"      "$fsh_out" "anthropic/claude-haiku-4.5"
+assert_not_contains "suggestions skip :batch copies"      "$fsh_out" ":batch"
+assert_not_contains "suggestions skip ~ shortcuts"        "$fsh_out" "~anthropic"
+
+fsv_out="$(run_fake --model anthropic/haiku)"
+assert_contains "a wrong vendor path falls back to the last segment" "$fsv_out" "anthropic/claude-haiku-5.5"
+
+fsc_out="$(run_fake --model fake/many)"
+fsc_n="$(printf '%s\n' "$fsc_out" | grep -c 'fake/many-' || true)"
+if [ "$fsc_n" -eq 5 ]; then
+  ok "suggestions are capped at five"
+else
+  bad "suggestions are capped at five" "got $fsc_n"
+fi
+
+# Nothing looks like it: say nothing rather than list noise.
+assert_not_contains "no suggestion when nothing is close" "$fmiss_out" "Did you mean"
 
 # --- backward compatibility: the positional form is untouched
 fbc_out="$(run_fake gpt --resume Dotfiles)"

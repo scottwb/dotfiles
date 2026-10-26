@@ -138,6 +138,8 @@ a real hazard: pinning a 65536-window model at `gpt`'s 1050000 overruns it 16x.
 under `${XDG_CACHE_HOME:-~/.cache}/patchbay/`, and **fails rather than guessing**
 when it cannot. Pass `--context` to override or to work offline.
 
+**A mistyped model ID gets suggestions, never a guess.** When an ID is not in the catalog, `claude-run` still stops, and lists up to five catalog IDs that look like it: `--model z.ai/glm-5.3` suggests `z-ai/glm-5.3`, and `--model haiku` lists the `anthropic/claude-haiku-*` IDs. It runs only what you typed.
+
 **Flags go before the alias, if you use one at all.** `claude-run gpt --model X`
 is refused with an explanation rather than half-honoured, because the flag would
 otherwise forward to `claude` and leave the window on `gpt`'s. Parsing flags
@@ -149,7 +151,7 @@ Inspect any route without starting anything:
 ```bash
 CLAUDE_ROUTE_DRYRUN=1 claude-run gpt         # print the resolved plan, launch nothing
 CLAUDE_ROUTE_PREFLIGHT_ONLY=1 claude-run glm # check the backend is ready, no session
-bin/claude-route-selftest                    # 154 assertions (7 skip without Ollama), no session, no spend
+bin/claude-route-selftest                    # 165 assertions (7 skip without Ollama), no session, no spend
 ```
 
 ### One-time setup

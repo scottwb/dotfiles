@@ -146,6 +146,7 @@ new items for it go here with a **Thread:** tag like everything else.
 **Scope:** `pbay run` dispatch, the `agent` alias, `agent`'s defaults moving into `claude-run`, and the harness-or-prompt rule. Only `claude` exists yet, but the rule ships now so a second harness cannot break the alias later. **Not in scope:** config (its own item below), other harnesses, the `pbay-run-<harness>` rename (both v2), and other subcommands.
 
 **Design points for the plan:**
+- **Decide whether `claude-run` also runs plain Max sessions.** Open, and it reverses a past decision; see [Reconsider: `claude-run` runs plain Max sessions too](#reconsider-claude-run-runs-plain-max-sessions-too).
 - **Route selection** passes through to `claude-run` (`--provider`, `--model`, `--context`, `--refresh`). Decide whether the positional route alias (`claude-run gpt`) survives, since after `pbay run claude` a bare word is an opening prompt.
 - **Whose defaults.** `agent`'s `DEFAULTS` (`--model opus --effort high --remote-control --permission-mode auto`) are Scott's. They can stay hardcoded until the config item moves them into `~/.pbay/config`; shipping them to the team waits for config.
 - **`pbay` always passes an explicit model and effort.** `settings.json`'s `model` and `effortLevel` govern bare `claude` only, so a `pbay` session never depends on them (decided 2026-10-20). That leaves one place for each default: `settings.json` for bare `claude`, `pbay`'s defaults for everything it launches.
@@ -583,6 +584,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 - ~~**A periodic model-slug refresh.**~~ **Largely absorbed 2026-09-10.** The catalog is now fetched and cached (24h TTL, `--refresh` to force) under `${XDG_CACHE_HOME:-~/.cache}/patchbay/`, so slugs are resolved against a current catalog rather than a hardcoded table. What remains is narrower: nothing yet warns when a slug carries an `expiration_date`, which the catalog does publish. **That warning belongs to `pbay models`** in [Patchbay v2](#patchbay-v2-the-pbay-front-door) (2026-10-20).
 - **The `Modelfile.glm-4.7-flash` fix is ollama-tools' work, not this roadmap's** (2026-10-20). For whoever picks it up there: the `num_ctx` typo is fixed (`PARAMETER num_ctx 202752`) but uncommitted in ollama-tools' working tree as of 2026-10-17, and the `FROM` line is still the raw blob path (blob builds fail in `llama-quantize` on Ollama 0.30.7, so it wants `glm-4.7-flash:latest`). Whether to keep the 4.7-flash pin at all is now a question for the [Local model evaluation pass](#local-model-evaluation-pass), and should be settled before anyone spends effort on that Modelfile.
 - **Verify auto mode on a routed session.** Since PR #8 (merged 2026-10-24, `6a93ddf`), `claude-run` starts routed sessions with `--permission-mode auto` instead of `--dangerously-skip-permissions`, after Claude Code's classifier began flagging unattended runs that used the old flag. Unverified: whether auto mode's safety classifier works when `ANTHROPIC_BASE_URL` points at OpenRouter or Ollama, since its call goes to the routed endpoint and the fable tier is deliberately unmapped there. If it cannot run, a routed session could deny or prompt on every action. Check in the first routed session: look for "denied" or repeated permission prompts. `CLAUDE_ROUTE_PERMISSION_MODE` overrides the default for one run. Donna is also watching for the first routed "denied".
+- **Suggest model IDs when one is not in the catalog.** Filed and built 2026-10-25, after two misses in manual testing: `--model haiku` and `--model z.ai/glm-5.3`, where the real IDs are `anthropic/claude-haiku-5.5` and `z-ai/glm-5.3`. `claude-run` still refuses with exit 3, then lists up to five lookalikes from the cached catalog: the same ID up to case and `.` versus `-`, else IDs containing what was typed or its last path segment, shortest first, with `:batch` copies and `~` shortcuts left out. No network, and a suggestion is never acted on. **Dropped by Scott:** a hint that a bare Anthropic name such as `haiku` means plain `claude` on the Max subscription, because he may want `claude-run` itself to run Max sessions; see [Reconsider: `claude-run` runs plain Max sessions too](#reconsider-claude-run-runs-plain-max-sessions-too). Typo-level fuzzy matching was left out as slow and messy in bash.
 
 **Landed 2026-09-10: arbitrary models via `--provider` / `--model` / `--context` / `--refresh`.** Aliases became shorthand rather than the only door. Three things worth carrying forward:
 
@@ -590,7 +592,26 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 - **Flags are parsed only ahead of the alias, and `claude-run gpt --model X` is refused with an explanation.** Parsing them anywhere would mean guessing which forwarded flags take a value, and `--resume gpt` would read a session named `gpt` as the alias. Refusing beats half-honouring, since the half-honoured form is exactly the silent overrun above.
 - **The `set -u` crash on the no-`--provider` path shipped past the first test pass** because every assertion happened to pass `--provider` explicitly, which is not how anyone types it. Worth remembering that a test suite agreeing with itself about the shape of a call is not coverage.
 
-### Write up `claude-ps` (blog / LinkedIn / internal Facet post)
+### Reconsider: `claude-run` runs plain Max sessions too
+
+**Thread:** Tools (Patchbay)
+
+**An open question, not a decision.** Scott, 2026-10-25: "I want to someday make claude-run also able to detect and run vanilla claude code with the max subscription (later in roadmap - i know it reverses a past decision, so I figure we should instead make a roadmap item to reconsider the decision for this and what i am saying now - not to take it as decided yet)."
+
+**The decision it would reverse.** [claude-route-launchers.md](claude-route-launchers.md) built `claude-run` for non-Anthropic backends only and keeps plain `claude` "untouched on the Anthropic Max subscription" (D1, D10): no wrapper in its path, its telemetry defaults kept. Today `claude-run` knows two providers, `ollama` and `openrouter`, and Max sessions start from `claude` or `agent`.
+
+**The `pbay` merge already leans this way.** Its item says `claude-run` "stays as the Claude runner and takes over `agent`'s defaults", and `agent` starts plain Max sessions. So the question is probably settled inside the [`pbay` merge](#pbay-one-launcher-merge-agent-and-claude-run) gameplan, and should be decided there explicitly rather than drifting in.
+
+**Questions for that decision:**
+- Is "untouched" about the `claude` binary staying unwrapped (still true if `claude-run` merely can also launch Max), or about Max sessions never passing through `claude-run` at all?
+- How does `claude-run` know a model means Max: a provider name such as `--provider anthropic`, an Anthropic short name (`haiku`, `opus`), or the absence of a route?
+- A Max launch must set none of the routing environment and none of D10's telemetry block.
+- `claude-ps` reports a session with no route as Anthropic by inference. A Max session launched through `claude-run` would have a launcher ancestor and must still read as Anthropic.
+
+**Plan:** none; decide during `/gameplan pbay`.
+
+**Status:** Open question, filed 2026-10-25. Not decided.
+
 
 **Thread:** Tools
 
