@@ -223,6 +223,28 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Status:** Queued 2026-10-19. Design proposed, not planned.
 
+### `agent-colors`: a colour and label per session in Claude Desktop
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** Make the Claude Desktop Code tab Scott's command center by giving each session a colour and label, read from config in that session's repo, with a stable hashed colour when a repo has none. Built as a Claude Code mod, terminal too if cheap. Scott's full build prompt, verbatim: [docs/agent-colors-build-prompt.md](../agent-colors-build-prompt.md). Scott asked for it "later but soon" (2026-10-26, via Donna, who placed it here because it is a Patchbay feature).
+
+**Config:** the colour and label live in the repo's per-folder `.pbay/` config from the `pbay` config item above, not in a separate `.claude/agent.json`, so one setting has one file (Scott, 2026-10-26). That makes `pbay` config a dependency, unless the mod ships first on the hash fallback alone.
+
+**Decide at plan time:**
+- **Which Desktop surfaces a mod can restyle.** The sidebar session list is what Scott wants most and is probably out of reach, since mods run inside each session. The research step answers this before any build.
+
+**Constraints:**
+- The mod's source lives in this repo and installs from here, not in `~/mods/` as the prompt says, so it is versioned and survives a fresh machine. If Patchbay has moved to its own repo by then, it goes there.
+- No hard dependency on tmux, which is not the same as dropping it. The build prompt says "I'm dropping tmux entirely", but Scott clarified (2026-10-26, to Donna): "I don't mind that tmux is in use, I just don't want to depend on it." tmux stays as a background fallback to attach to when Claude Desktop is unavailable or he is in over SSH. Donna's session census, launching and watching use tmux today; she is removing the hard dependency on her own roadmap.
+- Desktop checks need Scott at the screen. An agent cannot see Claude Desktop, so the plan's acceptance steps for Desktop are his.
+
+**Sequencing:** after this week's money and onboarding work (Donna, 2026-10-26). Independent of `/shift-change`; depends on `pbay` config for per-repo colours.
+
+**Plan:** none yet; next step is `/gameplan agent-colors`.
+
+**Status:** Queued 2026-10-26. Not started.
+
 ### Patchbay team release
 
 **Thread:** Tools
