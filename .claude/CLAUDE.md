@@ -213,6 +213,10 @@ To receive a file, tell the other agent your own inbox path.
 another agent: do not put a file in an inbox whose owner should not be told what
 is in it.
 
+### Launching a peer session
+
+Peer sessions are started with Scott's wrapper, `agent -n '<Name>' '<kickoff prompt>'`, which adds his defaults (the `DEFAULTS` array in `bin/agent`); a bare `claude --name` launch lacks them. The `-n` name is what ListAgents and Claude Desktop show. Today each runs in a detached tmux session named for it (`tmux new-session -d -s <name> -c <dir> "agent -n '<Name>' '...'"`), as a background fallback Scott can attach to, not a hard dependency. A session in a brand-new directory stops at the folder-trust prompt. The auto-mode classifier has blocked `tmux send-keys` from one agent into another agent's session, so Scott answers that prompt himself (`tmux attach -t <name>`); reading the pane with `tmux capture-pane` works. Learned 2026-10-27.
+
 ### ~/Downloads is a shared read drop
 
 `~/Downloads` is where Scott saves downloads, AirDrops from iOS, bank statements and Slack files, and where an agent driving a browser saves too. Any agent may read it. Inboxes stay the channel between agents; Downloads is the drop for things coming from Scott.
