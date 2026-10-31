@@ -153,14 +153,14 @@ grep -n $'—' docs/plans/end-session.md .claude/commands/end-session.md   # exp
 
 ### Step 5: Acceptance and completion
 
-- [ ] Test-first: n/a (manual acceptance against the requirements)
-- [ ] Restart a session so it loads the new `CLAUDE.md` (edits do not reach running sessions).
-- [ ] **Something to record:** in a real session under `agent` with Remote Control, make a decision worth keeping, then `/end-session`. Expect an `Update Knowledge` commit, the report on screen and on the phone, then the exit.
-- [ ] **Nothing to record:** a fresh plain `claude` in this repo, `/end-session`. Expect "nothing to record", then the exit.
-- [ ] **Blocked sweep (R2):** leave an uncommitted hand edit in the section of a file the sweep will write to, then `/end-session`. Expect the sweep to leave that file uncommitted, and `/end-session` to say so and stay up.
-- [ ] **Leftovers (R3):** an unrelated dirty file. Expect it on the leftovers line, and the exit.
-- [ ] **Implied phrase (R7):** say "I think we're done here". Expect a one-line confirmation, not an exit.
-- [ ] Move the roadmap item to Completed. Mark `/shift-change`'s dependency met.
+- [x] Test-first: n/a (manual acceptance against the requirements)
+- [x] Restart a session so it loads the new `CLAUDE.md` (edits do not reach running sessions).
+- [x] **Something to record:** in a real session under `agent` with Remote Control, make a decision worth keeping, then `/end-session`. Expect an `Update Knowledge` commit, the report on screen and on the phone, then the exit.
+- [x] **Nothing to record:** a fresh plain `claude` in a throwaway repo (dotfiles had another session's uncommitted `CLAUDE.md` edit, which the sweep would have committed), `/end-session`. Expect "nothing to record", then the exit.
+- [x] **Blocked sweep (R2):** a `pre-commit` hook that rejects every commit, then a decision and `/end-session`. Expect the commit to fail, no `--no-verify`, a `Not ending the session:` line, and the session stays up. (An uncommitted hand edit in the target file does not block: the sweep stages only its own lines and exits, naming the file as left behind.)
+- [x] **Leftovers (R3):** an unrelated dirty file. Expect it on the leftovers line, and the exit.
+- [x] **Implied phrase (R7):** say "I think we're done here". Expect a one-line confirmation, not an exit.
+- [x] Move the roadmap item to Completed. Mark `/shift-change`'s dependency met.
 
 **Satisfies:** R1 to R8 end to end; roadmap "Mark completion"
 

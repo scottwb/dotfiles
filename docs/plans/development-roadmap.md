@@ -28,54 +28,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### `/end-session`: write it down, then exit
-
-**Thread:** Servanda
-
-**Goal:** One command for "I'm done with this session": run `/write-that-down`, then exit. It works in any session, plain `claude` included, and needs nothing from Patchbay. (Scott, 2026-10-20.)
-
-**The chain.** Three commands, each one the previous plus one step:
-
-| Command | Does | Needs |
-|---|---|---|
-| `/write-that-down` | Records and commits what only the session knows. The session keeps going. | Nothing |
-| `/end-session` | `/write-that-down`, then exits. | Nothing |
-| `/shift-change` | `/end-session`, then a fresh session comes up at the same post. | The Patchbay runner's relaunch loop |
-
-**The agent cannot type `/exit`,** so exiting needs a signal. As its last step, after the write-down succeeds, the model runs one fixed command, `bin/claude-end-session`, which sends SIGTERM to the nearest `claude` ancestor and refuses if there is none. Why not a `!` line: Claude Code runs a command file's `!` lines when it expands the command, before the model reads it, so a `` !`kill -TERM $PPID` `` line would exit before `/write-that-down` started (found 2026-10-25). SIGTERM gives exit 143, which the `/shift-change` relaunch loop will read as "stop", while SIGHUP (129) will mean "come back".
-
-**Never exit over an unrecorded session.** If `/write-that-down` fails or stops to ask a question, `/end-session` stops there and the session stays up.
-
-**When it runs.** Scott's phrases, and what each one means:
-
-| Scott says | Means |
-|---|---|
-| "record what we learned", "write that down" | `/write-that-down` |
-| "exit the session", "I'm done with this session" | `/end-session` |
-| "new context and restart", "get the harness update", "shift change" | `/shift-change` |
-| "heading out for a few hours" | Nothing. The session waits. |
-
-An explicit request runs immediately. A phrase that only implies it gets a one-line confirmation first (Scott, 2026-10-20). When the command ships, add its trigger lines to the Proactive Suggestions in `.claude/CLAUDE.md`.
-
-**No Donna briefing.** These commands are meant for everyone, and Donna runs her own daily checks (Scott, 2026-10-20). The peer-handoff idea that would have briefed her is dropped; its lessons about relays live in `.claude/CLAUDE.md` under "Messages between sessions".
-
-**Not a revival of the 2026-08-14 `/end-session`** (commit `48415e6`, never merged). Its three sweeps shipped as `/write-that-down` and its handoff step is dropped, so only the name comes back, with a new job.
-
-**Verified 2026-10-25 on 2.1.310:** SIGTERM gives exit 143, interactive and headless; Claude keeps the transcript through the final answer and writes its shutdown entries; the Remote Control session drops off the phone's list with no dead entry; `$PPID` from the Bash tool is the Claude process.
-
-**Sequencing:** before the Patchbay move, since it lives in Servanda and does not move. `/shift-change` builds on it.
-
-**Plan:** [end-session.md](end-session.md). Run interactively: Steps 1 and 5 need Scott and the phone.
-
-**Status:** Ready to implement (planned 2026-10-25). Next: `/booyah end-session` in a fresh session.
-
----
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
-
 ### Move Patchbay into its own repo
 
 **Thread:** Tools (Patchbay)
@@ -102,11 +54,18 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Run interactively.** Creating a GitHub repo is an outward-facing step; not for an unattended `/yolo` or `/beastmode`.
 
-**Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit) and the route-wrapper retirement, so five dead shims are not moved. Before the `claude-ps` extraction and the `pbay` merge.
+**Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) and the route-wrapper retirement (both done), so five dead shims are not moved. Before the `claude-ps` extraction and the `pbay` merge.
 
 **Plan:** none yet; next step is `/gameplan patchbay-repo`, reusing team-release Step 4.
 
 **Status:** Queued 2026-10-20. Not planned.
+
+---
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
 
 ### Open-source `claude-ps` as `facetdigital/claude-ps`
 
@@ -164,7 +123,7 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Thread:** Tools (Patchbay), plus one command file in Servanda's `.claude/commands/`
 
-**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs [`/end-session`](#end-session-write-it-down-then-exit) (so everything perishable outside the repo is recorded and committed, then Claude exits) with a restart signal instead of a stop signal, and `claude-run`, behind `pbay run`, traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
+**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) (so everything perishable outside the repo is recorded and committed, then Claude exits) with a restart signal instead of a stop signal, and `claude-run`, behind `pbay run`, traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
 
 - **Restart to update.** A relaunch runs whatever `claude` is on disk now, so the session picks up a Claude Code update. Seen 2026-10-18: the CLI was at 2.1.302 while a long-running Donna session was still on 2.1.296.
 - **Clear context without losing the session's identity.** Plain `/clear` handles the context half, but it messes up the agent name and the Remote Control sessions (Scott, 2026-10-19), which is the whole reason this is not just `/write-that-down` plus `/clear`. A fresh `CLAUDE.md` comes along for free; it is a side effect, not the goal.
@@ -194,7 +153,7 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Possible follow-on, not in scope:** a shift change for the whole fleet onto a new version. Sending `kill -HUP` to every PID `claude-ps` lists would skip each session's write-down, so this would have to deliver `/shift-change` into each session rather than signal it.
 
-**Sequencing:** after the `pbay` merge above. Ahead of the Patchbay team release, which is on hold anyway; the team gets `/shift-change` when it ships.
+**Sequencing:** after the `pbay` merge above; its `/end-session` dependency is met (shipped 2026-10-31). Ahead of the Patchbay team release, which is on hold anyway; the team gets `/shift-change` when it ships.
 
 **Plan:** none yet; next step is `/gameplan shift-change`.
 
@@ -725,6 +684,45 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 ---
 
 ## Completed
+
+### `/end-session`: write it down, then exit (2026-10-31)
+
+**Thread:** Servanda
+
+**Goal:** One command for "I'm done with this session": run `/write-that-down`, then exit. It works in any session, plain `claude` included, and needs nothing from Patchbay. (Scott, 2026-10-20.)
+
+**The chain.** Three commands, each one the previous plus one step:
+
+| Command | Does | Needs |
+|---|---|---|
+| `/write-that-down` | Records and commits what only the session knows. The session keeps going. | Nothing |
+| `/end-session` | `/write-that-down`, then exits. | Nothing |
+| `/shift-change` | `/end-session`, then a fresh session comes up at the same post. | The Patchbay runner's relaunch loop |
+
+**The agent cannot type `/exit`,** so exiting needs a signal. As its last step, after the write-down succeeds, the model runs one fixed command, `bin/claude-end-session`, which sends SIGTERM to the nearest `claude` ancestor and refuses if there is none. Why not a `!` line: Claude Code runs a command file's `!` lines when it expands the command, before the model reads it, so a `` !`kill -TERM $PPID` `` line would exit before `/write-that-down` started (found 2026-10-25). SIGTERM gives exit 143, which the `/shift-change` relaunch loop will read as "stop", while SIGHUP (129) will mean "come back".
+
+**Never exit over an unrecorded session.** If `/write-that-down` fails, stops to ask a question, or leaves a file it wrote uncommitted, `/end-session` stops there and the session stays up. Unrelated uncommitted work and unpushed commits do not block; the closing record names them.
+
+**When it runs.** Scott's phrases, and what each one means:
+
+| Scott says | Means |
+|---|---|
+| "record what we learned", "write that down" | `/write-that-down` |
+| "exit the session", "I'm done with this session" | `/end-session` |
+| "new context and restart", "get the harness update", "shift change" | `/shift-change` |
+| "heading out for a few hours" | Nothing. The session waits. |
+
+An explicit request runs immediately. A phrase that only implies it gets a one-line confirmation first (Scott, 2026-10-20). The trigger lines are in the Proactive Suggestions in `.claude/CLAUDE.md`.
+
+**No Donna briefing.** These commands are meant for everyone, and Donna runs her own daily checks (Scott, 2026-10-20). The peer-handoff idea that would have briefed her is dropped; its lessons about relays live in `.claude/CLAUDE.md` under "Messages between sessions".
+
+**Not a revival of the 2026-08-14 `/end-session`** (commit `48415e6`, never merged). Its three sweeps shipped as `/write-that-down` and its handoff step is dropped, so only the name comes back, with a new job.
+
+**Verified 2026-10-25 on 2.1.310:** SIGTERM gives exit 143, interactive and headless; Claude keeps the transcript through the final answer and writes its shutdown entries; the Remote Control session drops off the phone's list with no dead entry; `$PPID` from the Bash tool is the Claude process.
+
+**Plan:** [end-session.md](end-session.md)
+
+Shipped in four commits plus this one: `bin/claude-end-session` with a selftest that is safe inside a live session (22 assertions, fakes in detached process trees), `.claude/commands/end-session.md`, and the docs. Accepted 2026-10-31 on 2.1.316 in a throwaway repo: nothing to record, something to record under `agent` with the phone, a commit blocked by a pre-commit hook (stayed up), a leftover dirty file (named, then exit), and an implied phrase (asked first). Headless `-p` runs skip the closing record, which never shows there anyway.
 
 ### Retire the route wrapper scripts (2026-10-25)
 
