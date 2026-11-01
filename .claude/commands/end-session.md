@@ -1,5 +1,5 @@
 ---
-description: End this session cleanly. Runs /write-that-down, and only when that sweep committed or found nothing to record, exits Claude.
+description: End this session cleanly. Runs /write-that-down exiting (the sweep, then the repo's Pre-Exit Steps), and only when both finished cleanly, exits Claude.
 allowed-tools: ["Skill", "Read", "Write", "Edit", "Glob", "Grep", "Bash"]
 ---
 
@@ -9,7 +9,7 @@ The order is fixed. Do each step in turn, and stop where a step says to stop.
 
 ## 1. Write it down
 
-Run `/write-that-down` through the Skill tool, passing `$ARGUMENTS` as its focus (or nothing, if empty). Follow it all the way through its commit and its report.
+Run `/write-that-down` through the Skill tool with the arguments `exiting $ARGUMENTS` (just `exiting`, if `$ARGUMENTS` is empty), so the rest becomes its focus. In that mode it runs the sweep, commits it, then runs the repo's Pre-Exit Steps if the repo declares any. Follow it all the way through its commits and its report.
 
 Its closing line, "get back to whatever you were doing", does not apply here. What you were doing is ending the session, so continue to step 2.
 
@@ -18,13 +18,16 @@ Its closing line, "get back to whatever you were doing", does not apply here. Wh
 Go on only if the sweep did one of these:
 
 - committed what it found, or
-- reported nothing to record, and made no commit.
+- reported nothing to record, and made no commit;
+
+and every Pre-Exit Step ran without failing, or the repo declares none.
 
 Stop here, with the session left up, if any of these happened:
 
 - the sweep failed, or its commit failed;
-- the sweep stopped to ask a question, or anything in it is waiting on an answer from the user;
-- a file the sweep wrote is still uncommitted, in this repo or any other (for example, its edit overlapped someone's uncommitted work, so it left that file alone).
+- the sweep or a Pre-Exit Step stopped to ask a question, or anything in it is waiting on an answer from the user;
+- the report says `Pre-Exit Steps failed:` or `Pre-Exit Steps not run:`;
+- a file the sweep or a Pre-Exit Step wrote is still uncommitted, in this repo or any other (for example, its edit overlapped someone's uncommitted work, so it left that file alone).
 
 When you stop, say why in one line, starting `Not ending the session:`, and end your turn. Do not run steps 3 to 5. The session stays up so the user can answer or finish the record.
 
@@ -44,7 +47,7 @@ Print the closing record as plain text. This step is required in every run, head
 
 The record is, in this order:
 
-1. The write-down report, or its "nothing to record" line.
+1. The write-down report, or its "nothing to record" line, with its Pre-Exit Steps line if it has one.
 2. The leftovers line from step 3, if there is one.
 3. `Ending session.` on its own line.
 

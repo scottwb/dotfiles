@@ -1,4 +1,4 @@
-Answer questions about the workflow command suite (/roadmap, /gameplan, /booyah, /yolo, /beastmode, /phasegate) from the canonical reference, loaded on demand.
+Answer questions about the workflow command suite (/roadmap, /gameplan, /booyah, /yolo, /beastmode, /phasegate, /write-that-down, /end-session) from the canonical reference, loaded on demand.
 
 Arguments: $ARGUMENTS (optional - a question, e.g. "does yolo merge?")
 

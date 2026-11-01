@@ -61,6 +61,17 @@ Approval granularity coarsens as autonomy increases. One consistent grammar thro
 ### /workflow-help
 - **Does:** reads this file and answers "what does X do?" questions on demand, so the contracts never need to live in standing context.
 
+### /write-that-down
+- **Does:** sweeps what only the session knows (decisions, corrections, machine-local memory) into the repo by the repo's own rules, and commits it without asking as one `Update Knowledge:` commit on the current branch. Not a rung: it runs at any point, in any repo.
+- **Modes:** `exiting` (the session is about to end) or `clearing` (the context is about to be cleared; the process keeps running) as the first word of the arguments adds the repo's Pre-Exit Steps after the sweep. The rest of the arguments is the focus. The older `/write-that-down, exiting` form also works.
+- **Pre-Exit Steps:** a repo declares them in a `## Pre-Exit Steps` section of its own `CLAUDE.md` (any heading level or case, hyphen optional; the user-level `~/.claude/CLAUDE.md` is not read for this). Each top-level list item is one step. A step starting `(exit only)` runs on `exiting` and is skipped on `clearing`; unmarked steps run on both.
+- **Order:** sweep, commit the sweep, run the Pre-Exit Steps in order, commit what they wrote as a separate `Pre-Exit:` commit, report. If the sweep or its commit fails, no Pre-Exit Step runs. The first failing step stops the rest. Either is reported as a failure.
+- **Does not:** switch, create or merge branches, push, stage anything it did not write, or run Pre-Exit Steps without a mode.
+
+### /end-session
+- **Does:** runs `/write-that-down exiting <its own arguments as focus>`, prints a closing record (including unrelated uncommitted work and unpushed commits), then exits Claude through the `claude-end-session` helper.
+- **Does not:** exit when the sweep or a Pre-Exit Step failed, asked a question, or left something it wrote uncommitted; or commit, stash or push leftovers it did not write.
+
 ## Typical Flows
 
 - Interactive: `/roadmap` -> `/gameplan <feature>` -> `/booyah` (repeat per step) -> gate offer at phase end.
