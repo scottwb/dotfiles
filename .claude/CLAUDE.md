@@ -225,6 +225,10 @@ Peer sessions are started with Scott's wrapper, `agent -n '<Name>' '<kickoff pro
 - It mixes personal and work material, so each agent's scope rules still govern what it may carry out of it.
 - Never mount `~/Downloads` into a Docker container. On 2026-10-25 that raised a macOS folder-permission prompt and hung every new container for about two hours.
 
+### Edits to `~/.claude` from another session
+
+`~/.claude` is the public `scottwb/dotfiles` repo, and the Dotfiles session owns what lands there. A session working in another repo that has something for the global `CLAUDE.md`, a command or a skill sends it to Dotfiles as a message or an inbox file rather than editing here; Dotfiles reviews it for public-repo safety and commits it. Incidents: on 2026-10-26 FAW committed and pushed a `CLAUDE.md` section here, and the push also published Dotfiles' untested local commits (Scott, as relayed by FAW: "ok this time"). On 2026-10-27 FAW's `/write-that-down` left a section in `CLAUDE.md` uncommitted for four days, naming a private Facet repo path. Scott, 2026-10-31, on that change: "You own it."
+
 ### Messages between sessions
 
 When you tell another session what Scott decided, or act on what one told you:

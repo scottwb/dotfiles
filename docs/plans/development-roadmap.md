@@ -52,6 +52,8 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Decide at plan time:** how dotfiles adds the new repo's `bin/` to `PATH` on a fresh machine.
 
+**Also decide at plan time:** `claude-ps`'s scaffolding filter names `claude-end-session` and `claude-end-session-selftest`, which stay in dotfiles as Servanda. Once `claude-ps` and `claude-route-selftest` move, the selftest's drift guard (every `bin/claude-*` on disk must be in the filter) can no longer see those two, so the plan picks how the filter learns about scripts outside its own repo.
+
 **Run interactively.** Creating a GitHub repo is an outward-facing step; not for an unattended `/yolo` or `/beastmode`.
 
 **Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) and the route-wrapper retirement (both done), so five dead shims are not moved. Before the `claude-ps` extraction and the `pbay` merge.
