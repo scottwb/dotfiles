@@ -38,6 +38,8 @@ So the two halves of a change can land at different times. A command plus the
 `CLAUDE.md` entry that tells sessions when to suggest it will, for every session
 already running, be half applied.
 
+**So build command changes in a separate worktree.** Because `~/.claude` is this repo's main checkout, whatever branch is checked out there is what every session runs. A feature branch checked out in place, or uncommitted edits to `.claude/commands/`, go live everywhere before anyone has tested them. Put the branch in a linked worktree under `.claude/worktrees/` (ignored) and keep the main checkout on master; the change goes live at the merge. Seen 2026-11-01: on merging the `/write-that-down` exiting mode, the running session's skill list showed the new descriptions at once. To try a branch live before merging, remove its worktree first, since git will not check out a branch that a worktree holds.
+
 ## The notification keys are harness-owned
 
 `inputNeededNotifEnabled`, `agentPushNotifEnabled` and `taskCompleteNotifEnabled`
