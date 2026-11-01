@@ -250,8 +250,8 @@ effort:
 4. **A thin layer above ccr** that owns the tier policy and delegates transport,
    keeping Patchbay's discipline without reimplementing routing.
 
-Option 2 is the most interesting and the least work. It has not been attempted,
-and no issue has been filed. The `no_fallback` idea has not been validated
+Option 2 is the most interesting and the least work. Scott chose to file it
+(2026-10-31); the roadmap item tracks it. The `no_fallback` idea has not been validated
 against ccr's maintainers or its actual code, only against its documentation.
 
 ## What the gates cost and bought

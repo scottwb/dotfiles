@@ -44,7 +44,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **Already proven, in [patchbay-team-release.md](patchbay-team-release.md) Step 4:** that step's tree was assembled and verified once (no personal strings, selftest green from a fresh clone) before the hold, so the mechanics are known.
 
-**Creating the repo is not releasing it.** A private repo with nobody invited moves the code without starting the team release. **Open question for Scott:** the team release was put on hold on 2026-09-13 with no reason recorded. If that reason was about the code leaving dotfiles rather than about the team, it applies here too. **Context for that question:** the same day, a Donna relay turned Scott's remark that Patchbay "lives in dotfiles for now" into the claim "Patchbay stays in this repo, not its own repo", against a plan one command from creating the repo. Donna retracted it within the hour. The hold may have come from that misquote rather than from a decision. Ask before running.
+**Creating the repo is not releasing it.** A private repo with nobody invited moves the code without starting the team release. The 2026-09-13 hold on the team release does not block creating the repo (Scott, 2026-10-31, asked directly).
 
 **What moves:** `bin/claude-run`, `bin/agent`, `bin/claude-ps` (toward `pbay ps`; see the `claude-ps` item next), `bin/claude-route-selftest`, `docs/patchbay.md`, the Patchbay plans (`claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`) and their gate reports (`route-gates.md`, `mcp-schema-budget.md`). The roadmap items for `pbay`, `/shift-change`'s relaunch loop, `pbay` config and the team release move to the new repo's roadmap; dotfiles keeps one pointer item.
 
@@ -351,11 +351,7 @@ override. Scott's call 2026-08-16: do them all for now, add the filter later.
    subscription share and the pay-as-you-go price side by side. In API mode
    there is no share to show, so the page stays as it is today.
 
-   **The open question is N.** Anthropic publishes no monthly token allotment
-   for a subscription; usage is rate-limited by rolling windows, not a monthly
-   quota. So the divisor has to come from somewhere: a figure Scott sets in
-   config, a measured personal average, or a modelled cap. Until that is
-   settled the arithmetic is fiction. Worth doing, worth not guessing.
+   **N is Scott's measured average** (decided 2026-10-31, asked directly): the divisor comes from his own observed monthly token usage, not a figure set in config or a modelled cap. Anthropic publishes no monthly allotment, so a measured average is the only number grounded in real use. Ready to build; how the average is measured is a plan-time detail.
 
 9. **Real pricing for OpenRouter and other providers.** Extend the rate table
    past Anthropic so routed sessions cost out properly instead of rendering
@@ -364,8 +360,7 @@ override. Scott's call 2026-08-16: do them all for now, add the filter later.
    so this likely means a second rate table rather than live data. Ollama and
    other local runtimes stay genuinely unpriced, which the page already handles.
 
-10. **A retention policy** for the output directory, which nothing currently
-    prunes. Cheap to build; the decision is what to keep and for how long.
+10. **No retention policy.** Generated pages are kept forever in `~/.ai-staff-audit-log/`, a local folder outside any repo (never this public one), so nothing prunes it and nothing needs building (Scott, 2026-10-31, asked directly).
 
 11. **The `--annotate` pass.** Optional model-assisted enrichment: tool-call
     one-liners for tools the regex table does not know, side-effect prose, and
@@ -600,7 +595,17 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
 
-**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". **Related (2026-10-20):** `claude-ps` is queued to become the open-source `facetdigital/claude-ps`, staying Claude-only. A public repo would give the post something to link; ask Scott whether the post waits for it.
+**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". **Related (2026-10-20):** `claude-ps` is queued to become the open-source `facetdigital/claude-ps`, staying Claude-only. The post waits for that repo, so it has something to link (Scott, 2026-10-31).
+
+### File `no_fallback: true` upstream on claude-code-router
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** Propose a per-route flag to claude-code-router (ccr) that makes a route fail rather than fall back to a weaker model, so the capability floor exists where routing already lives. Option 2 in [patchbay.md, "Or: give up and build on ccr"](../patchbay.md#or-give-up-and-build-on-ccr). Scott, 2026-10-31: file it. Moves to Patchbay's own roadmap with the repo.
+
+**Steps:** check the idea against ccr's code and its open issues, not just its docs; draft the issue; Scott reviews the draft; then file it. Filing is public, so it does not happen before his review.
+
+**Status:** Queued 2026-10-31. Not started.
 
 ### Patchbay v2: the `pbay` front door
 
@@ -622,7 +627,7 @@ That makes the real question upstream of the build: **is the durable idea worth 
 
 **Goal:** Give the sweep a step that asks whether the repo it is running in owns a fact, before the fact is written down, and stop a peer agent's claim from landing as settled fact.
 
-**Status:** Needs a gameplan. **AWAITING SCOTT'S EXPLICIT GO, and do not auto-start.** Relayed 2026-09-17 by the Sri session, with Scott saying this repo owns the fix. Filed 2026-10-05 after he asked for it directly, so the relay is no longer the only authority behind it; the implementation still waits.
+**Status:** Needs a gameplan. **Go given 2026-10-31** (Scott, asked directly in `/office-hours`). Relayed 2026-09-17 by the Sri session, with Scott saying this repo owns the fix; filed 2026-10-05 after he asked for it directly. Next: `/gameplan write-that-down-ownership`.
 
 **Two failures in `~/src/scottwb/sri`, both verified in that repo's history.** A knowledge sweep found a first name in a homework-status line with no identity behind it, researched him, and opened a People entry in `synthesis.md`. He is a Facet business contact who belongs to FAW and Donna, not a coaching vault. Reverted in `c7ba3c3`, with the scope rule added in `391254a`. Separately, a peer agent's claim that Donna had restarted mid-thread was written into that repo's CLAUDE.md as settled fact, with no source and no hedge; Donna says it has not happened. **That one is still contested and was never resolved**, so a gameplan should treat it as an open question rather than a fact in either direction.
 
