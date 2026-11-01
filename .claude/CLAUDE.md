@@ -49,7 +49,7 @@ I have custom slash commands for a structured development workflow:
 | `/beastmode` | To chew through the whole roadmap unattended with review loops and phase gates |
 | `/phasegate` | After a phase's features are merged, to audit that the phase delivered its promises |
 | `/write-that-down` | Any time a session is holding knowledge the repo does not have; sweeps it in and commits it |
-| `/end-session` | When I am done with a session; runs `/write-that-down`, then exits Claude only if the sweep recorded everything |
+| `/end-session` | When I am done with a session; runs `/write-that-down exiting` (the sweep, then the repo's Pre-Exit Steps), then exits Claude only if both finished cleanly |
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 

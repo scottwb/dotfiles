@@ -70,7 +70,7 @@ It differs from the ladder on approval, too. The rungs stop and wait for
 re-invocation; this one commits on its own, because a sweep that needs a second
 approval is one that silently does not happen when a session is cleared.
 
-`/end-session` is that sweep plus an exit, and not a rung either. It runs `/write-that-down` and ends the session only when the sweep committed or found nothing to record; a sweep that fails, asks a question, or leaves a file uncommitted keeps the session up. The model cannot type `/exit`, so the last step runs `bin/claude-end-session`, which sends SIGTERM to the session's own `claude` process. That exit is a helper the model runs, not a `!` line in the command file, because Claude Code runs every `!` line when it expands the command, before the model reads the prompt: the session would exit before the sweep began.
+`/end-session` is that sweep plus an exit, and not a rung either. It runs `/write-that-down exiting`, which adds the repo's own Pre-Exit Steps after the sweep, and ends the session only when the sweep committed or found nothing to record and no Pre-Exit Step failed; a sweep or step that fails, asks a question, or leaves a file uncommitted keeps the session up. The model cannot type `/exit`, so the last step runs `bin/claude-end-session`, which sends SIGTERM to the session's own `claude` process. That exit is a helper the model runs, not a `!` line in the command file, because Claude Code runs every `!` line when it expands the command, before the model reads the prompt: the session would exit before the sweep began.
 
 ## The idea worth stealing: a capability floor
 

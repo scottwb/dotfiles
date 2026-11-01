@@ -1,9 +1,9 @@
 ---
-description: Sweep anything that lives only in session context or outside-of-repo memory into the repo, per this repo's own rules, and commit it as one atomic "Update Knowledge" commit.
+description: Sweep anything that lives only in session context or outside-of-repo memory into the repo, per this repo's own rules, and commit it as one atomic "Update Knowledge" commit. "exiting" or "clearing" as the first argument also runs the repo's Pre-Exit Steps after the sweep.
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
 ---
 
-Sweep unstored knowledge into the repo. Optional focus: $ARGUMENTS
+Sweep unstored knowledge into the repo. Optional mode and focus: $ARGUMENTS
 
 * **Find what would be lost** under a session clear or a fresh clone on a new machine, and put it where it survives both.
 
@@ -14,6 +14,15 @@ Sweep unstored knowledge into the repo. Optional focus: $ARGUMENTS
 * **Do not wait.** Run this the moment you notice you are holding something perishable. Clears, compactions and killed panes give no warning, so "later" is a bet you will sometimes lose.
 
 * **Keep it quick.** A flush that takes twenty minutes and prints a wall of text is one nobody runs. A crude sweep that happens beats a thorough one that gets skipped.
+
+## Mode: `exiting` or `clearing`
+
+The first word of the arguments can set a mode. Ignore leading spaces and punctuation, and a comma or colon right after the word, so the older form `/write-that-down, exiting` still works. If that first word is `exiting` or `clearing`, in any case, it is the mode and the rest of the arguments is the focus. Otherwise there is no mode, and all of the arguments is the focus.
+
+- `exiting`: the session is about to end. `/end-session` always runs in this mode.
+- `clearing`: the context is about to be cleared, but the session keeps running, so anything tied to the process (scheduled jobs, background tasks) survives the clear.
+
+Either mode adds step 7, the repo's Pre-Exit Steps, after the sweep is committed. The mode does not change the sweep itself.
 
 ## 1. Ground yourself
 
@@ -86,10 +95,38 @@ The fixed prefix keeps these greppable across repos with `--grep="Update Knowled
 
 The repo's own rules govern what may be committed and where; if it gates some kinds of change behind a branch or an explicit approval, that wins over anything here. Do not push or merge unless the repo's rules say to.
 
-Then get back to whatever you were doing.
+If nothing qualifies, make no commit. An empty sweep is a normal result.
 
-## 7. Report
+## 7. Pre-Exit Steps (`exiting` or `clearing` only)
+
+With no mode, skip to step 8.
+
+A repo can declare extra steps to run before an exit or a context clear, beyond what this sweep does: a fuller handoff note, stopping jobs the session started, releasing something the session holds. They live in a section of the repo's own `CLAUDE.md` headed `## Pre-Exit Steps`.
+
+**Find the section** in the repo's `CLAUDE.md` at its root and in its `.claude/CLAUDE.md`, not in the user-level `~/.claude/CLAUDE.md`: these steps belong to a repo. Match the heading at any level, in any case, with or without the hyphen (`Pre-Exit Steps`, `Pre Exit Steps`). The section runs to the next heading of the same or a higher level. No section, or an empty one, means there is nothing extra to do.
+
+**Run them only after a clean sweep:** the sweep committed what it found, or found nothing to record. If the sweep or its commit failed, the sweep stopped to ask a question, or it left a file it wrote uncommitted, run none of the Pre-Exit Steps, and say so in the report. Otherwise a session could give up its jobs and then stay up, holding nothing, because the sweep needs attention.
+
+**Which steps run.** Each top-level list item in the section is one step; a section with no list is one step. A step marked `(exit only)` runs on `exiting` and is skipped on `clearing`. Unmarked steps run on both. Write the marker at the start of the item, as in `- (exit only) Stop the jobs this session scheduled.`, and match it anywhere in the item's first line, in any case. Mark a step exit-only when it gives up something tied to the process, since a clear keeps the process.
+
+**Run them in order and stop at the first failure.** A step that fails, or needs an answer from the user, stops the list: the steps after it do not run. Report that as a failure, the same as a failed sweep, so `/end-session` keeps the session up. A step with nothing to do (no jobs to stop) has not failed. Repos should put the steps that give something up last, so an earlier failure leaves them undone.
+
+**Commit what they wrote,** under the same rules as step 6: only what the steps wrote, nothing that was already uncommitted, never `git add -A`. One commit, separate from the sweep's:
+
+```
+Pre-Exit: <three to five words>
+
+- <terse description of what one step wrote>
+```
+
+No commit if the steps wrote nothing to the repo. A failed commit counts as a failed step. Where the section itself says where a step's output goes, or that it is not committed, the section wins.
+
+## 8. Report
 
 Plain and short. Keep it under 100 words. This is ticker tape info to the human user, not a wall of text they want to read. Report as absolutely succinctly as possible what was recorded and where, lessons codified and at what scope, edits made in other repos, open threads not filed anywhere, and what you dropped and why. This is how the user catches you dropping something that mattered.
 
-If nothing qualifies, say so and make no commit. An empty sweep is a normal result.
+If nothing qualifies, say so.
+
+With a mode, add one line for the Pre-Exit Steps: which ran, which were skipped as exit-only, and the commit, or that the repo declares none. When they did not all run, the line starts `Pre-Exit Steps failed:` or `Pre-Exit Steps not run:` and says why.
+
+Then get back to whatever you were doing.

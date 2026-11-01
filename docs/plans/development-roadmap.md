@@ -703,12 +703,12 @@ One measurement already exists and should shape the rest: Gate A found `glm-4.7-
 | Command | Does | Needs |
 |---|---|---|
 | `/write-that-down` | Records and commits what only the session knows. The session keeps going. | Nothing |
-| `/end-session` | `/write-that-down`, then exits. | Nothing |
+| `/end-session` | `/write-that-down exiting` (the sweep, then the repo's Pre-Exit Steps), then exits. | Nothing |
 | `/shift-change` | `/end-session`, then a fresh session comes up at the same post. | The Patchbay runner's relaunch loop |
 
 **The agent cannot type `/exit`,** so exiting needs a signal. As its last step, after the write-down succeeds, the model runs one fixed command, `bin/claude-end-session`, which sends SIGTERM to the nearest `claude` ancestor and refuses if there is none. Why not a `!` line: Claude Code runs a command file's `!` lines when it expands the command, before the model reads it, so a `` !`kill -TERM $PPID` `` line would exit before `/write-that-down` started (found 2026-10-25). SIGTERM gives exit 143, which the `/shift-change` relaunch loop will read as "stop", while SIGHUP (129) will mean "come back".
 
-**Never exit over an unrecorded session.** If `/write-that-down` fails, stops to ask a question, or leaves a file it wrote uncommitted, `/end-session` stops there and the session stays up. Unrelated uncommitted work and unpushed commits do not block; the closing record names them.
+**Never exit over an unrecorded session.** If `/write-that-down` fails, stops to ask a question, leaves a file it wrote uncommitted, or reports a failed Pre-Exit Step, `/end-session` stops there and the session stays up. Unrelated uncommitted work and unpushed commits do not block; the closing record names them.
 
 **When it runs.** Scott's phrases, and what each one means:
 
