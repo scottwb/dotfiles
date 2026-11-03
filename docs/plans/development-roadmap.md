@@ -37,26 +37,26 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 **Why now:** the `pbay` design in [patchbay.md](../patchbay.md#pbay) turned a few scripts into a product (config folders, a credentials file, one runner per harness, a conformance suite, possibly a new language), and it ships to other people. The next items all rewrite the same files, so moving them before that work is cheaper than untangling them after.
 
 **Decided:**
-- **Owner `facetdigital/patchbay`, licence MIT, private.** Shared with the Facet team later, open-sourced later; neither is part of this item.
+- **Owner `facetdigital/patchbay`, licence MIT, private.** It is a Facet tool for Facet people. If it never goes beyond Scott, or never beyond Facet, that is fine; making it public is a someday option, not a goal (Scott, 2026-11-03). Neither sharing nor publishing is part of this item.
 - **Fresh history** in the new repo, as team-release Step 4 already decided (T5). No `git filter-repo` export.
 - **Removed from dotfiles at HEAD only.** Dotfiles reads as if Patchbay was never there, from this commit on. **Never rewrite history in either repo**; git keeps the old copies.
-- **`agent` keeps working, with the same options.** Before removing anything, collect every way `agent` has been launched (from shell history) and check each one resolves to the same `claude` command before and after, using the canary line or a dry run. Patchbay's `bin/` goes on `PATH` before `bin/agent` leaves dotfiles.
+- **`agent` keeps working, unchanged.** The move changes no script's behaviour: Patchbay works from its new home, Scott keeps using `agent`, and `/shift-change` is then built on `agent` (Scott, 2026-11-03). Before removing anything, collect every way `agent` has been launched (from shell history) and check each one resolves to the same `claude` command before and after, using the canary line or a dry run. Patchbay's `bin/` goes on `PATH` before `bin/agent` leaves dotfiles.
 
 **Already proven, in [patchbay-team-release.md](patchbay-team-release.md) Step 4:** that step's tree was assembled and verified once (no personal strings, selftest green from a fresh clone) before the hold, so the mechanics are known.
 
 **Creating the repo is not releasing it.** A private repo with nobody invited moves the code without starting the team release. The 2026-09-13 hold on the team release does not block creating the repo (Scott, 2026-10-31, asked directly).
 
-**What moves:** `bin/claude-run`, `bin/agent`, `bin/claude-ps` (toward `pbay ps`; see the `claude-ps` item next), `bin/claude-route-selftest`, `docs/patchbay.md`, the Patchbay plans (`claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`) and their gate reports (`route-gates.md`, `mcp-schema-budget.md`). The roadmap items for `pbay`, `/shift-change`'s relaunch loop, `pbay` config and the team release move to the new repo's roadmap; dotfiles keeps one pointer item.
+**What moves:** `bin/claude-run`, `bin/agent`, `bin/claude-ps` (Patchbay's fork, route enricher included, which becomes `pbay ps`; the public fork is [its own item](#fork-claude-ps-for-the-public-as-facetdigitalclaude-ps)), `bin/claude-route-selftest`, `docs/patchbay.md`, the Patchbay plans (`claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`) and their gate reports (`route-gates.md`, `mcp-schema-budget.md`). The roadmap items for `pbay`, `/shift-change`'s relaunch loop, `pbay` config and the team release move to the new repo's roadmap; dotfiles keeps one pointer item.
 
 **What stays in dotfiles:** an install line that puts Patchbay's `bin/` on `PATH`; `~/.pbay/config`, once it exists, as Scott's personal config; and Servanda, including its generic rule that routed sessions halt gates. Servanda's docs name `claude-run`, which keeps working while it is on `PATH`. The `/end-session` and `/shift-change` command files belong in `.claude/commands/` because they run `/write-that-down`; only the relaunch loop lives in Patchbay.
 
 **Decide at plan time:** how dotfiles adds the new repo's `bin/` to `PATH` on a fresh machine.
 
-**Also decide at plan time:** `claude-ps`'s scaffolding filter names `claude-end-session` and `claude-end-session-selftest`, which stay in dotfiles as Servanda. Once `claude-ps` and `claude-route-selftest` move, the selftest's drift guard (every `bin/claude-*` on disk must be in the filter) can no longer see those two, so the plan picks how the filter learns about scripts outside its own repo.
+**Also decide at plan time:** `claude-ps`'s scaffolding filter names `claude-end-session` and `claude-end-session-selftest`, which stay in dotfiles as Servanda. Once Patchbay's `claude-ps` and `claude-route-selftest` move, the selftest's drift guard (every `bin/claude-*` on disk must be in the filter) can no longer see those two, so the plan picks how Patchbay's filter learns about scripts outside its own repo. The public fork has the same problem in a different form; see its item.
 
 **Run interactively.** Creating a GitHub repo is an outward-facing step; not for an unattended `/yolo` or `/beastmode`.
 
-**Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) and the route-wrapper retirement (both done), so five dead shims are not moved. Before the `claude-ps` extraction and the `pbay` merge.
+**Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) and the route-wrapper retirement (both done), so five dead shims are not moved. Before `/shift-change` and the `pbay` merge. The public `claude-ps` fork does not wait on it.
 
 **Plan:** none yet; next step is `/gameplan patchbay-repo`, reusing team-release Step 4.
 
@@ -69,63 +69,11 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 Ordered by priority. The Terminal & editors thread has nothing queued;
 new items for it go here with a **Thread:** tag like everything else.
 
-### Open-source `claude-ps` as `facetdigital/claude-ps`
-
-**Thread:** Tools (Patchbay)
-
-**Goal:** `claude-ps`, the `ps` for Claude Code sessions, becomes a small standalone open-source tool. It is the upstream; `pbay ps` runs `claude-ps --json` and adds Patchbay's route columns. (Scott, 2026-10-20.)
-
-**Decided:**
-- **Generic and Claude-only.** No Patchbay, Facet or Scott references. The script's marked "Patchbay enricher" section (`detect_route`, `resolve_route_alias`, the launcher cases) stays behind in Patchbay, and the usage examples lose their agent names.
-- **Private until Scott is ready** to make it public. Fresh history.
-- **macOS only.** Linux support is a later roadmap item in the new repo (containers are the likely way to test it).
-- **Slackline's release conventions** (`~/src/facetdigital/slackline`): `VERSION` is the number of record, tests keep every copy of the version and the README's install URL equal to it, and the release steps live in `CONTRIBUTING.md` (tag `vX.Y.Z`, a GitHub release with the files attached). No release workflow in GitHub Actions; tests only.
-- **The repo:** a casual, friendly README, MIT licence, `CLAUDE.md`, an install script, tests (bats and shellcheck), and `--version`.
-
-**`pbay ps`** keeps working the same way for Scott: route columns on top of `claude-ps`'s own. Rewriting it on a harness-plugin model, for harnesses other than Claude Code, is a later Patchbay item, under [Patchbay v2](#patchbay-v2-the-pbay-front-door).
-
-**Sequencing:** right after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), so `claude-ps` is extracted from Patchbay rather than from dotfiles. Before the `pbay` merge.
-
-**Run interactively.** Creating a GitHub repo is an outward-facing step.
-
-**Plan:** none yet; next step is `/gameplan claude-ps-oss`.
-
-**Status:** Queued 2026-10-20. Not planned.
-
-### `pbay`: one launcher (merge `agent` and `claude-run`)
-
-**Thread:** Tools (Patchbay)
-
-**Goal:** `pbay run` becomes the one way to start a session, and `agent` the easy way to type it. `pbay run claude [args]` hands off to `claude-run`, which stays as the Claude runner and takes over `agent`'s defaults. `agent` is an alias for `pbay run`, for any harness, and only a runner: there is no `agent ps`. The alias is optional at install and skipped when `agent` already resolves to something else. (Scott, 2026-10-19.)
-
-**Design:** [patchbay.md, "`pbay`"](../patchbay.md#pbay). This item builds the first layer of it.
-
-**Same shape as decided 2026-09-02:** one implementation, `agent` in front because it is the word Scott actually types, `pbay` as the full CLI. New on 2026-10-19: the alias is optional, it is not Claude-only, and the merge is queued now instead of waiting for the v2 trigger.
-
-**Why now, ahead of the v2 trigger.** [Patchbay v2](#patchbay-v2-the-pbay-front-door) stays blocked until a second harness is wanted for real work. The merge has its own reasons: `/shift-change` has to relaunch exactly what was launched, which wants one front door, and the team release wants one thing to install.
-
-**Scope:** `pbay run` dispatch, the `agent` alias, `agent`'s defaults moving into `claude-run`, and the harness-or-prompt rule. Only `claude` exists yet, but the rule ships now so a second harness cannot break the alias later. **Not in scope:** config (its own item below), other harnesses, the `pbay-run-<harness>` rename (both v2), and other subcommands.
-
-**Design points for the plan:**
-- **Decide whether `claude-run` also runs plain Max sessions.** Open, and it reverses a past decision; see [Reconsider: `claude-run` runs plain Max sessions too](#reconsider-claude-run-runs-plain-max-sessions-too).
-- **Route selection** passes through to `claude-run` (`--provider`, `--model`, `--context`, `--refresh`). Decide whether the positional route alias (`claude-run gpt`) survives, since after `pbay run claude` a bare word is an opening prompt.
-- **Whose defaults.** `agent`'s `DEFAULTS` (`--model opus --effort high --remote-control --permission-mode auto`) are Scott's. They can stay hardcoded until the config item moves them into `~/.pbay/config`; shipping them to the team waits for config.
-- **`pbay` always passes an explicit model and effort.** `settings.json`'s `model` and `effortLevel` govern bare `claude` only, so a `pbay` session never depends on them (decided 2026-10-20). That leaves one place for each default: `settings.json` for bare `claude`, `pbay`'s defaults for everything it launches.
-- **Keep the canary line** on stderr, printing the resolved command. It is how you find out a different `agent` is shadowing this one.
-- **`claude-ps` route detection should not need to change.** If `pbay` `exec`s `claude-run`, the process `claude-ps` sees is still `claude-run`, so the parser fixed by the route-wrapper retirement keeps working. Verify rather than assume.
-- **The selftest's identifier check** (Scott's account, username and vault-path strings) globs only `bin/claude-*`. Widen it to `bin/pbay*` as well.
-
-**Sequencing:** after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo) and the `claude-ps` extraction, so it is built in the new repo. Before `/shift-change`, which then builds its relaunch loop into `claude-run`, behind `pbay run`.
-
-**Plan:** none yet; next step is `/gameplan pbay`.
-
-**Status:** Queued 2026-10-19. Design proposed, not planned.
-
 ### `/shift-change`: write it down, clock out, next session comes in
 
 **Thread:** Tools (Patchbay), plus one command file in Servanda's `.claude/commands/`
 
-**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) (so everything perishable outside the repo is recorded and committed, then Claude exits) with a restart signal instead of a stop signal, and `claude-run`, behind `pbay run`, traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
+**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) (so everything perishable outside the repo is recorded and committed, then Claude exits) with a restart signal instead of a stop signal, and the launcher traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
 
 - **Restart to update.** A relaunch runs whatever `claude` is on disk now, so the session picks up a Claude Code update. Seen 2026-10-18: the CLI was at 2.1.302 while a long-running Donna session was still on 2.1.296.
 - **Clear context without losing the session's identity.** Plain `/clear` handles the context half, but it messes up the agent name and the Remote Control sessions (Scott, 2026-10-19), which is the whole reason this is not just `/write-that-down` plus `/clear`. A fresh `CLAUDE.md` comes along for free; it is a side effect, not the goal.
@@ -140,11 +88,13 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Why it lives in `pbay` (decided 2026-10-18, narrowed 2026-10-19).** The relaunch has to reproduce the original launch, and only the launcher knows what that was. A routed session relaunched as plain `claude` comes back on Anthropic under a different model with no warning. An agent relaunched without its `--name` and `--remote-control` comes back as a different agent, which is the exact `/clear` problem this exists to avoid. Once `pbay` is the one front door, the relaunch loop lives in `claude-run` behind it, the one place that knows both the route and Claude's exit behaviour. Plain bare `claude` stays untouched, per Patchbay's standing rule.
 
+**Built in `bin/agent` first, as an interim (Scott, 2026-11-03).** Scott wants to save, exit and restart often, so the loop goes into `agent` now and moves into `claude-run` at the [`pbay` merge](#pbay-one-launcher-merge-agent-and-claude-run). Not permanent: `agent` is headed for being only an alias. Until the merge, routed `claude-run` sessions have no loop, and `/shift-change` refuses in them like any unwrapped session.
+
 **Design points for the plan:**
 - **Strip resume flags on relaunch.** If the original launch had `--resume <x>`, `-r`, `-c` or `--continue`, replaying the same arguments would resume. The loop replays everything except those. `claude-run`'s own usage example launches with `--resume`, so this is not hypothetical.
 - **Two signals, two exit codes.** `/end-session` sends SIGTERM (exit 143) and the loop stops; `/shift-change` sends SIGHUP (exit 129) and the loop relaunches. Any other exit code passes through. **Fallback** if Claude Code turns out to exit with the same code for both: `/shift-change` writes a mode file keyed to the launcher's PID before signalling, and the loop reads it.
 - **Never restart over an unrecorded session.** Inherited from `/end-session`: `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the signal itself is the fixed `bin/claude-end-session` helper from `/end-session`, extended to send SIGHUP. Not the post's `!` line: `!` lines run when the command expands, before the write-down.
-- **Refuse in an unwrapped session.** In plain `claude` there is no loop to bring the session back. `pbay` exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent, pointing at `/end-session`.
+- **Refuse in an unwrapped session.** In plain `claude` there is no loop to bring the session back. The launcher with the loop (`agent` now, `pbay` after the merge) exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent, pointing at `/end-session`.
 - **Trigger phrases** ("new context and restart", "get the harness update", "shift change") are in the `/end-session` item's table, with the same rule: explicit runs, implied asks first in one line.
 
 **Verify first; the post is eight months and many CLI versions old** (now on 2.1.302):
@@ -155,11 +105,67 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Possible follow-on, not in scope:** a shift change for the whole fleet onto a new version. Sending `kill -HUP` to every PID `claude-ps` lists would skip each session's write-down, so this would have to deliver `/shift-change` into each session rather than signal it.
 
-**Sequencing:** after the `pbay` merge above; its `/end-session` dependency is met (shipped 2026-10-31). Ahead of the Patchbay team release, which is on hold anyway; the team gets `/shift-change` when it ships.
+**Sequencing:** right after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), so the loop is written in Patchbay's copy of `agent`; its `/end-session` dependency is met (shipped 2026-10-31). Before the `pbay` merge, which moves the loop to its permanent home. Ahead of the Patchbay team release, which is on hold anyway; the team gets `/shift-change` with the merge.
 
 **Plan:** none yet; next step is `/gameplan shift-change`.
 
 **Status:** Queued 2026-10-18 as `/reload`; goal corrected and renamed 2026-10-19. Not planned.
+
+### Fork `claude-ps` for the public as `facetdigital/claude-ps`
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** `claude-ps`, the `ps` for Claude Code sessions, becomes a small standalone open-source tool for anyone running lots of Claude Code sessions, orchestrated however they like. It works with Scott's launchers but does not require them and does not know they exist: a session started by `agent` or `claude-run` is just a Claude Code session to it. (Scott, 2026-11-03.)
+
+**This is a fork point, not an upstream.** Today's script splits in two. This fork is tweaked for public use. The other copy moves into Patchbay and becomes [`pbay ps`](#pbay-ps-sessions-across-harnesses), which lists only `pbay`-started sessions, of any harness. Neither depends on the other and nothing keeps them in sync; a fix worth having in both is ported by hand. (Scott, 2026-11-03.) Why not keep `claude-ps` as the upstream with `pbay ps` wrapping its `--json`: once `pbay ps` covers other harnesses, a Claude-only upstream is the wrong base.
+
+**Decided:**
+- **Generic and Claude-only.** No Patchbay references. The script's marked "Patchbay enricher" section (`detect_route`, `resolve_route_alias`, the launcher cases) stays in Patchbay's copy, and the usage examples lose their agent names.
+- **Private for months, and maybe squashed before it goes public** (Scott, 2026-11-03). Fresh history. Old Facet things and references are okay to start with, as long as they are loosely coupled and cheap to strip at the squash. Nothing that paints the tool into a corner.
+- **Keep the [LinkedIn post](#write-up-claude-ps-linkedin-post) current** whenever this fork's plan or columns change (Scott, 2026-11-03).
+- **The helper filter cannot name Scott's scripts.** Today's filter hides `claude-end-session`, the route selftest and the other scaffolding by name. The public fork needs a generic rule, or none; decide at plan time.
+- **macOS only.** Linux support is a later roadmap item in the new repo (containers are the likely way to test it).
+- **Slackline's release conventions** (`~/src/facetdigital/slackline`): `VERSION` is the number of record, tests keep every copy of the version and the README's install URL equal to it, and the release steps live in `CONTRIBUTING.md` (tag `vX.Y.Z`, a GitHub release with the files attached). No release workflow in GitHub Actions; tests only.
+- **The repo:** a casual, friendly README, MIT licence, `CLAUDE.md`, an install script, tests (bats and shellcheck), and `--version`.
+
+**Sequencing:** independent of the Patchbay chain; it blocks nothing and nothing blocks it. Fork from wherever the script lives at the time: dotfiles before the move, Patchbay after.
+
+**Run interactively.** Creating a GitHub repo is an outward-facing step.
+
+**Plan:** none yet; next step is `/gameplan claude-ps-oss`.
+
+**Status:** Queued 2026-10-20; re-cut as a fork 2026-11-03. Not planned.
+
+### `pbay`: one launcher (merge `agent` and `claude-run`)
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** `pbay run` becomes the one way to start a session, and `agent` the easy way to type it. `pbay run claude [args]` hands off to `claude-run`, which stays as the Claude runner and takes over `agent`'s defaults. `agent` is an alias for `pbay run`, for any harness, and only a runner: there is no `agent ps`. The alias is optional at install and skipped when `agent` already resolves to something else. (Scott, 2026-10-19.)
+
+**Design:** [patchbay.md, "`pbay`"](../patchbay.md#pbay). This item builds the first layer of it.
+
+**Same shape as decided 2026-09-02:** one implementation, `agent` in front because it is the word Scott actually types, `pbay` as the full CLI. New on 2026-10-19: the alias is optional, it is not Claude-only, and the merge is queued now instead of waiting for the v2 trigger.
+
+**Why now, ahead of the v2 trigger.** [Patchbay v2](#patchbay-v2-the-pbay-front-door) stays blocked until a second harness is wanted for real work. The merge has its own reasons: `/shift-change` has to relaunch exactly what was launched, which wants one front door, and the team release wants one thing to install.
+
+**Everything lives in `pbay`; `agent` ends up as nothing more than `alias agent="pbay run"`.** Users must get every feature without the alias, since another `agent` on `PATH` is getting more likely; Scott keeps it because it is the cuter name. Anything `bin/agent` does by then (its defaults, its per-directory naming, `/shift-change`'s interim restart loop) moves into `pbay` here. Moving the fleet off direct `claude` calls is [its own item](#move-the-fleet-onto-pbay), after config; it probably uses `pbay run` rather than `agent` (Scott, 2026-11-03: "probably").
+
+**Scope:** `pbay run` dispatch, the `agent` alias, `agent`'s defaults, naming and restart loop moving into `claude-run`, and the harness-or-prompt rule. Only `claude` exists yet, but the rule ships now so a second harness cannot break the alias later. **Not in scope:** config (its own item below), other harnesses, the `pbay-run-<harness>` rename (both v2), and other subcommands.
+
+**Design points for the plan:**
+- **Decide whether `claude-run` also runs plain Max sessions.** Open, and it reverses a past decision; see [Reconsider: `claude-run` runs plain Max sessions too](#reconsider-claude-run-runs-plain-max-sessions-too).
+- **Route selection** passes through to `claude-run` (`--provider`, `--model`, `--context`, `--refresh`). Decide whether the positional route alias (`claude-run gpt`) survives, since after `pbay run claude` a bare word is an opening prompt.
+- **Whose defaults.** `agent`'s `DEFAULTS` (`--model opus --effort high --remote-control --permission-mode auto`) are Scott's. They can stay hardcoded until the config item moves them into `~/.pbay/config`; shipping them to the team waits for config.
+- **`pbay` always passes an explicit model and effort.** `settings.json`'s `model` and `effortLevel` govern bare `claude` only, so a `pbay` session never depends on them (decided 2026-10-20). That leaves one place for each default: `settings.json` for bare `claude`, `pbay`'s defaults for everything it launches.
+- **Keep the canary line** on stderr, printing the resolved command. It is how you find out a different `agent` is shadowing this one.
+- **Patchbay's `claude-ps` route detection should not need to change.** If `pbay` `exec`s `claude-run`, the process `claude-ps` sees is still `claude-run`, so the parser fixed by the route-wrapper retirement keeps working. Verify rather than assume.
+- **The selftest's identifier check** (Scott's account, username and vault-path strings) globs only `bin/claude-*`. Widen it to `bin/pbay*` as well.
+
+**Sequencing:** after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo), so it is built in the new repo, and after `/shift-change`'s interim loop in `agent`, so that loop moves into `claude-run`, behind `pbay run`, as part of this change.
+
+**Plan:** none yet; next step is `/gameplan pbay`.
+
+**Status:** Queued 2026-10-19. Design proposed, not planned.
 
 ### `pbay` config: `~/.pbay/` and per-folder `.pbay/`
 
@@ -169,7 +175,7 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Design:** [patchbay.md, "`pbay`"](../patchbay.md#pbay): the Config, Tiers, and Providers and credentials sections, including what a committed `.pbay/config` may and may not contain.
 
-**Why it is separate from the merge:** the merge is small and unblocks `/shift-change`; config is the larger piece and blocks neither. It is also where the team release's per-dev setup lands naturally: the `CLAUDE_ROUTE_OP_REF` and `CLAUDE_ROUTE_OP_ACCOUNT` exports become `~/.pbay/` entries.
+**Why it is separate from the merge:** the merge is small and gives `/shift-change` its permanent home; config is the larger piece and blocks neither. It is also where the team release's per-dev setup lands naturally: the `CLAUDE_ROUTE_OP_REF` and `CLAUDE_ROUTE_OP_ACCOUNT` exports become `~/.pbay/` entries.
 
 **Also in scope (decided 2026-10-20):**
 - **Agent secrets by folder.** `~/.pbay/config` can set environment variables for sessions launched under a folder, like git's `includeIf`: for `~/src/scottwb/donna-smithers`, `SLACK_USER_TOKEN`, `HUBSPOT_TOKEN` and `VT_API_KEY` from their `op://` references. Only the launch's own folder is resolved. This replaces the `agent-env`, `agent-env-slack` and `agent-env-hubspot` aliases in `.zsh/aliases`, which go once it works. It also closes donna-smithers' optional `agent-env-virustotal` to-do in `knowledge/facet-it/WORK-PLAN.md` (the key is at `op://Employee/VirusTotal/API Key`) and changes the `agent-env` mention in `config/staff.md` there. Those are edits in that repo, made in the same change; `morning-briefs/items.json` is generated state and is left alone. wp-triage's mentions (a checked `WORK-PLAN.md` item and `INCIDENT-LOG.md`) are history and stay.
@@ -178,11 +184,48 @@ new items for it go here with a **Thread:** tag like everything else.
 
 **Decide at plan time:** the language. patchbay.md already warned that bash stops paying once config, caching and subcommands pile up. Flat keys keep parsing simple, but choose deliberately rather than discovering the answer at 900 lines. Also verify z.ai's Anthropic-compatible endpoint before listing it as a Claude Code provider.
 
-**Sequencing:** after `/shift-change`. Ahead of the Patchbay team release, which needs it for per-dev setup.
+**Sequencing:** after the `pbay` merge. Ahead of the Patchbay team release, which needs it for per-dev setup.
 
 **Plan:** none yet; next step is `/gameplan pbay-config`.
 
 **Status:** Queued 2026-10-19. Design proposed, not planned.
+
+### Move the fleet onto `pbay`
+
+**Thread:** Tools (Patchbay), plus edits in each agent's own repo and in `.claude/CLAUDE.md`
+
+**Goal:** Every session Scott's agents run starts through `pbay run` or `agent`, never a direct `claude` call (Scott, 2026-11-03: "make everything of mine in the Boma use Pbay or Agent instead of direct calls to Claude"). Then every one of them gets the same defaults, `/shift-change`, and a `pbay ps` record. The Boma is Scott's name for his whole agent organization, agents and people alike, and the coordination layer it runs on; it is not one agent or one repo.
+
+**Scope, to inventory at plan time:**
+- Peer launches: `.claude/CLAUDE.md`, "Launching a peer session", which uses `agent -n` today.
+- Headless runs: `.claude/CLAUDE.md`, "Headless runs", whose example calls `claude ... -p` directly with the secret passed in the environment. Decide how that maps onto `pbay`, including the config item's agent secrets by folder.
+- Launch scripts and schedules in the agents' own repos, which this repo cannot see, such as scripted headless briefs. Donna's registry is the closest thing to a list of those repos; ask her for it at plan time. Each repo's edit is made in that repo, and repo-specific detail stays there rather than in this public roadmap.
+
+**Decide at plan time:** `pbay run` or `agent` for the fleet; the merge item records "probably" `pbay`.
+
+**Sequencing:** after [`pbay` config](#pbay-config-pbay-and-per-folder-pbay), once `pbay` is dialed in. Before [`pbay ps`](#pbay-ps-sessions-across-harnesses), which can only list what `pbay` launched.
+
+**Plan:** none yet; next step is `/gameplan fleet-on-pbay`.
+
+**Status:** Queued 2026-11-03. Not planned.
+
+### `pbay ps`: sessions across harnesses
+
+**Thread:** Tools (Patchbay)
+
+**Goal:** Patchbay's own session list. It is the Patchbay side of the [`claude-ps` fork](#fork-claude-ps-for-the-public-as-facetdigitalclaude-ps): it lists only sessions `pbay` started, shows which harness runs underneath each one, and has to support harnesses other than Claude Code. Non-`pbay` sessions are not its job; the public `claude-ps` covers those for Claude. (Scott, 2026-11-03.)
+
+**Decided: track what `pbay` launched (Scott, 2026-11-03).** `pbay run` writes a record at launch (name, harness, route, model, folder, PID), and `pbay ps` reads those records instead of inspecting the process table for every harness it might find. The launcher already knows all of that, so there is no detection to guess at. Why not detect any harness on the machine: it means per-harness process heuristics for sessions Patchbay never promised to manage.
+
+**Until it is built:** Patchbay's copy of today's `claude-ps`, route enricher included, serves as `pbay ps`. Claude only.
+
+**Decide at plan time:** where records live (a state folder, not `~/.pbay/` config and not the model cache); how a dead PID's record is detected and cleared; which of today's Claude columns (context used, status, effort) come from a per-harness reader, and what a harness that exposes less shows instead.
+
+**Sequencing:** after [moving the fleet onto `pbay`](#move-the-fleet-onto-pbay), so the records cover every session that matters. It needs the `pbay` merge, which creates the `pbay run` that writes them. The Claude-only version can be built then; other harnesses arrive with the first second harness, at [Patchbay v2](#patchbay-v2-the-pbay-front-door)'s trigger.
+
+**Plan:** none yet; next step is `/gameplan pbay-ps`.
+
+**Status:** Queued 2026-11-03. Not planned.
 
 ### `agent-colors`: a colour and label per session in Claude Desktop
 
@@ -590,14 +633,17 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Status:** Open question, filed 2026-10-25. Not decided.
 
+### Write up `claude-ps` (LinkedIn post)
 
 **Thread:** Tools
 
 **Goal:** A short post introducing `bin/claude-ps`, the `ps` for Claude Code sessions: agent name, working directory, branch, harness version (green/yellow/red against latest), provider, model, effort, context used with a red cell past 80%, and with `-l` the permission mode, PID, status (idle / busy / waiting / stale / zombie / stopped, with a coloured margin dot), uptime, memory, CPU. Subagents nest under their parent. Angle: everything it shows comes from what Claude Code already writes to disk (`~/.claude/sessions/<pid>.json`, the transcript) plus the process table; no daemon, no network, one bash script. **Venue: LinkedIn** (Scott's call, 2026-09-02), chosen over a personal blog post or the internal Facet channel.
 
+**The post is about the public fork,** not Patchbay's copy (Scott, 2026-11-03: keep this item up to date as the fork's plan changes). The provider and routed-model columns come from Patchbay's route enricher, which stays out of the public fork, so the post drops them, and the screenshot below needs a reshoot from the fork. Patchbay itself is a Facet tool and has no post planned.
+
 **Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
 
-**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". **Related (2026-10-20):** `claude-ps` is queued to become the open-source `facetdigital/claude-ps`, staying Claude-only. The post waits for that repo, so it has something to link (Scott, 2026-10-31).
+**Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". **Related (2026-10-20):** `claude-ps` is queued to be forked as the public `facetdigital/claude-ps`, staying Claude-only, and it stays private for months first. The post waits for that repo, so it has something to link (Scott, 2026-10-31), which now means waiting until it goes public.
 
 ### File `no_fallback: true` upstream on claude-code-router
 
@@ -615,7 +661,7 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 **Goal:** Replace the wrapper-per-combination shape with a single subcommand CLI over the harness x model x provider matrix: `pbay run claude glm`, `pbay ps`, `pbay doctor`, `pbay models --refresh`, `pbay config`, `pbay providers`. State in `~/.pbay/`, cache kept separable from config. Absorbs three items that would otherwise be built separately: the doctor script, the model-slug refresh, and the harness expansion. Includes the `ollama-tools` scope reduction (delete `claude-install`, demote its README's harness support to a mention) and `aider-run` migrating into `bin/`.
 
-**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Carved out 2026-10-19:** the `agent` / `claude-run` merge and the config store are now their own queued items, ahead of this trigger; the design for all of it is in [patchbay.md, "`pbay`"](../patchbay.md#pbay). What stays blocked here: a second harness, the `pbay-run-<harness>` runner rename that comes with it, the tier-label rename, and the remaining subcommands. Two of those have specific jobs recorded (2026-10-20): `pbay models` warns when a model's catalog entry carries an `expiration_date`, and `pbay ps` is rewritten on a harness-plugin model so it can list sessions of harnesses other than Claude Code (until then it wraps the open-source `claude-ps`). **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
+**Status:** BLOCKED, deliberately. Design captured in [patchbay.md](../patchbay.md); do not build yet. **Carved out 2026-10-19:** the `agent` / `claude-run` merge and the config store are now their own queued items, ahead of this trigger; the design for all of it is in [patchbay.md, "`pbay`"](../patchbay.md#pbay). What stays blocked here: a second harness, the `pbay-run-<harness>` runner rename that comes with it, the tier-label rename, and the remaining subcommands. Two of those have specific jobs recorded (2026-10-20): `pbay models` warns when a model's catalog entry carries an `expiration_date`, and `pbay ps` lists other harnesses' sessions (its own item, [`pbay ps`](#pbay-ps-sessions-across-harnesses); the Claude-only version does not wait for this trigger). **Trigger checked 2026-09-02 and it has not fired:** asked whether aider or codex against a routed backend was wanted yet, and the answer was "not yet, way later". Do not re-ask soon.
 
 **The trigger:** the first time you want aider or codex against a routed backend for real work. That is when the matrix becomes real. Today there is one harness, two backends, four launchers, and nothing chafing, so building the general form would be inventing requirements.
 
