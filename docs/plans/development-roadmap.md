@@ -50,17 +50,17 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 **What stays in dotfiles:** an install line that puts Patchbay's `bin/` on `PATH`; `~/.pbay/config`, once it exists, as Scott's personal config; and Servanda, including its generic rule that routed sessions halt gates. Servanda's docs name `claude-run`, which keeps working while it is on `PATH`. The `/end-session` and `/shift-change` command files belong in `.claude/commands/` because they run `/write-that-down`; only the relaunch loop lives in Patchbay.
 
-**Decide at plan time:** how dotfiles adds the new repo's `bin/` to `PATH` on a fresh machine.
+**`PATH` on a fresh machine (decided 2026-11-03):** Patchbay ships an `install` that links its `bin/*` into `~/.local/bin`. The dotfiles README's install section clones the repo and runs it.
 
-**Also decide at plan time:** `claude-ps`'s scaffolding filter names `claude-end-session` and `claude-end-session-selftest`, which stay in dotfiles as Servanda. Once Patchbay's `claude-ps` and `claude-route-selftest` move, the selftest's drift guard (every `bin/claude-*` on disk must be in the filter) can no longer see those two, so the plan picks how Patchbay's filter learns about scripts outside its own repo. The public fork has the same problem in a different form; see its item.
+**`claude-ps`'s filter (decided 2026-11-03):** Patchbay's `claude-ps` keeps hiding `claude-end-session` and `claude-end-session-selftest`, which stay in dotfiles as Servanda. Dotfiles' `claude-end-session-selftest` guards that: every dotfiles `bin/claude-*` must be in the filter of whichever `claude-ps` is on `PATH`. The public fork has the same problem in a different form; see its item.
 
-**Run interactively.** Creating a GitHub repo is an outward-facing step; not for an unattended `/yolo` or `/beastmode`.
+**Run interactively,** not under `/yolo` or `/beastmode`: switching `agent` to Patchbay's copy happens while sessions are running. Creating the private `facetdigital/patchbay` repo is pre-approved (Scott, 2026-11-03), so that step does not stop to ask.
 
 **Sequencing:** after [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) and the route-wrapper retirement (both done), so five dead shims are not moved. Before `/shift-change` and the `pbay` merge. The public `claude-ps` fork does not wait on it.
 
-**Plan:** none yet; next step is `/gameplan patchbay-repo`, reusing team-release Step 4.
+**Plan:** [patchbay-repo.md](patchbay-repo.md)
 
-**Status:** Queued 2026-10-20. Not planned.
+**Status:** Ready to implement (plan approved 2026-11-03). Next: `/booyah patchbay-repo`.
 
 ---
 
