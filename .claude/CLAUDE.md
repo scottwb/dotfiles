@@ -55,6 +55,8 @@ Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`).
 
 Who does what across my agents and repos (Lumbergh, TimerCue, Smykowski, Donna, Argus, and which skill lives where): `~/.claude/private/docs/org-chart.md`. Same rule; read it on demand, do not preload.
 
+When Scott uses a term you cannot find in the repo or the org chart, ask Donna over SendMessage; she keeps the vocabulary. Scott, 2026-11-03, after "the Boma" (his name for his whole agent organization, agents and people alike, and the coordination layer it runs on) turned up nowhere on disk: "If you ever need a quick reference on terminology, you can always ask Donna."
+
 **Under a routed session (any `bin/claude-run` launch), phase gates and security passes HALT.** The audit tier is left unmapped on purpose so a gate stops rather than quietly auditing on a weak model. That is correct behavior, not a misconfiguration: run gates on a plain Anthropic session. Plain `claude` is unaffected by the launchers in every other respect.
 
 ### Proactive Suggestions
