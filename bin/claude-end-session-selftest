@@ -219,6 +219,64 @@ else
   bad "no helper under test had this script as an ancestor" "cases:$leaked"
 fi
 
+# ---------------------------------------------------------------- claude-ps filter
+#
+# claude-ps (Patchbay's, on PATH) hides processes that have "claude" in their
+# command line but are not sessions. Its filter names this repo's helpers, so a
+# new dotfiles bin/claude-* that is missing from it shows up in claude-ps as a
+# session. The repo that owns a helper guards it, so the check lives here.
+#
+# The expected list is derived from disk rather than written down a second
+# time: every bin/claude-* here must appear in the filter. claude-ps itself is
+# skipped, since it hides itself by a separate rule. Static rather than
+# behavioural on purpose: the defect is drift between a list and the files.
+
+# filter_missing <claude-ps file>: print each dotfiles helper missing from that
+# file's claude-(a|b|c) filter, space-separated; prints "(no filter)" if there is none.
+filter_missing() {
+  local filter f name out=""
+  filter="$(grep -oE 'claude-\([a-z|-]+\)' "$1" | head -1)"
+  if [ -z "$filter" ]; then printf ' (no filter)'; return; fi
+  for f in "$SCRIPT_DIR"/claude-*; do
+    [ -f "$f" ] || continue
+    name="${f##*/claude-}"
+    [ "$name" = ps ] && continue
+    case "$filter" in
+      *"($name|"*|*"|$name|"*|*"|$name)"*|*"($name)"*) ;;
+      *) out="$out $name" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
+section "claude-ps on PATH hides every dotfiles helper"
+
+CLAUDE_PS="${CLAUDE_PS:-$(command -v claude-ps 2>/dev/null || true)}"
+
+if [ -z "$CLAUDE_PS" ] || [ ! -r "$CLAUDE_PS" ]; then
+  skip "claude-ps hides every dotfiles helper" "no claude-ps on PATH"
+else
+  # Guard the guard: a copy of claude-ps with end-session dropped from its
+  # filter must be caught. A check that cannot fail would pass by doing nothing.
+  planted="$WORK/planted-claude-ps"
+  sed 's/|end-session|/|/' "$CLAUDE_PS" > "$planted"
+  if grep -q 'claude-([a-z|-]*|end-session|' "$planted"; then
+    bad "the planted claude-ps really lacks end-session" "sed did not change its filter"
+  else
+    case " $(filter_missing "$planted") " in
+      *" end-session "*) ok "a claude-ps missing end-session is caught" ;;
+      *) bad "a claude-ps missing end-session is caught" "got: '$(filter_missing "$planted")'" ;;
+    esac
+  fi
+
+  missing="$(filter_missing "$CLAUDE_PS")"
+  if [ -z "$missing" ]; then
+    ok "claude-ps on PATH hides every dotfiles helper ($CLAUDE_PS)"
+  else
+    bad "claude-ps on PATH hides every dotfiles helper" "missing from $CLAUDE_PS:$missing"
+  fi
+fi
+
 section "shellcheck"
 if command -v shellcheck > /dev/null 2>&1; then
   if out="$(shellcheck "$HELPER" "$SCRIPT_DIR/claude-end-session-selftest" 2>&1)"; then
