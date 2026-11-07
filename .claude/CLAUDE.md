@@ -169,7 +169,7 @@ HUBSPOT_TOKEN=$(op read --account facetdigital.1password.com "op://...") \
   --permission-mode auto -p "/some-headless-command"
 ```
 
-**Use `--permission-mode auto`, never `--dangerously-skip-permissions`.** Auto mode has a safety classifier vet each action; the old flag skipped every check, and in October 2026 Claude Code's classifier began flagging unattended runs started with it, while the same runs under auto mode went through. Auto mode may refuse an action the old flag allowed: when an unattended run reports "denied", fix the run or its permission rules, and do not switch it back. Scott's call, 2026-10-24.
+**Use `--permission-mode auto`, never `--dangerously-skip-permissions`.** Auto mode has a safety classifier vet each action; the old flag skipped every check, and in October 2026 Claude Code's classifier began flagging unattended runs started with it, while the same runs under auto mode went through. Auto mode may refuse an action the old flag allowed: when an unattended run reports "denied", fix the run or its permission rules, and do not switch it back. Scott's call, 2026-10-24. The classifier does not read plans, either: on 2026-11-07 it blocked `gh repo create facetdigital/patchbay --private` that the move's plan had pre-approved, and allowed it once Scott gave permission in the chat. A plan's pre-approval of an outward step still needs his go in the session, so ask at that step rather than routing around the denial.
 
 The secret is never written down. It lives in the process environment for the life of the
 session and dies with it. This is the same shape Lambda, ECS, Heroku, and Doppler use: the
@@ -218,6 +218,8 @@ is in it.
 ### Launching a peer session
 
 Peer sessions are started with Scott's wrapper, `agent -n '<Name>' '<kickoff prompt>'`, which adds his defaults (the `DEFAULTS` array in Patchbay's `agent`); a bare `claude --name` launch lacks them. The `-n` name is what ListAgents and Claude Desktop show. Today each runs in a detached tmux session named for it (`tmux new-session -d -s <name> -c <dir> "agent -n '<Name>' '...'"`), as a background fallback Scott can attach to, not a hard dependency. A session in a brand-new directory stops at the folder-trust prompt. The auto-mode classifier has blocked `tmux send-keys` from one agent into another agent's session, so Scott answers that prompt himself (`tmux attach -t <name>`); reading the pane with `tmux capture-pane` works. Learned 2026-10-27.
+
+**A repo of its own gets a session of its own.** When work moves out into its own repo, a peer session named for it takes its work orders from then on, and the move's plan includes standing that session up, telling Donna, and making the new repo stand on its own without Scott's dotfiles. On 2026-11-07 Patchbay moved out of dotfiles with none of that planned; asked who takes its work orders, Scott answered "a Patchbay session of its own - sorry that should have been clear from the start" and "patchbay does need to stand on its own without my dotfiles."
 
 ### ~/Downloads is a shared read drop
 
