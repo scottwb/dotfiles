@@ -17,9 +17,9 @@ When executing this plan:
 
 ## Summary
 
-Patchbay (`claude-run`, `agent`, `claude-ps`, `claude-route-selftest`, and their docs, plans and gate reports) moves from dotfiles into a new private repo, `facetdigital/patchbay`, cloned at `~/src/facetdigital/patchbay`. Patchbay ships an `install` script that links its `bin/*` into `~/.local/bin`. Once every launch is proven to resolve to the same `claude` command as before, dotfiles removes its copies at HEAD and keeps one pointer.
+Patchbay (`claude-run`, `agent`, `claude-ps`, `claude-route-selftest`, and their docs, plans and gate reports) moves from dotfiles into a new private repo, `facetdigital/patchbay`, cloned at `~/src/facetdigital/patchbay`. Patchbay ships an `install` script that links its `bin/*` into `~/.local/bin`; its route selftest lives in `test/` as `test/route-selftest` (R8), so only `agent`, `claude-run` and `claude-ps` go on `PATH`. Once every launch is proven to resolve to the same `claude` command as before, dotfiles removes its copies at HEAD and keeps one pointer.
 
-**No behaviour changes.** Every script moves byte-identical. Scott keeps typing `agent`, and the next item, `/shift-change`, is built on Patchbay's copy of it.
+**No behaviour changes.** `agent`, `claude-run` and `claude-ps` move byte-identical; the selftest changes only where it looks for them. Scott keeps typing `agent`, and the next item, `/shift-change`, is built on Patchbay's copy of it.
 
 **Verified while planning (2026-11-03):**
 
@@ -42,11 +42,12 @@ Patchbay (`claude-run`, `agent`, `claude-ps`, `claude-route-selftest`, and their
 | **R5** | **PATH: install links.** Patchbay's `install` links every `bin/*` into `~/.local/bin` (override: `PATCHBAY_BIN_DIR`). Driven by a glob, idempotent, and refuses to overwrite anything it did not create, such as someone else's `agent`. Re-run it after adding a script. | Scott 2026-11-03 |
 | **R6** | **Filter guard from dotfiles.** Patchbay's `claude-ps` keeps `end-session` and `end-session-selftest` in its filter. Dotfiles' `claude-end-session-selftest` checks that every dotfiles `bin/claude-*` is in the filter of whichever `claude-ps` is on `PATH`. The repo that owns a helper guards it. | Scott 2026-11-03 |
 | **R7** | **What moves**, beyond the scripts: `docs/patchbay.md`, `docs/claude-code-background-sessions.md`, plans `claude-route-launchers.md`, `patchbay-team-release.md`, `retire-route-wrappers.md`, assessments `route-gates.md`, `mcp-schema-budget.md`, `model-harness-research.md`, and the README's "Claude Code route launchers" section. Roadmap items that move: the `pbay` merge, `pbay` config, fleet onto `pbay`, `pbay ps`, `agent-colors`, Patchbay team release, route launcher follow-ons, Reconsider Max, `no_fallback` upstream, Patchbay v2, local model evaluation, and the Completed entries for the route launchers and the wrapper retirement. **Stay in dotfiles:** `/shift-change` (its command and exit helper live here; only its loop lands in Patchbay's `agent`), the public `claude-ps` fork, the LinkedIn post, and one pointer item. | Scott 2026-11-03 (defaults accepted) |
+| **R8** | **The route selftest is a test, not a tool.** It moves to `test/route-selftest`, beside `test/install-selftest`, and `test/run` runs every `test/*-selftest`. `install` prunes links of its own whose script left `bin/`. Found in Step 5: linked into `~/.local/bin`, the selftest scanned that shared folder as if it were Patchbay's `bin/`. Why not keep it in `bin/` and follow its symlink: nothing calls it by name, and a test on `PATH` only invites that class of bug. | Scott 2026-11-07 |
 
 ## Requirements
 
 - `facetdigital/patchbay` exists, private, MIT, with fresh history and a selftest that passes from a fresh clone.
-- `agent`, `claude-run`, `claude-ps` and `claude-route-selftest` resolve to Patchbay's copies in a new shell, in a new tmux session, and in an already-running Claude session's Bash tool.
+- `agent`, `claude-run` and `claude-ps` resolve to Patchbay's copies in a new shell, in a new tmux session, and in an already-running Claude session's Bash tool.
 - All 24 recorded `agent` invocations produce the same `claude` argv from Patchbay's copy as from dotfiles' copy.
 - `claude-ps` lists the same sessions with the same routes before and after.
 - Dotfiles has no copy of the moved files, no broken links to them, and a README step that installs Patchbay on a fresh machine.
@@ -57,15 +58,15 @@ Patchbay (`claude-run`, `agent`, `claude-ps`, `claude-route-selftest`, and their
 
 ### Step 1: Assemble the Patchbay tree locally
 
-- [ ] Write the failing check first: `tree-check` (below) run against `~/src/facetdigital/patchbay`. It fails because the directory does not exist.
-- [ ] `git init` at `~/src/facetdigital/patchbay`, default branch `main`.
-- [ ] Copy the four scripts into `bin/`, preserving the executable bit. Copy the R7 docs into the same relative places (`docs/`, `docs/plans/`, `docs/assessments/`).
-- [ ] Fix relative links in the moved docs that point at files staying in dotfiles (for example `.claude/settings.json`, the dotfiles roadmap, `end-session.md`). Point them at `https://github.com/scottwb/dotfiles/blob/master/<path>`; dotfiles is public, so those links work for anyone who can see Patchbay.
-- [ ] `LICENSE`: MIT, "Copyright (c) 2026 Facet Digital, LLC" (slackline's holder line).
-- [ ] `README.md`: built from dotfiles' "Claude Code route launchers" section, plus `agent` and `claude-ps`, plus the install step from Step 3. Scott-facing; the team README stays with the team release.
-- [ ] `CLAUDE.md`: what Patchbay is, the four scripts, how to run the selftest, the de-personalization guard, "never rewrite history", private, and a pointer to `docs/patchbay.md` for the design.
-- [ ] `.gitignore` for editor and OS cruft.
-- [ ] Verify green: `tree-check` passes.
+- [x] Write the failing check first: `tree-check` (below) run against `~/src/facetdigital/patchbay`. It fails because the directory does not exist.
+- [x] `git init` at `~/src/facetdigital/patchbay`, default branch `main`.
+- [x] Copy the four scripts into `bin/`, preserving the executable bit. Copy the R7 docs into the same relative places (`docs/`, `docs/plans/`, `docs/assessments/`).
+- [x] Fix relative links in the moved docs that point at files staying in dotfiles (for example `.claude/settings.json`, the dotfiles roadmap, `end-session.md`). Point them at `https://github.com/scottwb/dotfiles/blob/master/<path>`; dotfiles is public, so those links work for anyone who can see Patchbay.
+- [x] `LICENSE`: MIT, "Copyright (c) 2026 Facet Digital, LLC" (slackline's holder line).
+- [x] `README.md`: built from dotfiles' "Claude Code route launchers" section, plus `agent` and `claude-ps`, plus the install step from Step 3. Scott-facing; the team README stays with the team release.
+- [x] `CLAUDE.md`: what Patchbay is, the four scripts, how to run the selftest, the de-personalization guard, "never rewrite history", private, and a pointer to `docs/patchbay.md` for the design.
+- [x] `.gitignore` for editor and OS cruft.
+- [x] Verify green: `tree-check` passes.
 
 **Satisfies:** R1, R2, R7; roadmap "What moves".
 
@@ -101,11 +102,11 @@ grep -rn "$(printf '\342\200\224')" "$P" --include='*.md' && echo "FAIL: emdash"
 
 ### Step 2: Patchbay's roadmap
 
-- [ ] Write the failing check first: every R7 roadmap heading exists in `$P/docs/plans/development-roadmap.md`, and every in-file anchor resolves. Fails: no roadmap yet.
-- [ ] Create the roadmap with the R7 items moved verbatim from dotfiles' roadmap, in their current order, with a Threads note (Patchbay only) and the two Completed entries.
-- [ ] Repoint links: anchors to items that stay in dotfiles (`/shift-change`, the `claude-ps` fork, `/end-session`) become dotfiles GitHub URLs.
-- [ ] Next Immediate Step in Patchbay's roadmap: the `pbay` merge, noting it waits on dotfiles' `/shift-change`.
-- [ ] Verify green.
+- [x] Write the failing check first: every R7 roadmap heading exists in `$P/docs/plans/development-roadmap.md`, and every in-file anchor resolves. Fails: no roadmap yet.
+- [x] Create the roadmap with the R7 items moved verbatim from dotfiles' roadmap, in their current order, with a Threads note (Patchbay only) and the two Completed entries.
+- [x] Repoint links: anchors to items that stay in dotfiles (`/shift-change`, the `claude-ps` fork, `/end-session`) become dotfiles GitHub URLs.
+- [x] Next Immediate Step in Patchbay's roadmap: the `pbay` merge, noting it waits on dotfiles' `/shift-change`.
+- [x] Verify green.
 
 **Satisfies:** R7; roadmap "The roadmap items ... move to the new repo's roadmap".
 
@@ -125,15 +126,15 @@ for h in '`pbay`: one launcher' '`pbay` config' 'Move the fleet onto `pbay`' '`p
 
 ### Step 3: `install`
 
-- [ ] Write the failing test first: `test/install-selftest`, plain bash like the route selftest, run against a temp target directory. It asserts:
+- [x] Write the failing test first: `test/install-selftest`, plain bash like the route selftest, run against a temp target directory. It asserts:
   - every `bin/*` gets a link in the target pointing at this checkout (derived from a glob, with a guard that the glob matched something);
   - a second run changes nothing and exits 0;
   - a stale link of ours (pointing at a moved checkout) is replaced;
   - a foreign file or a link to somewhere else (a planted `agent`) is left alone, named in the output, and makes the exit code non-zero;
   - a target directory that is not on `PATH` produces a warning.
-- [ ] Implement `install` at the repo root (not in `bin/`, so it does not link itself). Target `${PATCHBAY_BIN_DIR:-$HOME/.local/bin}`. Prints one line per script: linked, already linked, or refused, with a summary.
-- [ ] README and CLAUDE.md: the install line, and "re-run `install` after adding a script".
-- [ ] Verify green: `test/install-selftest` and `bin/claude-route-selftest`.
+- [x] Implement `install` at the repo root (not in `bin/`, so it does not link itself). Target `${PATCHBAY_BIN_DIR:-$HOME/.local/bin}`. Prints one line per script: linked, already linked, or refused, with a summary.
+- [x] README and CLAUDE.md: the install line, and "re-run `install` after adding a script".
+- [x] Verify green: `test/install-selftest` and `bin/claude-route-selftest`.
 
 **Satisfies:** R5.
 
@@ -152,10 +153,10 @@ cd ~/src/facetdigital/patchbay && test/install-selftest && bin/claude-route-self
 
 **Pre-approved; do not stop to ask** (Scott, 2026-11-03: "dont stop and ask, just do. as long as it is private repo in facetdigital org named patchbay"). The approval covers exactly that: a **private** repo in the **`facetdigital`** org named **`patchbay`**. If any of the three cannot hold (the name is taken, the org refuses a private repo), stop and ask instead.
 
-- [ ] Test-first: n/a for repo creation. The checks below run against a fresh clone after the push.
-- [ ] Before pushing: `git log --oneline` shows only Steps 1 to 3's commits, and Patchbay's de-personalization guard passes.
-- [ ] `gh repo create facetdigital/patchbay --private --source ~/src/facetdigital/patchbay --push`
-- [ ] Verify green from a fresh clone in the scratchpad: the route selftest and the install selftest pass, `tree-check`'s link check passes, and the repo is private.
+- [x] Test-first: n/a for repo creation. The checks below run against a fresh clone after the push.
+- [x] Before pushing: `git log --oneline` shows only Steps 1 to 3's commits, and Patchbay's de-personalization guard passes.
+- [x] `gh repo create facetdigital/patchbay --private --source ~/src/facetdigital/patchbay --push`
+- [x] Verify green from a fresh clone in the scratchpad: the route selftest and the install selftest pass, `tree-check`'s link check passes, and the repo is private.
 
 **Satisfies:** R1, R2; team release T1, T5.
 
@@ -175,11 +176,11 @@ gh repo view facetdigital/patchbay --json visibility -q .visibility   # expect P
 
 ### Step 5: Install on this machine and prove nothing changed
 
-- [ ] Write the failing check first: `equivalence-check` (below). Before install it fails on resolution, because `command -v agent` is `~/bin/agent`.
-- [ ] Capture the before-state: `claude-ps --json` (sessions and routes), and `CLAUDE_ROUTE_DRYRUN=1 claude-run gpt` and `claude-run glm` output, from dotfiles' copies.
-- [ ] Run `~/src/facetdigital/patchbay/install`.
-- [ ] Verify green: `equivalence-check` passes. Specifically:
-  - **Resolution, in three contexts:** a new interactive zsh, a new detached tmux session, and this Claude session's Bash tool. Each resolves all four names to `~/.local/bin`, linking into Patchbay.
+- [x] Write the failing check first: `equivalence-check` (below). Before install it fails on resolution, because `command -v agent` is `~/bin/agent`.
+- [x] Capture the before-state: `claude-ps --json` (sessions and routes), and `CLAUDE_ROUTE_DRYRUN=1 claude-run gpt` and `claude-run glm` output, from dotfiles' copies.
+- [x] Run `~/src/facetdigital/patchbay/install`.
+- [x] Verify green: `equivalence-check` passes. Specifically:
+  - **Resolution, in three contexts:** a new interactive zsh, a new detached tmux session, and this Claude session's Bash tool. Each resolves `agent`, `claude-run` and `claude-ps` to `~/.local/bin`, linking into Patchbay.
   - **`agent` argv:** for each of the 24 distinct history invocations, run dotfiles' `agent` and the resolved `agent` with a stub `claude` first on `PATH` that prints its argv, from the same directory; the outputs are identical. Repeat from a second directory, since the default name comes from `$PWD`.
   - **`claude-run`:** dry-run output identical for `gpt` and `glm`.
   - **`claude-ps`:** `--json` lists the same PIDs with the same route fields as the before-state.
@@ -192,7 +193,7 @@ gh repo view facetdigital/patchbay --json visibility -q .visibility   # expect P
 ```bash
 # equivalence-check (scratchpad), outline:
 for c in "zsh -ic" "tmux-new-session" "bash (this session)"; do
-  # command -v agent claude-run claude-ps claude-route-selftest -> ~/.local/bin/* -> ~/src/facetdigital/patchbay/bin/*
+  # command -v agent claude-run claude-ps -> ~/.local/bin/* -> ~/src/facetdigital/patchbay/bin/*
   :; done
 stub=$(mktemp -d); printf '#!/bin/sh\nprintf "%%s\\n" "$@"\n' > "$stub/claude"; chmod +x "$stub/claude"
 sed -E 's/^: [0-9]+:[0-9]+;//' ~/.zsh_history | grep -E '^agent( |$)' | sort -u | while read -r line; do
@@ -209,10 +210,10 @@ done
 
 ### Step 6: Guard `claude-ps`'s filter from dotfiles
 
-- [ ] Write the failing test first: a new section in `bin/claude-end-session-selftest`, "claude-ps on PATH hides every dotfiles helper". It globs dotfiles' `bin/claude-*`, reads the filter alternation from `${CLAUDE_PS:-$(command -v claude-ps)}`, and asserts each helper is in it. Guard the guard: run it against a planted copy of `claude-ps` with `end-session` removed from the filter, and assert it fails. That planted assertion fails until the section exists.
-- [ ] Implement the section, about 20 lines, matching the route selftest's drift-guard style and its comment about why the list is derived.
-- [ ] If no `claude-ps` is on `PATH`, report a skip, not a pass.
-- [ ] Verify green: `bin/claude-end-session-selftest`.
+- [x] Write the failing test first: a new section in `bin/claude-end-session-selftest`, "claude-ps on PATH hides every dotfiles helper". It globs dotfiles' `bin/claude-*`, reads the filter alternation from `${CLAUDE_PS:-$(command -v claude-ps)}`, and asserts each helper is in it. Guard the guard: run it against a planted copy of `claude-ps` with `end-session` removed from the filter, and assert it fails. That planted assertion fails until the section exists.
+- [x] Implement the section, about 20 lines, matching the route selftest's drift-guard style and its comment about why the list is derived.
+- [x] If no `claude-ps` is on `PATH`, report a skip, not a pass.
+- [x] Verify green: `bin/claude-end-session-selftest`.
 
 **Satisfies:** R6; the global rule "Derive lists; do not hand-maintain two copies of the same fact".
 
@@ -260,7 +261,7 @@ python3 -c 'import json;json.load(open(".claude/settings.json"))' && echo "setti
 
 - [ ] Test-first: n/a, communication.
 - [ ] With Scott's go, push dotfiles.
-- [ ] Message Donna that Patchbay's equipment entry has a new home: `~/src/facetdigital/patchbay`, GitHub `facetdigital/patchbay`, and that `claude-ps`, `claude-run`, `agent` and `claude-route-selftest` now live there. Her audit digests are history and need no change.
+- [ ] Message Donna that Patchbay's equipment entry has a new home: `~/src/facetdigital/patchbay`, GitHub `facetdigital/patchbay`, and that `claude-ps`, `claude-run` and `agent` now live there, with the route selftest as `test/route-selftest`. Her audit digests are history and need no change.
 - [ ] Verify: `git status -sb` shows dotfiles in sync with origin.
 
 **Satisfies:** keeps Donna's registry true (found while planning, 2026-11-03).
@@ -283,7 +284,8 @@ Until Step 7, nothing in dotfiles has changed: removing the four links from `~/.
 | File | Steps |
 |------|-------|
 | `~/src/facetdigital/patchbay/**` (new repo) | 1, 2, 3, 4 |
-| `~/.local/bin/{agent,claude-run,claude-ps,claude-route-selftest}` (links) | 5 |
+| `~/.local/bin/{agent,claude-run,claude-ps}` (links) | 5 |
+| `test/route-selftest`, `test/run`, `install` pruning (Patchbay) | 5 (R8) |
 | `bin/claude-end-session-selftest` | 6 |
 | `bin/{claude-run,agent,claude-ps,claude-route-selftest}` (removed) | 7 |
 | R7 docs (removed from dotfiles) | 7 |
