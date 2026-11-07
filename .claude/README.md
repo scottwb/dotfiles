@@ -20,13 +20,13 @@ org chart of the agent constellation lives there, at
 `~/.claude/private/docs/org-chart.md`, because it names client-facing repos and
 what each agent can see.
 
-Related but living elsewhere in this repo:
+Related but living elsewhere:
 
 | What | Where | Doc |
 |---|---|---|
-| **Patchbay**, the harness/model/provider launchers | `bin/claude-run`, `bin/claude-route-selftest` | [docs/patchbay.md](../docs/patchbay.md) |
+| **Patchbay**, the harness/model/provider launchers | `claude-run`, `test/route-selftest`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/patchbay.md](https://github.com/facetdigital/patchbay/blob/main/docs/patchbay.md) |
 | Servanda's exit helper for `/end-session` | `bin/claude-end-session`, `bin/claude-end-session-selftest` | [docs/servanda.md](docs/servanda.md) |
-| Session listing, and how Claude Code runs background work | `bin/claude-ps`, `bin/agent` | [docs/claude-code-background-sessions.md](../docs/claude-code-background-sessions.md) |
+| Session listing, and how Claude Code runs background work | `claude-ps`, `agent`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/claude-code-background-sessions.md](https://github.com/facetdigital/patchbay/blob/main/docs/claude-code-background-sessions.md) |
 
 ## Conventions
 

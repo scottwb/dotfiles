@@ -230,13 +230,13 @@ cd ~/src/scottwb/dotfiles && bin/claude-end-session-selftest | tail -3
 
 ### Step 7: Remove Patchbay from dotfiles
 
-- [ ] Write the failing check first: `removal-check` (below). It fails while any moved file is still in dotfiles.
-- [ ] `git rm` the four scripts and the R7 docs.
-- [ ] `README.md`: replace the "Claude Code route launchers" section with a short "Patchbay" install step next to the `dotfiles-private` step: clone `facetdigital/patchbay` into `~/src/facetdigital/patchbay` and run `./install`. Optional, and private to Facet.
-- [ ] `.claude/README.md`: the Patchbay and session-listing rows point at the Patchbay repo; the `/end-session` helper row stays.
-- [ ] `.claude/CLAUDE.md` line 58, `.claude/COMMANDS.md` line 28, `.claude/docs/servanda.md`, `.claude/settings.json`'s parked note, and `docs/plans/end-session.md`: `bin/claude-run` becomes `claude-run` (Patchbay), and links to moved files become `facetdigital/patchbay` GitHub URLs. Only the words that name a path change.
-- [ ] Dotfiles roadmap: remove the R7 items and the two Completed entries; add one pointer item, "Patchbay lives in `facetdigital/patchbay`", naming what moved and where its roadmap is; repoint the anchors that remain (`/shift-change`, the `claude-ps` fork, the LinkedIn post) to Patchbay GitHub URLs; move this item to Completed with a link to this plan. This plan stays in dotfiles as the record of the move.
-- [ ] Verify green: `removal-check`, Step 5's `equivalence-check` run again (now with no dotfiles copy to shadow), and `bin/claude-end-session-selftest`.
+- [x] Write the failing check first: `removal-check` (below). It fails while any moved file is still in dotfiles.
+- [x] `git rm` the four scripts and the R7 docs.
+- [x] `README.md`: replace the "Claude Code route launchers" section with a short "Patchbay" install step next to the `dotfiles-private` step: clone `facetdigital/patchbay` into `~/src/facetdigital/patchbay` and run `./install`. Optional, and private to Facet.
+- [x] `.claude/README.md`: the Patchbay and session-listing rows point at the Patchbay repo; the `/end-session` helper row stays.
+- [x] `.claude/CLAUDE.md` line 58, `.claude/COMMANDS.md` line 28, `.claude/docs/servanda.md`, `.claude/settings.json`'s parked note, and `docs/plans/end-session.md`: `bin/claude-run` becomes `claude-run` (Patchbay), and links to moved files become `facetdigital/patchbay` GitHub URLs. Only the words that name a path change.
+- [x] Dotfiles roadmap: remove the R7 items and the two Completed entries; add one pointer item, "Patchbay lives in `facetdigital/patchbay`", naming what moved and where its roadmap is; repoint the anchors that remain (`/shift-change`, the `claude-ps` fork, the LinkedIn post) to Patchbay GitHub URLs; move this item to Completed with a link to this plan. This plan stays in dotfiles as the record of the move.
+- [x] Verify green: `removal-check`, Step 5's `equivalence-check` run again (now with no dotfiles copy to shadow), and `bin/claude-end-session-selftest`.
 
 **Satisfies:** R3, R7; roadmap "Removed from dotfiles at HEAD only" and "dotfiles keeps one pointer item".
 

@@ -99,7 +99,7 @@ because it produces the paperwork of having checked.
 
 ### It is enforced, not merely intended
 
-Under any routed profile (see [Patchbay](../../docs/patchbay.md)) the Fable tier
+Under any routed profile (see [Patchbay](https://github.com/facetdigital/patchbay/blob/main/docs/patchbay.md)) the Fable tier
 is left deliberately **unmapped**. A `/phasegate` or security pass therefore
 halts rather than degrading.
 
