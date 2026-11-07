@@ -259,10 +259,10 @@ python3 -c 'import json;json.load(open(".claude/settings.json"))' && echo "setti
 
 ### Step 8: Push dotfiles and tell Donna
 
-- [ ] Test-first: n/a, communication.
-- [ ] With Scott's go, push dotfiles.
-- [ ] Message Donna that Patchbay's equipment entry has a new home: `~/src/facetdigital/patchbay`, GitHub `facetdigital/patchbay`, and that `claude-ps`, `claude-run` and `agent` now live there, with the route selftest as `test/route-selftest`. Her audit digests are history and need no change.
-- [ ] Verify: `git status -sb` shows dotfiles in sync with origin.
+- [x] Test-first: n/a, communication.
+- [x] With Scott's go, push dotfiles.
+- [x] Message Donna that Patchbay's equipment entry has a new home: `~/src/facetdigital/patchbay`, GitHub `facetdigital/patchbay`, and that `claude-ps`, `claude-run` and `agent` now live there, with the route selftest as `test/route-selftest`. Her audit digests are history and need no change.
+- [x] Verify: `git status -sb` shows dotfiles in sync with origin.
 
 **Satisfies:** keeps Donna's registry true (found while planning, 2026-11-03).
 
