@@ -51,7 +51,7 @@
     "deny": [],
     "defaultMode": "auto"
   },
-  "model": "claude-fable-5-1[1m]",
+  "model": "opus",
   "effortLevel": "high",
   "theme": "dark",
   "autoCompactEnabled": false,
