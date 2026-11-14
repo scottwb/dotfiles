@@ -28,55 +28,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
-### `/shift-change`: write it down, clock out, next session comes in
-
-**Thread:** Tools (Patchbay), plus one command file in Servanda's `.claude/commands/`
-
-**Goal:** One command that does what Scott does by hand before exiting a session, then restarts it clean. It runs [`/end-session`](#end-session-write-it-down-then-exit-2026-10-31) (so everything perishable outside the repo is recorded and committed, then Claude exits) with a restart signal instead of a stop signal, and the launcher traps that exit and starts a **new** session (no `--resume`, no `-c`) under the same agent name, route, model, flags and Remote Control. Two payoffs:
-
-- **Restart to update.** A relaunch runs whatever `claude` is on disk now, so the session picks up a Claude Code update. Seen 2026-10-18: the CLI was at 2.1.302 while a long-running Donna session was still on 2.1.296.
-- **Clear context without losing the session's identity.** Plain `/clear` handles the context half, but it messes up the agent name and the Remote Control sessions (Scott, 2026-10-19), which is the whole reason this is not just `/write-that-down` plus `/clear`. A fresh `CLAUDE.md` comes along for free; it is a side effect, not the goal.
-
-**Named for the staffing model** (Scott, 2026-10-19): the outgoing session writes everything down for the next one and clocks out, and the next one comes in fresh at the same post. Working name before that was `/reload`, which wrongly implied the same session coming back.
-
-**Not wanted: resuming the previous conversation.** The repo is the memory. Anything worth carrying over is written down before the restart, and the new session starts empty. (Corrected 2026-10-19. The first version of this item resumed by session id and called `CLAUDE.md` reloading the point; both were wrong.)
-
-**References:**
-- [Building a reload command for Claude Code](https://www.panozzaj.com/blog/2026/02/07/building-a-reload-command-for-claude-code/) (panozzaj, 2026-02-07). The mechanism to start from: the command body is `` !`kill -HUP $PPID` `` (the `!` makes it deterministic; asking the model to run it was not), Claude exits 129, and a wrapper loop relaunches on 129 and passes any other exit code through. The post relaunches with `-c`; this item deliberately does not.
-- [adrrr/persistent-handoff](https://github.com/adrrr/persistent-handoff). The other carry-over model: a `SessionStart` hook reads back a per-project "where I am / next action" file the agent rewrites at milestones. Not adopted, because the rule here is that the repo carries what matters. Revisit only if fresh sessions keep having to re-ask what was in flight.
-
-**Why it lives in `pbay` (decided 2026-10-18, narrowed 2026-10-19).** The relaunch has to reproduce the original launch, and only the launcher knows what that was. A routed session relaunched as plain `claude` comes back on Anthropic under a different model with no warning. An agent relaunched without its `--name` and `--remote-control` comes back as a different agent, which is the exact `/clear` problem this exists to avoid. Once `pbay` is the one front door, the relaunch loop lives in `claude-run` behind it, the one place that knows both the route and Claude's exit behaviour. Plain bare `claude` stays untouched, per Patchbay's standing rule.
-
-**Built in Patchbay's `agent` first, as an interim (Scott, 2026-11-03).** Scott wants to save, exit and restart often, so the loop goes into `agent` now and moves into `claude-run` at the [`pbay` merge](https://github.com/facetdigital/patchbay/blob/main/docs/plans/development-roadmap.md#pbay-one-launcher-merge-agent-and-claude-run). Not permanent: `agent` is headed for being only an alias. Until the merge, routed `claude-run` sessions have no loop, and `/shift-change` refuses in them like any unwrapped session.
-
-**Design points for the plan:**
-- **Strip resume flags on relaunch.** If the original launch had `--resume <x>`, `-r`, `-c` or `--continue`, replaying the same arguments would resume. The loop replays everything except those. `claude-run`'s own usage example launches with `--resume`, so this is not hypothetical.
-- **Two signals, two exit codes.** `/end-session` sends SIGTERM (exit 143) and the loop stops; `/shift-change` sends SIGHUP (exit 129) and the loop relaunches. Any other exit code passes through. **Fallback** if Claude Code turns out to exit with the same code for both: `/shift-change` writes a mode file keyed to the launcher's PID before signalling, and the loop reads it.
-- **Never restart over an unrecorded session.** Inherited from `/end-session`: `/write-that-down` has to finish, or report nothing to record, before the signal. If it fails or stops to ask a question, `/shift-change` stops there and the session stays up. This pulls against the post's lesson that model-driven steps are unreliable, so split it: the model does the write-down, and the signal itself is the fixed `bin/claude-end-session` helper from `/end-session`, extended to send SIGHUP. Not the post's `!` line: `!` lines run when the command expands, before the write-down.
-- **Refuse in an unwrapped session.** In plain `claude` there is no loop to bring the session back. The launcher with the loop (`agent` now, `pbay` after the merge) exports a marker, and `/shift-change` checks for it before doing anything, write-down included, and declines with an explanation when it is absent, pointing at `/end-session`.
-- **Trigger phrases** ("new context and restart", "get the harness update", "shift change") are in the `/end-session` item's table, with the same rule: explicit runs, implied asks first in one line.
-
-**Verify first; the post is eight months and many CLI versions old** (now on 2.1.302):
-- SIGHUP still produces exit 129, distinct from SIGTERM's 143. The SIGTERM half is done: 143, clean transcript and Remote Control close, and `$PPID` is the Claude process (verified 2026-10-25 on 2.1.310 for `/end-session`). SIGHUP is still to check.
-- **Remote Control across a relaunch.** Does the new process come back as the same Remote Control session, still reachable from the phone, or as a new one that leaves a dead entry behind? This is the half of the `/clear` problem most likely to need real work.
-- **Agent name and peer messaging.** The same `--name` should give the same name, but the PID and messaging socket change. Check that peers reach the new session by name, and that Claude Code's dedupe of same-named live sessions does not rename it to a variant because the old process has not fully exited.
-- `claude respawn` (new since the post) restarts *background* sessions onto the current binary, which is the update half for those. It does not cover interactive tmux sessions, and it has no write-down step.
-
-**Possible follow-on, not in scope:** a shift change for the whole fleet onto a new version. Sending `kill -HUP` to every PID `claude-ps` lists would skip each session's write-down, so this would have to deliver `/shift-change` into each session rather than signal it.
-
-**Sequencing:** right after [Move Patchbay into its own repo](#move-patchbay-into-its-own-repo-2026-11-07), so the loop is written in Patchbay's copy of `agent`; its `/end-session` dependency is met (shipped 2026-10-31). Before the `pbay` merge, which moves the loop to its permanent home. Ahead of the Patchbay team release, which is on hold anyway; the team gets `/shift-change` with the merge.
-
-**Plan:** none yet; next step is `/gameplan shift-change`.
-
-**Status:** Queued 2026-10-18 as `/reload`; goal corrected and renamed 2026-10-19. Not planned.
-
----
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
-
 ### Fork `claude-ps` for the public as `facetdigital/claude-ps`
 
 **Thread:** Tools (Patchbay)
@@ -101,6 +52,13 @@ new items for it go here with a **Thread:** tag like everything else.
 **Plan:** none yet; next step is `/gameplan claude-ps-oss`.
 
 **Status:** Queued 2026-10-20; re-cut as a fork 2026-11-03. Not planned.
+
+---
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
 
 ### Audit log generator follow-ons
 
@@ -639,6 +597,6 @@ Two findings worth remembering, both recorded in [servanda-suite-baseline.md](se
 
 Canonical WORK-PLANs for Facet business work live in `facet-admin-workspace`, not here. Stubs only:
 
-- **Patchbay** lives in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private), with its own [roadmap](https://github.com/facetdigital/patchbay/blob/main/docs/plans/development-roadmap.md): `agent`, `claude-run`, `claude-ps`, the `pbay` work, `agent-colors`, the team release and the route launcher follow-ons. Install it with the step in the [README](../../README.md). `/shift-change` and the public `claude-ps` fork stay on this roadmap.
+- **Patchbay** lives in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private), with its own [roadmap](https://github.com/facetdigital/patchbay/blob/main/docs/plans/development-roadmap.md): `agent`, `claude-run`, `claude-ps`, the `pbay` work, `agent-colors`, the team release and the route launcher follow-ons. Install it with the step in the [README](../../README.md). `/end-session` and `/shift-change` moved there too (Scott, 2026-11-13: "i would argue patchbay makes the most sense"); until Patchbay's versions land and are proven from every agent, dotfiles' `/end-session` stays in place. The public `claude-ps` fork stays on this roadmap.
 - **Pacta Sunt Servanda brown bag (rescheduled to 2026-07-31, noon Pacific):** the kit's public debut (concepts + the Servanda name; kit itself not shared). Materials and tasks: `facet-revops/demand-gen/talks/20260731-pacta-sunt-servanda/` and `demand-gen/WORK-PLAN.md`. Sponsor call transcripts may reorder/pivot talk concepts; that work happens entirely in the facet workspace, not here.
 - **Clay alert sweep (recurring):** `/facet-clay-sweep` command lives in `facet-admin-workspace/.claude/commands/`. Triage state: `facet-revops/prospecting/clay-triage-log.md` (global log). Relevant to this kit only as another example of encoding process as executable policy.
