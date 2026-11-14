@@ -105,3 +105,7 @@ worktrees/
 
 # Symlink artifact
 .claude
+
+# /end-session lives in Patchbay (facetdigital/patchbay); its ./install links it
+# here. Ignored so the link does not show as untracked in this PUBLIC repo.
+/commands/end-session.md

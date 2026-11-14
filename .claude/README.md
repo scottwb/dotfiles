@@ -25,7 +25,7 @@ Related but living elsewhere:
 | What | Where | Doc |
 |---|---|---|
 | **Patchbay**, the harness/model/provider launchers | `claude-run`, `test/route-selftest`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/patchbay.md](https://github.com/facetdigital/patchbay/blob/main/docs/patchbay.md) |
-| Servanda's exit helper for `/end-session` | `bin/claude-end-session`, `bin/claude-end-session-selftest` | [docs/servanda.md](docs/servanda.md) |
+| `/end-session` and its exit helper | `/end-session`, `claude-end-session`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private); its `install` links them into `~/.claude/commands/` and `~/.local/bin` | [commands/end-session.md](https://github.com/facetdigital/patchbay/blob/main/commands/end-session.md) |
 | Session listing, and how Claude Code runs background work | `claude-ps`, `agent`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/claude-code-background-sessions.md](https://github.com/facetdigital/patchbay/blob/main/docs/claude-code-background-sessions.md) |
 
 ## Conventions

@@ -69,6 +69,7 @@ Approval granularity coarsens as autonomy increases. One consistent grammar thro
 - **Does not:** switch, create or merge branches, push, stage anything it did not write, or run Pre-Exit Steps without a mode.
 
 ### /end-session
+- **Lives in:** Patchbay ([facetdigital/patchbay](https://github.com/facetdigital/patchbay), private), not this kit. Its `install` links the command into `~/.claude/commands/`.
 - **Does:** runs `/write-that-down exiting <its own arguments as focus>`, prints a closing record (including unrelated uncommitted work and unpushed commits), then exits Claude through the `claude-end-session` helper.
 - **Does not:** exit when the sweep or a Pre-Exit Step failed, asked a question, or left something it wrote uncommitted; or commit, stash or push leftovers it did not write.
 

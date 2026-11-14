@@ -40,7 +40,7 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 - **Generic and Claude-only.** No Patchbay references. The script's marked "Patchbay enricher" section (`detect_route`, `resolve_route_alias`, the launcher cases) stays in Patchbay's copy, and the usage examples lose their agent names.
 - **Private for months, and maybe squashed before it goes public** (Scott, 2026-11-03). Fresh history. Old Facet things and references are okay to start with, as long as they are loosely coupled and cheap to strip at the squash. Nothing that paints the tool into a corner.
 - **Keep the [LinkedIn post](#write-up-claude-ps-linkedin-post) current** whenever this fork's plan or columns change (Scott, 2026-11-03).
-- **The helper filter cannot name Scott's scripts.** Today's filter hides `claude-end-session`, the route selftest and the other scaffolding by name. The public fork needs a generic rule, or none; decide at plan time.
+- **The helper filter cannot name Scott's scripts.** Patchbay's filter hides its own scaffolding (`claude-run`, `claude-end-session` and their selftests) by name. The public fork needs a generic rule, or none; decide at plan time.
 - **macOS only.** Linux support is a later roadmap item in the new repo (containers are the likely way to test it).
 - **Slackline's release conventions** (`~/src/facetdigital/slackline`): `VERSION` is the number of record, tests keep every copy of the version and the README's install URL equal to it, and the release steps live in `CONTRIBUTING.md` (tag `vX.Y.Z`, a GitHub release with the files attached). No release workflow in GitHub Actions; tests only.
 - **The repo:** a casual, friendly README, MIT licence, `CLAUDE.md`, an install script, tests (bats and shellcheck), and `--version`.
