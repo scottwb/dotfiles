@@ -7,7 +7,7 @@ export PATH="$PATH:$HOME/.local/bin"
 
 # Where claude-run finds the OpenRouter key in 1Password. Paths, not secrets.
 export CLAUDE_ROUTE_OP_ACCOUNT="facetdigital.1password.com"
-export CLAUDE_ROUTE_OP_REF="op://Employee/OpenRouter/API Key"
+export CLAUDE_ROUTE_OP_REF="op://Employee/OpenRouter/default"
 # Ollama server settings (apply to shell-launched 'ollama serve').
 # 0.0.0.0 binding is intentional: exposes the API to LAN/Tailscale
 # so other machines can use this box for inference.
