@@ -83,7 +83,7 @@ Installation:
         cd ~/src/scottwb
         git clone git@github.com:scottwb/dotfiles-private.git
 
-* Optional, and private to Facet: install [Patchbay](https://github.com/facetdigital/patchbay), which provides `agent`, `claude-run` and `claude-ps`. Its `install` links them into `~/.local/bin`:
+* Optional, and private to Facet: install [Patchbay](https://github.com/facetdigital/patchbay), which provides `agent`, `claude-run` and `claude-ps`, and the `/end-session` and `/shift-change` skills. Without it, those two commands do not exist, though the global CLAUDE.md lists them. Its `install` links the scripts into `~/.local/bin` and the skills into `~/.claude/skills/`:
 
         git clone git@github.com:facetdigital/patchbay.git ~/src/facetdigital/patchbay
         ~/src/facetdigital/patchbay/install
