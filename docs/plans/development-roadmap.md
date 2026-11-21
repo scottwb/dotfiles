@@ -419,6 +419,35 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 
 Once the label clears, the permission-mode fallback (Auto Mode and so on) should show, which the script already does when no workflow command matches.
 
+### ASD-STE100 (Simplified Technical English) for agent writing, including output to Scott
+
+**Thread:** Servanda (`.claude/CLAUDE.md`), plus AI Staff for the fleet's output
+
+**Goal:** Decide whether and where agents write under ASD-STE100, Simplified Technical English: agent-facing text, docs, and the findings and recommendations agents report to Scott, inline in an interactive session or as a headless run's stdout. Adopt the [asd-ste100-skill](https://github.com/danyuchn/asd-ste100-skill) only after a code review. To be planned later, not built now.
+
+**Scott's words (verbatim, 2026-11-20, to Donna, relayed to Dotfiles):** "Draft it to Dotfiles, but as a detailed roadmap item to be planned later - we need a code review of it and more decision on standardizing (eg: in repo so all repo users get it) and when to apply it. I am also intertsted in somethign liek this globally applying to all comms that agents output inline in the interactive session or as stdout on a headless session to have the same knids of rules. if you are telling me what you found or saw or recommend - use ASD. that kind of thing. liek when i am away all day and youve done 15+ periodic checks of all the things, its pretty noise to scroll back past 8+ hours of that. maybe it would be better if they were in ASD? WDYT?" Earlier he asked whether to add it "globally or per repo and adding maybe our own custom rules in those repos about when to use ASD".
+
+**The skill (Donna read its text files on 2026-11-20; Dotfiles re-checked the repo facts the same day; nothing installed or run):** MIT, about 6.8k stars, HEAD `65c8ab6ef5fc` (2026-11-20). Files: `SKILL.md` (140 lines), `references/writing-rules.md`, `examples/`, a `.claude-plugin/` manifest, and `scripts/ste-lint.py`, a 192 KB stdlib-only linter that nobody has reviewed. Its rules: active voice; one instruction per sentence; at most 20 words for instructions and 25 for descriptions; no phrasal verbs; no semicolons; noun clusters of at most three words; no dropped words; simple tenses; one word, one meaning. Two modes: Strict (prompts, tool descriptions, inter-agent instructions, errors) and STE-flavored (READMEs, PRs, prose). It keeps hedges ("may have failed" stays), adds no facts, and says it is not for creative or marketing copy. Its README's `npx skills add` install sends telemetry to skills.sh; a pinned clone avoids that.
+
+**Decide at plan time (Scott's asks):**
+1. **Code review before adoption.** Above all `scripts/ste-lint.py`, a large third-party script, before any agent runs it. Pin a commit.
+2. **Standardization.** A global install in `~/.claude`, a vendored copy in each repo "so all repo users get it", or both.
+3. **When to apply it.**
+4. **Agent output to Scott,** interactive and headless stdout: findings, observations and recommendations written under the same rules.
+
+**Donna's suggestions (hers, not Scott's decisions):**
+- **One copy of the "when to apply" rule,** in the global CLAUDE.md or the shared repo layer; repos add exceptions only. Per-repo copies of the same rule would drift.
+- **A split:** Strict for agent-facing text (work orders, cross-session relays, cron prompts, skill descriptions, CLAUDE.md rules, script errors and usage); STE-flavored for READMEs and PRs; never for client-facing or public copy, LinkedIn, proposals, or anything quoting Scott verbatim. Quotes are never rewritten.
+- **Rule collision:** STE bans semicolons and allows emdashes; Scott's rules ban emdashes and allow semicolons. Combined: neither, and split with periods. Scott's emdash rule stays on top.
+- **Measure first:** trial one surface (Donna's work orders, or periodic-job output) with a before/after sample Scott judges.
+- **On item 4:** STE would make each report clearer, but the overnight scrollback is mostly a volume problem, not a sentence problem; ten quiet checks in clean STE are still ten entries. Pair it with a quiet-run rule (a scheduled run with nothing new prints one line or nothing) and a single "while you were away" digest on return. Keep the existing output rules: tables Scott asked for, the fields he named, short summaries for unattended output.
+
+**Not verified:** the linter's behaviour and safety, and how STE rewrites read to Scott in practice.
+
+**Plan:** none yet; next step is a code review of the skill, then `/gameplan asd-ste100`.
+
+**Status:** Queued 2026-11-20, from Donna. Not planned.
+
 ### Extract kit to its own repo (someday)
 
 **Thread:** Servanda (and the thread's exit condition: this item ends Servanda as a dotfiles thread)
