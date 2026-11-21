@@ -108,11 +108,9 @@ worktrees/
 
 # /end-session and /shift-change live in Patchbay (facetdigital/patchbay); its
 # ./install links them here. Ignored so the links do not show as untracked in
-# this PUBLIC repo. The skill folders replace the command files (2026-11-20);
-# the two /commands/ lines go once Patchbay's stage 2 removes those links.
+# this PUBLIC repo. They are skill folders since 2026-11-20; Patchbay's install
+# no longer links anything into commands/.
 # No trailing slash on the skill lines: install makes each a symlink, which git
 # treats as a file, so a dir/ pattern would not match it (tested 2026-11-20).
-/commands/end-session.md
-/commands/shift-change.md
 /skills/end-session
 /skills/shift-change
