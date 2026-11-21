@@ -50,6 +50,7 @@ I have custom slash commands for a structured development workflow:
 | `/phasegate` | After a phase's features are merged, to audit that the phase delivered its promises |
 | `/write-that-down` | Any time a session is holding knowledge the repo does not have; sweeps it in and commits it |
 | `/end-session` | When I am done with a session; runs `/write-that-down exiting` (the sweep, then the repo's Pre-Exit Steps), then exits Claude only if both finished cleanly |
+| `/shift-change` | When I want a fresh context or the harness update without giving up the session's post; runs `/write-that-down exiting`, then restarts the session with the same name, model, flags and Remote Control and an empty conversation. Only in sessions started with `agent`; elsewhere it refuses and points at `/end-session` |
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
@@ -66,6 +67,7 @@ When Scott uses a term you cannot find in the repo or the org chart, ask Donna o
 - After I test something and say it works → remind me to run `/booyah` to commit and continue
 - After `/yolo` manual testing passes → remind me that re-running `/yolo` merges and wraps up
 - If I say "exit the session" or "I'm done with this session" → run `/end-session`. A phrase that only implies it ("I think we're done", "wrapping up") gets a one-line "Run /end-session?" first.
+- If I say "new context and restart", "get the harness update" or "shift change" → run `/shift-change`. A phrase that only implies it gets a one-line "Run /shift-change?" first.
 - "Heading out for a few hours" ends nothing. The session waits for me; do not suggest wrapping it up. Scott, 2026-10-20.
 - Do not wait for the end of a session to suggest `/write-that-down`. Clears and compactions give no warning, so suggest it as soon as something perishable exists. "Record what we learned" or "write that down" runs it.
 

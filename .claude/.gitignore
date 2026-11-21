@@ -106,6 +106,7 @@ worktrees/
 # Symlink artifact
 .claude
 
-# /end-session lives in Patchbay (facetdigital/patchbay); its ./install links it
-# here. Ignored so the link does not show as untracked in this PUBLIC repo.
+# /end-session and /shift-change live in Patchbay (facetdigital/patchbay); its
+# ./install links them here. Ignored so the link does not show as untracked in this PUBLIC repo.
 /commands/end-session.md
+/commands/shift-change.md
