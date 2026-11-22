@@ -26,7 +26,7 @@ Related but living elsewhere:
 |---|---|---|
 | **Patchbay**, the harness/model/provider launchers | `claude-run`, `test/route-selftest`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/patchbay.md](https://github.com/facetdigital/patchbay/blob/main/docs/patchbay.md) |
 | `/end-session` and `/shift-change`, and the exit helper | the `end-session` and `shift-change` skills and `claude-end-session`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private); its `install` links them into `~/.claude/skills/` and `~/.local/bin` | [skills/end-session/SKILL.md](https://github.com/facetdigital/patchbay/blob/main/skills/end-session/SKILL.md) |
-| Session listing, and how Claude Code runs background work | `claude-ps`, `agent`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/claude-code-background-sessions.md](https://github.com/facetdigital/patchbay/blob/main/docs/claude-code-background-sessions.md) |
+| Session listing, and how Claude Code runs background work | `claude-ps`, `pbay`, in [facetdigital/patchbay](https://github.com/facetdigital/patchbay) (private) | [docs/claude-code-background-sessions.md](https://github.com/facetdigital/patchbay/blob/main/docs/claude-code-background-sessions.md) |
 
 ## Conventions
 

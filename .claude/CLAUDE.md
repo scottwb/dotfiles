@@ -50,7 +50,7 @@ I have custom slash commands for a structured development workflow:
 | `/phasegate` | After a phase's features are merged, to audit that the phase delivered its promises |
 | `/write-that-down` | Any time a session is holding knowledge the repo does not have; sweeps it in and commits it |
 | `/end-session` | When I am done with a session; runs `/write-that-down exiting` (the sweep, then the repo's Pre-Exit Steps), then exits Claude only if both finished cleanly |
-| `/shift-change` | When I want a fresh context or the harness update without giving up the session's post; runs `/write-that-down exiting`, then restarts the session with the same name, model, flags and Remote Control and an empty conversation. Only in sessions started with `agent`; elsewhere it refuses and points at `/end-session` |
+| `/shift-change` | When I want a fresh context or the harness update without giving up the session's post; runs `/write-that-down exiting`, then restarts the session with the same name, model, flags and Remote Control and an empty conversation. Only in sessions started with `pbay run`; elsewhere it refuses and points at `/end-session` |
 
 Full contracts for the suite: `~/.claude/COMMANDS.md` (or run `/workflow-help`). Do not load that file preemptively; it is on-demand reference.
 
@@ -220,7 +220,7 @@ is in it.
 
 ### Launching a peer session
 
-Peer sessions are started with Scott's wrapper, `agent -n '<Name>' '<kickoff prompt>'`, which adds his defaults (the `DEFAULTS` array in Patchbay's `agent`); a bare `claude --name` launch lacks them. The `-n` name is what ListAgents and Claude Desktop show. Today each runs in a detached tmux session named for it (`tmux new-session -d -s <name> -c <dir> "agent -n '<Name>' '...'"`), as a background fallback Scott can attach to, not a hard dependency. A session in a brand-new directory stops at the folder-trust prompt. The auto-mode classifier has blocked `tmux send-keys` from one agent into another agent's session, so Scott answers that prompt himself (`tmux attach -t <name>`); reading the pane with `tmux capture-pane` works. Learned 2026-10-27.
+Peer sessions are started with Patchbay's launcher, `pbay run -n '<Name>' '<kickoff prompt>'`, which adds Scott's defaults (the `default` route in Patchbay's `bin/pbay`); a bare `claude --name` launch lacks them. A flag passed to `pbay run` replaces the matching default, and `--no-<flag>` removes one, as in `pbay run --no-remote-control`. The `-n` name is what ListAgents and Claude Desktop show. Today each runs in a detached tmux session named for it (`tmux new-session -d -s <name> -c <dir> "pbay run -n '<Name>' '...'"`), as a background fallback Scott can attach to, not a hard dependency. A session in a brand-new directory stops at the folder-trust prompt. The auto-mode classifier has blocked `tmux send-keys` from one agent into another agent's session, so Scott answers that prompt himself (`tmux attach -t <name>`); reading the pane with `tmux capture-pane` works. Learned 2026-10-27.
 
 **A repo of its own gets a session of its own.** When work moves out into its own repo, a peer session named for it takes its work orders from then on, and the move's plan includes standing that session up, telling Donna, and making the new repo stand on its own without Scott's dotfiles. On 2026-11-07 Patchbay moved out of dotfiles with none of that planned; asked who takes its work orders, Scott answered "a Patchbay session of its own - sorry that should have been clear from the start" and "patchbay does need to stand on its own without my dotfiles."
 

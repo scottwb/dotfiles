@@ -39,6 +39,11 @@ alias SmartSynchronize="/Applications/SmartSynchronize.app/Contents/MacOS/SmartS
 alias zipp='zip -er'
 alias tcpdump-rails="tcpdump -c 20 -s 0 -i lo0 -A tcp port 3000"
 
+# Scott's typing shortcut for Patchbay's launcher. Instructions and scripts say
+# `pbay run`, never `agent`: an alias does not reach tmux command strings or
+# other non-interactive shells.
+alias agent='pbay run'
+
 # Load the Slack user token into the current shell for agent launches
 # (TouchID via 1Password once; children inherit it). Safe to keep in a public
 # repo: the alias holds only the op:// reference, never the secret.
