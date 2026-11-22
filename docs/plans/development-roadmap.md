@@ -28,6 +28,29 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 
 ## Next Immediate Step
 
+### `/write-that-down`: ask whether this repo owns a fact before writing it
+
+**Thread:** Servanda
+
+**Goal:** Give the sweep a step that asks whether the repo it is running in owns a fact, before the fact is written down, and stop a peer agent's claim from landing as settled fact.
+
+**Status:** Ready to implement. **Go given 2026-10-31** (Scott, asked directly in `/office-hours`). Relayed 2026-09-17 by the Sri session, with Scott saying this repo owns the fix; filed 2026-10-05 after he asked for it directly.
+
+**Plan:** [write-that-down-ownership.md](write-that-down-ownership.md). Scott decided its three open questions on 2026-11-21: out-of-scope facts are reported only, never sent; with no stated scope the sweep infers and flags when unsure; proof is a scripted eval in throwaway repos. Plan approved 2026-11-21, including W5 (report-only also covers edits to other repos and global lessons from outside dotfiles). Next: `/booyah write-that-down-ownership`.
+
+**Two failures in `~/src/scottwb/sri`, both verified in that repo's history.** A knowledge sweep found a first name in a homework-status line with no identity behind it, researched him, and opened a People entry in `synthesis.md`. He is a Facet business contact who belongs to FAW and Donna, not a coaching vault. Reverted in `c7ba3c3`, with the scope rule added in `391254a`. Separately, a peer agent's claim that Donna had restarted mid-thread was written into that repo's CLAUDE.md as settled fact, with no source and no hedge; Donna says it has not happened. **That one is still contested and was never resolved**, so a gameplan should treat it as an open question rather than a fact in either direction.
+
+**This is a change to the global command, not a promotion of a local variant.** Checked 2026-10-05: sri has no `.claude/commands/` at all, and `.claude/commands/write-that-down.md` here is the only copy in existence, global from birth via the `~/.claude` symlink (`26e00ec`, 2026-09-09). What sri patched after the incident was its own `pre-session-prep` skill and its own CLAUDE.md, which is where a vault-specific rule belongs. The global command still has no step that asks the ownership question, which is why the same sweep would do the same thing in any repo.
+
+**Scope context Scott gave on 2026-09-17:** a repo like sri tracks whether he is doing what his advisors discuss, not business or RevOps to-dos. Those belong to FAW and route through Donna. The sweep has no step that asks "does this repo own this fact, or should it go to another agent?"
+
+---
+
+## Upcoming
+
+Ordered by priority. The Terminal & editors thread has nothing queued;
+new items for it go here with a **Thread:** tag like everything else.
+
 ### Fork `claude-ps` for the public as `facetdigital/claude-ps`
 
 **Thread:** Tools (Patchbay)
@@ -52,13 +75,6 @@ roadmap, plans, acceptance checklists, `docs/assessments/` gate reports) live in
 **Plan:** none yet; next step is `/gameplan claude-ps-oss`.
 
 **Status:** Queued 2026-10-20; re-cut as a fork 2026-11-03. Not planned.
-
----
-
-## Upcoming
-
-Ordered by priority. The Terminal & editors thread has nothing queued;
-new items for it go here with a **Thread:** tag like everything else.
 
 ### Audit log generator follow-ons
 
@@ -377,22 +393,6 @@ Add further targets as found (superpowers, spec-kit, and Gas Town were already c
 **Asset:** [assets/claude-ps-demo-2026-08-19.png](../assets/claude-ps-demo-2026-08-19.png), a demo screenshot of `claude-ps -l` with lightly redacted names and every status/colour state shown. Taken 2026-08-19 with temporary demo hacks that were removed before commit, so it cannot be regenerated as-is; reshoot from a live session if the columns change.
 
 **Status:** Queued 2026-08-19. **Not yet, as of 2026-09-02:** the overhaul commit has landed and the venue is settled, so the only thing holding this is Scott's appetite for writing it; asked directly and the answer was "not yet". **Related (2026-10-20):** `claude-ps` is queued to be forked as the public `facetdigital/claude-ps`, staying Claude-only, and it stays private for months first. The post waits for that repo, so it has something to link (Scott, 2026-10-31), which now means waiting until it goes public.
-
-### `/write-that-down`: ask whether this repo owns a fact before writing it
-
-**Thread:** Servanda
-
-**Goal:** Give the sweep a step that asks whether the repo it is running in owns a fact, before the fact is written down, and stop a peer agent's claim from landing as settled fact.
-
-**Status:** Needs a gameplan. **Go given 2026-10-31** (Scott, asked directly in `/office-hours`). Relayed 2026-09-17 by the Sri session, with Scott saying this repo owns the fix; filed 2026-10-05 after he asked for it directly. Next: `/gameplan write-that-down-ownership`.
-
-**Two failures in `~/src/scottwb/sri`, both verified in that repo's history.** A knowledge sweep found a first name in a homework-status line with no identity behind it, researched him, and opened a People entry in `synthesis.md`. He is a Facet business contact who belongs to FAW and Donna, not a coaching vault. Reverted in `c7ba3c3`, with the scope rule added in `391254a`. Separately, a peer agent's claim that Donna had restarted mid-thread was written into that repo's CLAUDE.md as settled fact, with no source and no hedge; Donna says it has not happened. **That one is still contested and was never resolved**, so a gameplan should treat it as an open question rather than a fact in either direction.
-
-**This is a change to the global command, not a promotion of a local variant.** Checked 2026-10-05: sri has no `.claude/commands/` at all, and `.claude/commands/write-that-down.md` here is the only copy in existence, global from birth via the `~/.claude` symlink (`26e00ec`, 2026-09-09). What sri patched after the incident was its own `pre-session-prep` skill and its own CLAUDE.md, which is where a vault-specific rule belongs. The global command still has no step that asks the ownership question, which is why the same sweep would do the same thing in any repo.
-
-**Scope context Scott gave on 2026-09-17:** a repo like sri tracks whether he is doing what his advisors discuss, not business or RevOps to-dos. Those belong to FAW and route through Donna. The sweep has no step that asks "does this repo own this fact, or should it go to another agent?"
-
-**Directions, none decided.** An ownership check against the repo's own CLAUDE.md before anything is written; an unidentified name treated as a signal that it does not belong rather than a gap to fill; a peer's claim recorded with its source, or checked, rather than stated flatly. **Note before planning:** Step 4 of the command already says never to record intent or prediction as settled fact, and the command's own guidance says to sharpen an existing rule or add the missing trigger rather than add a second rule. So the second failure is a trigger problem, and only the first is a genuine gap.
 
 ### Detect a regenerated `autoMode` profile in the tracked settings.json
 
